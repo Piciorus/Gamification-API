@@ -1,17 +1,16 @@
 package org.example.Controller;
 
 import org.example.Domain.Entities.User;
-import org.example.Domain.Models.LoginUserRequest;
-import org.example.Domain.Models.RegisterUserRequest;
 import org.example.Service.Interfaces.IUserService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.stereotype.Component;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.Map;
 
-@CrossOrigin("*")
+@CrossOrigin(origins = "*", maxAge = 3600)
 @RestController()
 @Component
 public class UsersController {
@@ -20,16 +19,6 @@ public class UsersController {
     @Autowired
     public UsersController(IUserService userService) {
         this.userService = userService;
-    }
-
-    @PostMapping(path = "/register")
-    public void register(@RequestBody final RegisterUserRequest registerUserRequest) {
-        userService.register(registerUserRequest);
-    }
-
-    @PostMapping(path = "/login")
-    public ResponseEntity<User> login(@RequestBody final LoginUserRequest loginUserRequest) throws Exception {
-        return ResponseEntity.ok(userService.login(loginUserRequest));
     }
 
     @GetMapping(path = "/getAllUsers")
@@ -63,7 +52,6 @@ public class UsersController {
     public ResponseEntity<Iterable<User>> getUsersSortedByTokensDescending() {
         return ResponseEntity.ok(userService.getUsersSortedByTokensDescending());
     }
-
 
 
 }

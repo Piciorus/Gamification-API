@@ -2,13 +2,9 @@ package org.example.Domain.Mapper;
 
 import org.example.Domain.Entities.Quest;
 import org.example.Domain.Entities.User;
-import org.example.Domain.Models.CreateQuestRequest;
-import org.example.Domain.Models.RegisterUserRequest;
-import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
+import org.example.Domain.Models.Quest.CreateQuestRequest;
+import org.example.Domain.Models.User.Request.RegisterUserRequest;
 import org.springframework.stereotype.Component;
-
-import java.util.Arrays;
-import java.util.List;
 
 @Component
 public class Mapper {

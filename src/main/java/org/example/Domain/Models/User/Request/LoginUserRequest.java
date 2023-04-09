@@ -1,15 +1,15 @@
-package org.example.Domain.Models;
+package org.example.Domain.Models.User.Request;
 
 public class LoginUserRequest {
-    private String username;
-    private String password;
+    private static String username;
+    private static String password;
 
     public LoginUserRequest(String username, String password) {
         this.username = username;
         this.password = password;
     }
 
-    public String getUsername() {
+    public static String getUsername() {
         return username;
     }
 
@@ -17,7 +17,7 @@ public class LoginUserRequest {
         this.username = username;
     }
 
-    public String getPassword() {
+    public static String getPassword() {
         return password;
     }
 

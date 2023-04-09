@@ -1,7 +1,6 @@
 package org.example.Service.Interfaces;
 
 import org.example.Domain.Entities.Quest;
-import org.example.Domain.Models.CreateQuestRequest;
 
 public interface IQuestService {
 

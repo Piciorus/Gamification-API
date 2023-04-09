@@ -14,7 +14,6 @@ public class User {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     @Getter @Setter private int id;
-
     @Column(name = "Email", nullable = false, length = 50)
     @Getter @Setter private String Email;
     @Column(name = "Username", nullable = false, length = 50)
@@ -47,11 +46,17 @@ public class User {
     @OneToOne(mappedBy = "user")
     @Getter @Setter private Leaderboard leaderboard;
 
+    @ManyToMany(fetch = FetchType.LAZY)
+    @JoinTable(	name = "user_roles",
+            joinColumns = @JoinColumn(name = "user_id"),
+            inverseJoinColumns = @JoinColumn(name = "role_id"))
+    @Getter @Setter private Set<Role> roles = new HashSet<>();
+
     public User(String username, String password, int tokens,String email) {
         this.username = username;
-        this.password = password;
-        this.tokens = tokens;
         this.Email = email;
+        this.tokens = tokens;
+        this.password = password;
     }
 
     public User() {

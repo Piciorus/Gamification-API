@@ -1,16 +1,15 @@
-package org.example.Domain.Models;
+package org.example.Domain.Models.User.Request;
+
+import org.example.Domain.Entities.Role;
+
+import java.util.Set;
 
 public class RegisterUserRequest {
     private String username;
     private String password;
 
     private String email;
-
-    public RegisterUserRequest(String username, String password, String email) {
-        this.username = username;
-        this.password = password;
-        this.email = email;
-    }
+    private Set<String> roles;
 
     public String getUsername() {
         return username;
@@ -34,5 +33,13 @@ public class RegisterUserRequest {
 
     public void setEmail(String email) {
         this.email = email;
+    }
+
+    public Set<String> getRoles() {
+        return roles;
+    }
+
+    public void setRoles(Set<String> roles) {
+        this.roles = roles;
     }
 }

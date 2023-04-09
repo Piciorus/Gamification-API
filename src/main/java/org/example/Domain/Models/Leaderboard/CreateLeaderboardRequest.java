@@ -1,4 +1,4 @@
-package org.example.Domain.Models;
+package org.example.Domain.Models.Leaderboard;
 
 import org.example.Domain.Entities.User;
 

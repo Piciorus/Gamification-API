@@ -1,4 +1,4 @@
-package org.example.Domain.Models;
+package org.example.Domain.Models.Quest;
 
 import org.example.Domain.Entities.Badge;
 

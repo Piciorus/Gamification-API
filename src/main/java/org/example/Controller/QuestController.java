@@ -1,14 +1,13 @@
 package org.example.Controller;
 
 import org.example.Domain.Entities.Quest;
-import org.example.Domain.Models.CreateQuestRequest;
 import org.example.Service.Interfaces.IQuestService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Component;
 import org.springframework.web.bind.annotation.*;
 
-@CrossOrigin("*")
+@CrossOrigin(origins = "*", maxAge = 3600)
 @RestController()
 @Component
 public class QuestController {

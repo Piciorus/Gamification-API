@@ -1,7 +1,6 @@
 package org.example.Repository;
 
 import org.example.Domain.Entities.User;
-import org.example.Domain.Models.RegisterUserRequest;
 import org.springframework.data.repository.CrudRepository;
 import org.springframework.stereotype.Repository;
 
@@ -16,4 +15,6 @@ public interface UsersRepository extends CrudRepository<User,Integer> {
     Iterable<User> findAll();
 
     User findByUsername(String username);
+
+    boolean existsByUsername(String username);
 }
