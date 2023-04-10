@@ -9,16 +9,22 @@ public class LoginUserResponse {
 
     private String username;
 
+    private int tokens;
     private String email;
 
     private List<String> roles;
 
-    public LoginUserResponse(String accessToken, Long id, String username, String email, List<String> roles) {
+    private int threshold;
+
+
+    public LoginUserResponse(String accessToken, Long id, String username, String email, List<String> roles, int tokens, int threshold) {
         this.jwttoken = accessToken;
         this.id = id;
         this.username = username;
         this.email = email;
         this.roles = roles;
+        this.tokens = tokens;
+        this.threshold = threshold;
     }
 
     public String getAccessToken() {
@@ -55,5 +61,21 @@ public class LoginUserResponse {
 
     public List<String> getRoles() {
         return roles;
+    }
+
+    public int getTokens() {
+        return tokens;
+    }
+
+    public void setTokens(int tokens) {
+        this.tokens = tokens;
+    }
+
+    public int getThreshold() {
+        return threshold;
+    }
+
+    public void setThreshold(int threshold) {
+        this.threshold = threshold;
     }
 }

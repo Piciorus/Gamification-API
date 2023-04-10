@@ -18,5 +18,6 @@ public interface IUserService {
     List<User> getUsersSortedByTokensAscending();
 
     List<User> getUsersSortedByTokensDescending();
+    void updateThreshold(int id, int threshold);
 
 }

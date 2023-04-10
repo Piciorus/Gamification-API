@@ -18,8 +18,6 @@ import java.util.stream.StreamSupport;
 @Service
 public class UsersService implements IUserService {
     private final UsersRepository usersRepository;
-
-
     private final Mapper mapper;
 
     public UsersService(UsersRepository usersRepository , Mapper mapper) {
@@ -60,6 +58,13 @@ public class UsersService implements IUserService {
         Iterable<User> iterable = usersRepository.findAll();
         Stream<User> stream = StreamSupport.stream(iterable.spliterator(), false);
         return stream.sorted((o1, o2) -> o2.getTokens()-o1.getTokens()).collect(Collectors.toList());
+    }
+
+    @Override
+    public void updateThreshold(int id, int threshold) {
+        User user = usersRepository.getById(id);
+        user.setThreshold(threshold);
+        usersRepository.save(user);
     }
 
 }

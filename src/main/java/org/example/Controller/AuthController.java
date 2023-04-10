@@ -62,7 +62,9 @@ public class AuthController {
                 userDetails.getId(),
                 userDetails.getUsername(),
                 userDetails.getEmail(),
-                roles);
+                roles,
+                userDetails.getTokens(),
+                userDetails.getThreshold());
     }
 
     @PostMapping("/register")
@@ -71,7 +73,7 @@ public class AuthController {
         User user = new User(signUpRequest.getUsername(),
                 encoder.encode(signUpRequest.getPassword()),
                 0,
-                signUpRequest.getEmail()
+                signUpRequest.getEmail(),0
                 );
 
         Set<String> strRoles = signUpRequest.getRoles();

@@ -22,7 +22,8 @@ public class Mapper {
         quest.setAnswer(createQuestRequest.getAnswer());
         quest.setDescription(createQuestRequest.getDescription());
         quest.setQuestRewardTokens(createQuestRequest.getReward());
-        quest.setBadges(createQuestRequest.getBadge());
+        quest.setDifficulty(createQuestRequest.getDifficulty());
+        quest.setThreshold(createQuestRequest.getThreshold());
         return quest;
     }
 }

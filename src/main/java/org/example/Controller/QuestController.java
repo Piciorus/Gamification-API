@@ -49,4 +49,9 @@ public class QuestController {
     public Quest resolveQuest(@PathVariable("idQuest") Integer idQuest,@PathVariable("idUser") Integer idUser) {
         return questService.resolveQuest(idQuest, idUser);
     }
+
+    @PutMapping(path = "/updateRewarded/{idQuest}")
+    public void updateRewarded(@PathVariable("idQuest") Integer idQuest,@RequestBody boolean rewarded) {
+        questService.updateRewarded(idQuest, rewarded);
+    }
 }

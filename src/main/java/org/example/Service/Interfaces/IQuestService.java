@@ -16,4 +16,6 @@ public interface IQuestService {
 
     Quest resolveQuest(int idQuest,int idUser);
 
+    void updateRewarded(int idQuest, boolean rewarded);
+
 }

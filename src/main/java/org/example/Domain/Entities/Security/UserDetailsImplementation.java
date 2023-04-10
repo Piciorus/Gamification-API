@@ -18,7 +18,11 @@ public class UserDetailsImplementation implements UserDetails {
 
     private String username;
 
+    private int tokens;
+
     private String email;
+
+    private int threshold;
 
     @JsonIgnore
     private String password;
@@ -26,12 +30,14 @@ public class UserDetailsImplementation implements UserDetails {
     private Collection<? extends GrantedAuthority> authorities;
 
     public UserDetailsImplementation(Long id, String username, String email, String password,
-                                     Collection<? extends GrantedAuthority> authorities) {
+                                     Collection<? extends GrantedAuthority> authorities, int tokens, int threshold) {
         this.id = id;
         this.username = username;
         this.email = email;
         this.password = password;
         this.authorities = authorities;
+        this.tokens = tokens;
+        this.threshold = threshold;
     }
 
     public static UserDetailsImplementation build(User user) {
@@ -45,7 +51,8 @@ public class UserDetailsImplementation implements UserDetails {
                 user.getUsername(),
                 user.getEmail(),
                 user.getPassword(),
-                authorities);
+                authorities,
+                user.getTokens(),user.getThreshold());
     }
 
     @Override
@@ -57,8 +64,16 @@ public class UserDetailsImplementation implements UserDetails {
         return id;
     }
 
+    public int getTokens() {
+        return tokens;
+    }
+
     public String getEmail() {
         return email;
+    }
+
+    public int getThreshold() {
+    	return threshold;
     }
 
     @Override

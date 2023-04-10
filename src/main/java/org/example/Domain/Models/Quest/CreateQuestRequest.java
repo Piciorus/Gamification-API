@@ -6,13 +6,18 @@ public class CreateQuestRequest {
     private String answer;
     private String description;
     private int questRewardTokens;
-    private Badge badge;
 
-    public CreateQuestRequest(String answer,String description, int reward, Badge badge) {
+    private String difficulty;
+
+    private int threshold;
+
+
+    public CreateQuestRequest(String answer,String description, int reward, String difficulty, int threshold) {
         this.answer = answer;
         this.description = description;
         this.questRewardTokens = reward;
-        this.badge = badge;
+        this.difficulty = difficulty;
+        this.threshold = threshold;
     }
 
     public String getDescription() {
@@ -39,11 +44,19 @@ public class CreateQuestRequest {
         this.answer = name;
     }
 
-    public Badge getBadge() {
-        return badge;
+    public String getDifficulty() {
+        return difficulty;
     }
 
-    public void setBadge(Badge badge) {
-        this.badge = badge;
+    public void setDifficulty(String difficulty) {
+        this.difficulty = difficulty;
+    }
+
+    public int getThreshold() {
+        return threshold;
+    }
+
+    public void setThreshold(int threshold) {
+        this.threshold = threshold;
     }
 }

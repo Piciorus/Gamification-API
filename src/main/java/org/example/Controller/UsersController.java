@@ -22,8 +22,13 @@ public class UsersController {
     }
 
     @GetMapping(path = "/getAllUsers")
-    public ResponseEntity<Iterable<User>> getAllUsers() {
-        return ResponseEntity.ok(userService.getAllUsers());
+    public ResponseEntity<Iterable<User>> getAllUsers(@RequestParam(defaultValue = "asc") String sort) {
+        if (sort.equals("asc")) {
+            return ResponseEntity.ok(userService.getUsersSortedByTokensAscending());
+        } else if (sort.equals("desc")) {
+            return ResponseEntity.ok(userService.getUsersSortedByTokensDescending());
+        }
+        return ResponseEntity.badRequest().build();
     }
 
     @GetMapping(path = "/getUserById/{id}")
@@ -51,6 +56,12 @@ public class UsersController {
     @GetMapping(path = "/getUsersSortedByTokensDescending")
     public ResponseEntity<Iterable<User>> getUsersSortedByTokensDescending() {
         return ResponseEntity.ok(userService.getUsersSortedByTokensDescending());
+    }
+
+    @PutMapping(path = "/updateThreshold/{id}")
+    public void updateThreshold(@PathVariable("id") Integer userId, @RequestBody final Map<String, Integer> requestBody) {
+        int threshold = requestBody.get("threshold");
+        userService.updateThreshold(userId, threshold);
     }
 
 

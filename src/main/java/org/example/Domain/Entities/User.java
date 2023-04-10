@@ -22,6 +22,8 @@ public class User {
     @Column(name = "Password", nullable = false, length = 200)
     @Getter @Setter private String password;
 
+    @Column(name = "Threshold", nullable = true, length = 200)
+    @Getter @Setter private int threshold;
     @Column(name = "Tokens", nullable = false, length = 50)
     @Getter @Setter private int tokens;
 
@@ -52,11 +54,12 @@ public class User {
             inverseJoinColumns = @JoinColumn(name = "role_id"))
     @Getter @Setter private Set<Role> roles = new HashSet<>();
 
-    public User(String username, String password, int tokens,String email) {
+    public User(String username, String password, int tokens,String email,int threshold) {
         this.username = username;
         this.Email = email;
         this.tokens = tokens;
         this.password = password;
+        this.threshold = threshold;
     }
 
     public User() {

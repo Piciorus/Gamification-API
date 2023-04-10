@@ -21,10 +21,6 @@ public class Badge {
     @JsonIgnore
     @Getter @Setter private Set<User> users = new HashSet<>();
 
-    @OneToOne(mappedBy = "badges")
-    @JsonIgnore
-    @Getter @Setter private Quest quest;
-
     public Badge(String name) {
         this.name = name;
     }

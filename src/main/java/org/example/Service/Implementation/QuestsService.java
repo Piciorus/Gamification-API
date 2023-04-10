@@ -34,7 +34,6 @@ public class QuestsService implements IQuestService {
         questFromDb.setAnswer(quests.getAnswer());
         questFromDb.setDescription(quests.getDescription());
         questFromDb.setQuestRewardTokens(quests.getQuestRewardTokens());
-        questFromDb.setBadges(quests.getBadges());
         return questsRepository.save(questFromDb);
     }
 
@@ -62,5 +61,12 @@ public class QuestsService implements IQuestService {
         usersRepository.save(user);
         questsRepository.save(quest);
         return quest;
+    }
+
+    @Override
+    public void updateRewarded(int idQuest, boolean rewarded) {
+        Quest quest = questsRepository.getById(idQuest);
+        quest.setRewarded(rewarded);
+        questsRepository.save(quest);
     }
 }
