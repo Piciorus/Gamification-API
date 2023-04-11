@@ -2,26 +2,33 @@ package org.example.Service.Implementation;
 
 import org.example.Domain.Entities.Badge;
 import org.example.Domain.Entities.User;
+import org.example.Domain.Mapper.Mapper;
+import org.example.Domain.Models.Badge.Request.CreateBadgeRequest;
+import org.example.Domain.Models.Badge.Response.GetAllBadgesResponse;
+import org.example.Domain.Models.Badge.Response.GetBadgeByIdResponse;
 import org.example.Repository.BadgesRepository;
 import org.example.Repository.UsersRepository;
 import org.example.Service.Interfaces.IBadgesService;
 import org.springframework.stereotype.Service;
 
+import java.util.ArrayList;
+import java.util.List;
+
 @Service
 public class BadgeService implements IBadgesService {
-
     private final BadgesRepository badgesRepository;
-
     private final UsersRepository usersRepository;
+    private final Mapper mapper;
 
-    public BadgeService(BadgesRepository badgesRepository, UsersRepository usersRepository) {
+    public BadgeService(BadgesRepository badgesRepository, UsersRepository usersRepository, Mapper mapper) {
         this.badgesRepository = badgesRepository;
         this.usersRepository = usersRepository;
+        this.mapper = mapper;
     }
 
     @Override
-    public Badge createBadge(Badge badges) {
-        return badgesRepository.save(badges);
+    public Badge createBadge(CreateBadgeRequest createBadgeRequest) {
+        return badgesRepository.save(mapper.CreateBadgeToBadgeRequest(createBadgeRequest));
     }
 
     @Override
@@ -37,13 +44,18 @@ public class BadgeService implements IBadgesService {
     }
 
     @Override
-    public Badge findBadgeById(Integer id) {
-        return badgesRepository.getById(id);
+    public GetBadgeByIdResponse findBadgeById(Integer id) {
+        Badge badge = badgesRepository.getById(id);
+        return mapper.BadgeToGetByIdBadgeResponse(badge);
     }
 
     @Override
-    public Iterable<Badge> findAllBadges() {
-        return badgesRepository.findAll();
+    public Iterable<GetAllBadgesResponse> findAllBadges() {
+        List<GetAllBadgesResponse> list = new ArrayList<>();
+        badgesRepository.findAll().forEach(badge -> {
+            list.add(mapper.BadgeToGetAllBadgesResponse(badge));
+        });
+        return list;
     }
 
     @Override

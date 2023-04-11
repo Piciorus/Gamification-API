@@ -45,9 +45,6 @@ public class User {
     )
     @Getter @Setter private Set<Badge> badgesList = new HashSet<>(0);
 
-    @OneToOne(mappedBy = "user")
-    @Getter @Setter private Leaderboard leaderboard;
-
     @ManyToMany(fetch = FetchType.LAZY)
     @JoinTable(	name = "user_roles",
             joinColumns = @JoinColumn(name = "user_id"),

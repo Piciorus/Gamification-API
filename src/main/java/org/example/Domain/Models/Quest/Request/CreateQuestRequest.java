@@ -1,4 +1,4 @@
-package org.example.Domain.Models.Quest;
+package org.example.Domain.Models.Quest.Request;
 
 import org.example.Domain.Entities.Badge;
 
@@ -11,15 +11,28 @@ public class CreateQuestRequest {
 
     private int threshold;
 
+    private int rewardTokens;
 
-    public CreateQuestRequest(String answer,String description, int reward, String difficulty, int threshold) {
+
+    public CreateQuestRequest(String answer,String description, int questRewardTokens, String difficulty, int threshold, int rewardTokens) {
         this.answer = answer;
         this.description = description;
-        this.questRewardTokens = reward;
+        this.questRewardTokens = questRewardTokens;
         this.difficulty = difficulty;
         this.threshold = threshold;
+        this.rewardTokens = rewardTokens;
     }
 
+    public CreateQuestRequest() {
+    }
+
+    public int getRewardTokens(){
+        return rewardTokens;
+    }
+
+    public void setRewardTokens(int rewardTokens){
+        this.rewardTokens = rewardTokens;
+    }
     public String getDescription() {
         return description;
     }
@@ -32,8 +45,8 @@ public class CreateQuestRequest {
         return questRewardTokens;
     }
 
-    public void setReward(int reward) {
-        this.questRewardTokens = reward;
+    public void setReward(int questRewardTokens) {
+        this.questRewardTokens = questRewardTokens;
     }
 
     public String getAnswer() {

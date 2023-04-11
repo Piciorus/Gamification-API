@@ -1,23 +1,21 @@
 package org.example.Service.Interfaces;
 
 import org.example.Domain.Entities.User;
-import org.example.Domain.Models.User.Request.LoginUserRequest;
-import org.example.Domain.Models.User.Request.RegisterUserRequest;
-
-import java.util.List;
+import org.example.Domain.Models.User.Response.GetAllUsersResponse;
+import org.example.Domain.Models.User.Response.GetUserByIdResponse;
 
 public interface IUserService {
     void deleteUserById(final Integer id);
 
-    User getUserById(final Integer id);
+    GetUserByIdResponse getUserById(final Integer id);
 
-    Iterable<User> getAllUsers();
+    Iterable<GetAllUsersResponse> getAllUsers();
 
     User updateTokens(int id,int tokens);
 
-    List<User> getUsersSortedByTokensAscending();
+    Iterable<GetAllUsersResponse> getUsersSortedByTokensAscending();
 
-    List<User> getUsersSortedByTokensDescending();
+    Iterable<GetAllUsersResponse> getUsersSortedByTokensDescending();
     void updateThreshold(int id, int threshold);
 
 }

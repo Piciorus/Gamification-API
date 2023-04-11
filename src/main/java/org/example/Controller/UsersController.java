@@ -1,10 +1,11 @@
 package org.example.Controller;
 
 import org.example.Domain.Entities.User;
+import org.example.Domain.Models.User.Response.GetAllUsersResponse;
+import org.example.Domain.Models.User.Response.GetUserByIdResponse;
 import org.example.Service.Interfaces.IUserService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
-import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.stereotype.Component;
 import org.springframework.web.bind.annotation.*;
 
@@ -22,7 +23,7 @@ public class UsersController {
     }
 
     @GetMapping(path = "/getAllUsers")
-    public ResponseEntity<Iterable<User>> getAllUsers(@RequestParam(defaultValue = "asc") String sort) {
+    public ResponseEntity<Iterable<GetAllUsersResponse>> getAllUsers(@RequestParam(defaultValue = "asc") String sort) {
         if (sort.equals("asc")) {
             return ResponseEntity.ok(userService.getUsersSortedByTokensAscending());
         } else if (sort.equals("desc")) {
@@ -32,7 +33,7 @@ public class UsersController {
     }
 
     @GetMapping(path = "/getUserById/{id}")
-    public ResponseEntity<User> getUserById(@PathVariable("id") Integer userId) {
+    public ResponseEntity<GetUserByIdResponse> getUserById(@PathVariable("id") Integer userId) {
         return ResponseEntity.ok(userService.getUserById(userId));
     }
 
@@ -49,12 +50,12 @@ public class UsersController {
     }
 
     @GetMapping(path = "/getUsersSortedByTokensAscending")
-    public ResponseEntity<Iterable<User>> getUsersSortedByTokensAscending() {
+    public ResponseEntity<Iterable<GetAllUsersResponse>> getUsersSortedByTokensAscending() {
         return ResponseEntity.ok(userService.getUsersSortedByTokensAscending());
     }
 
     @GetMapping(path = "/getUsersSortedByTokensDescending")
-    public ResponseEntity<Iterable<User>> getUsersSortedByTokensDescending() {
+    public ResponseEntity<Iterable<GetAllUsersResponse>> getUsersSortedByTokensDescending() {
         return ResponseEntity.ok(userService.getUsersSortedByTokensDescending());
     }
 

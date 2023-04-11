@@ -1,6 +1,9 @@
 package org.example.Controller;
 
 import org.example.Domain.Entities.Badge;
+import org.example.Domain.Models.Badge.Request.CreateBadgeRequest;
+import org.example.Domain.Models.Badge.Response.GetAllBadgesResponse;
+import org.example.Domain.Models.Badge.Response.GetBadgeByIdResponse;
 import org.example.Service.Interfaces.IBadgesService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
@@ -19,18 +22,18 @@ public class BadgeController {
     }
 
     @GetMapping(path = "/getAllBadges")
-    public ResponseEntity<Iterable<Badge>> getAllBadges() {
+    public ResponseEntity<Iterable<GetAllBadgesResponse>> getAllBadges() {
         return ResponseEntity.ok(badgeService.findAllBadges());
     }
 
     @GetMapping(path = "/getBadgeById/{id}")
-    public ResponseEntity<Badge> getBadgeById(@PathVariable("id") Integer badgeId) {
+    public ResponseEntity<GetBadgeByIdResponse> getBadgeById(@PathVariable("id") Integer badgeId) {
         return ResponseEntity.ok(badgeService.findBadgeById(badgeId));
     }
 
     @PostMapping(path = "/createBadge")
-    public ResponseEntity createBadge(@RequestBody final Badge badges) {
-        badgeService.createBadge(badges);
+    public ResponseEntity createBadge(@RequestBody final CreateBadgeRequest createBadgeRequest) {
+        badgeService.createBadge(createBadgeRequest);
         return ResponseEntity.ok().build();
     }
 
