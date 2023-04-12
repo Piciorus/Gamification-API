@@ -4,13 +4,11 @@ public class CreateQuestRequest {
     private String answer;
     private String description;
     private int questRewardTokens;
-
     private String difficulty;
 
     private int threshold;
 
     private int rewardTokens;
-
 
     public CreateQuestRequest(String answer, String description, int questRewardTokens, String difficulty, int threshold, int rewardTokens) {
         this.answer = answer;

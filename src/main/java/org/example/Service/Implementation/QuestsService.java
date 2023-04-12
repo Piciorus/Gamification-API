@@ -32,6 +32,8 @@ public class QuestsService implements IQuestService {
     @Override
     public Quest createQuest(CreateQuestRequest createQuestRequest, int idUser) {
         User user = usersRepository.getById(idUser);
+        if(user.getTokens()<createQuestRequest.getRewardTokens())
+            throw new RuntimeException("Not enough tokens");
         user.setTokens(user.getTokens() - createQuestRequest.getRewardTokens());
         return questsRepository.save(mapper.CreateQuestRequestToQuest(createQuestRequest));
     }
