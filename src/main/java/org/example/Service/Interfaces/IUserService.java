@@ -11,11 +11,12 @@ public interface IUserService {
 
     Iterable<GetAllUsersResponse> getAllUsers();
 
-    User updateTokens(int id,int tokens);
+    User updateTokens(int id, int tokens);
 
     Iterable<GetAllUsersResponse> getUsersSortedByTokensAscending();
 
     Iterable<GetAllUsersResponse> getUsersSortedByTokensDescending();
+
     void updateThreshold(int id, int threshold);
 
 }

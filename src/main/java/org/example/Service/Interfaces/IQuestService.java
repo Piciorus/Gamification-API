@@ -7,7 +7,7 @@ import org.example.Domain.Models.Quest.Response.GetQuestResponse;
 
 public interface IQuestService {
 
-    Quest createQuest(CreateQuestRequest createQuestRequest,int UserId);
+    Quest createQuest(CreateQuestRequest createQuestRequest, int UserId);
 
     Quest updateQuest(Quest quests, Integer id);
 
@@ -21,6 +21,6 @@ public interface IQuestService {
 
     void updateRewarded(int idQuest, boolean rewarded);
 
-    boolean checkAnswer(int userId, String answer,int questId);
+    boolean checkAnswer(int userId, String answer, int questId);
 
 }

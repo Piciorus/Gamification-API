@@ -70,7 +70,7 @@ public class BadgeService implements IBadgesService {
 
     @Override
     public Iterable<Badge> findBadgesByUserId(int idUser) {
-        User user=usersRepository.getById(idUser);
+        User user = usersRepository.getById(idUser);
         return user.getBadgesList();
     }
 }

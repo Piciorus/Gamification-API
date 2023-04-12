@@ -14,26 +14,42 @@ public class Quest {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
-    @Getter @Setter private int id;
+    @Getter
+    @Setter
+    private int id;
 
     @Column(name = "Answer", nullable = false, length = 50)
-    @Getter @Setter private String answer;
+    @Getter
+    @Setter
+    private String answer;
 
     @Column(name = "Description", nullable = false, length = 200)
-    @Getter @Setter private String description;
+    @Getter
+    @Setter
+    private String description;
 
     @Column(name = "Rewarded", nullable = true, length = 200)
-    @Getter @Setter private boolean rewarded;
+    @Getter
+    @Setter
+    private boolean rewarded;
     @Column(name = "Difficulty", nullable = false, length = 50)
-    @Getter @Setter private String difficulty;
+    @Getter
+    @Setter
+    private String difficulty;
     @Column(name = "Threshold", nullable = false, length = 50)
-    @Getter @Setter private int threshold;
+    @Getter
+    @Setter
+    private int threshold;
     @Column(name = "QuestRewardTokens", nullable = false, length = 50)
-    @Getter @Setter private int questRewardTokens;
+    @Getter
+    @Setter
+    private int questRewardTokens;
 
     @ManyToMany(mappedBy = "questsList", cascade = CascadeType.PERSIST, fetch = FetchType.EAGER)
     @JsonIgnore
-    @Getter @Setter private Set<User> users1 = new HashSet<>();
+    @Getter
+    @Setter
+    private Set<User> users1 = new HashSet<>();
 
     public Quest(String answer, String description, int questRewardTokens, String difficulty, int threshold, boolean rewarded) {
         this.answer = answer;

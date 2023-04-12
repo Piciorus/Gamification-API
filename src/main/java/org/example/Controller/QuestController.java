@@ -11,8 +11,6 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Component;
 import org.springframework.web.bind.annotation.*;
 
-import java.util.Map;
-
 @CrossOrigin(origins = "*", maxAge = 3600)
 @RestController()
 @Component
@@ -25,8 +23,8 @@ public class QuestController {
     }
 
     @PostMapping(path = "/createQuest/{id}")
-    public void createQuest(@RequestBody final CreateQuestRequest createQuestRequest,@PathVariable("id") Integer UserId) {
-        questService.createQuest(createQuestRequest,UserId);
+    public void createQuest(@RequestBody final CreateQuestRequest createQuestRequest, @PathVariable("id") Integer UserId) {
+        questService.createQuest(createQuestRequest, UserId);
     }
 
     @PutMapping(path = "/updateQuest")
@@ -57,7 +55,7 @@ public class QuestController {
     }
 
     @PutMapping(path = "/updateRewarded/{idQuest}")
-    public void updateRewarded(@PathVariable("idQuest") Integer idQuest,@RequestBody boolean rewarded) {
+    public void updateRewarded(@PathVariable("idQuest") Integer idQuest, @RequestBody boolean rewarded) {
         questService.updateRewarded(idQuest, rewarded);
     }
 

@@ -1,7 +1,5 @@
 package org.example.Domain.Models.User.Request;
 
-import org.example.Domain.Entities.Role;
-
 import java.util.Set;
 
 public class RegisterUserRequest {

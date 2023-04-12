@@ -17,7 +17,6 @@ import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 
 
-
 @Configuration
 @EnableGlobalMethodSecurity(prePostEnabled = true)
 public class WebSecurityConfig {
@@ -58,13 +57,13 @@ public class WebSecurityConfig {
         http.exceptionHandling().authenticationEntryPoint(unauthorizedHandler).and()
                 .sessionManagement().sessionCreationPolicy(SessionCreationPolicy.STATELESS).and()
                 .authorizeRequests().antMatchers("/auth/**").permitAll()
-                .antMatchers(HttpMethod.GET,"/getAllUsers").hasAnyRole("ADMIN","USER")
-                .antMatchers(HttpMethod.GET, "/getUserById/{id}").hasAnyRole("ADMIN","USER")
+                .antMatchers(HttpMethod.GET, "/getAllUsers").hasAnyRole("ADMIN", "USER")
+                .antMatchers(HttpMethod.GET, "/getUserById/{id}").hasAnyRole("ADMIN", "USER")
                 .antMatchers(HttpMethod.DELETE, "/deleteUserById/{id}").hasAnyRole("ADMIN")
-                .antMatchers(HttpMethod.PUT, "/updateTokens/{id}").hasAnyRole("ADMIN","USER")
+                .antMatchers(HttpMethod.PUT, "/updateTokens/{id}").hasAnyRole("ADMIN", "USER")
                 .antMatchers(HttpMethod.GET, "/getAllUsers?sort=asc").permitAll()
                 .antMatchers(HttpMethod.GET, "/getAllUsers?sort=desc").permitAll()
-                .antMatchers(HttpMethod.PUT, "/updateThreshold/{id}").hasAnyRole("ADMIN","USER")
+                .antMatchers(HttpMethod.PUT, "/updateThreshold/{id}").hasAnyRole("ADMIN", "USER")
                 ////////////////////Quests///////////////////////////////////////
                 .antMatchers(HttpMethod.POST, "/createQuest/{id}").permitAll()
                 .antMatchers(HttpMethod.PUT, "/updateQuest").permitAll()

@@ -5,7 +5,7 @@ import org.springframework.data.repository.CrudRepository;
 import org.springframework.stereotype.Repository;
 
 @Repository
-public interface QuestsRepository extends CrudRepository<Quest,Integer> {
+public interface QuestsRepository extends CrudRepository<Quest, Integer> {
     Quest save(Quest quests);
 
     void deleteById(final Integer id);

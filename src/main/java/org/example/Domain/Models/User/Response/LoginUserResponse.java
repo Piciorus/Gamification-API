@@ -12,7 +12,7 @@ public class LoginUserResponse {
     private int tokens;
     private String email;
 
-    private List<String> roles;
+    private final List<String> roles;
 
     private int threshold;
 

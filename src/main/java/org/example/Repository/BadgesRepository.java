@@ -5,7 +5,7 @@ import org.springframework.data.repository.CrudRepository;
 import org.springframework.stereotype.Repository;
 
 @Repository
-public interface BadgesRepository extends CrudRepository<Badge,Integer> {
+public interface BadgesRepository extends CrudRepository<Badge, Integer> {
     Badge save(Badge badges);
 
     void deleteById(final Integer id);

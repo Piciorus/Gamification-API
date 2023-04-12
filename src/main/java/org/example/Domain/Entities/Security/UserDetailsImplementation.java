@@ -14,20 +14,20 @@ import java.util.stream.Collectors;
 public class UserDetailsImplementation implements UserDetails {
     private static final long serialVersionUID = 1L;
 
-    private Long id;
+    private final Long id;
 
-    private String username;
+    private final String username;
 
-    private int tokens;
+    private final int tokens;
 
-    private String email;
+    private final String email;
 
-    private int threshold;
+    private final int threshold;
 
     @JsonIgnore
-    private String password;
+    private final String password;
 
-    private Collection<? extends GrantedAuthority> authorities;
+    private final Collection<? extends GrantedAuthority> authorities;
 
     public UserDetailsImplementation(Long id, String username, String email, String password,
                                      Collection<? extends GrantedAuthority> authorities, int tokens, int threshold) {
@@ -52,7 +52,7 @@ public class UserDetailsImplementation implements UserDetails {
                 user.getEmail(),
                 user.getPassword(),
                 authorities,
-                user.getTokens(),user.getThreshold());
+                user.getTokens(), user.getThreshold());
     }
 
     @Override
@@ -73,7 +73,7 @@ public class UserDetailsImplementation implements UserDetails {
     }
 
     public int getThreshold() {
-    	return threshold;
+        return threshold;
     }
 
     @Override

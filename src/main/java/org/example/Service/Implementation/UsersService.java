@@ -20,7 +20,7 @@ public class UsersService implements IUserService {
     private final UsersRepository usersRepository;
     private final Mapper mapper;
 
-    public UsersService(UsersRepository usersRepository , Mapper mapper) {
+    public UsersService(UsersRepository usersRepository, Mapper mapper) {
         this.usersRepository = usersRepository;
         this.mapper = mapper;
     }
@@ -46,9 +46,9 @@ public class UsersService implements IUserService {
     }
 
     @Override
-    public User updateTokens(int id,int tokens) {
+    public User updateTokens(int id, int tokens) {
         User user = usersRepository.getById(id);
-        user.setTokens(user.getTokens()-tokens);
+        user.setTokens(user.getTokens() - tokens);
         return usersRepository.save(user);
     }
 

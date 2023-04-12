@@ -13,19 +13,31 @@ import java.util.Set;
 public class User {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
-    @Getter @Setter private int id;
+    @Getter
+    @Setter
+    private int id;
     @Column(name = "Email", nullable = false, length = 50)
-    @Getter @Setter private String Email;
+    @Getter
+    @Setter
+    private String Email;
     @Column(name = "Username", nullable = false, length = 50)
-    @Getter @Setter private String username;
+    @Getter
+    @Setter
+    private String username;
 
     @Column(name = "Password", nullable = false, length = 200)
-    @Getter @Setter private String password;
+    @Getter
+    @Setter
+    private String password;
 
     @Column(name = "Threshold", nullable = true, length = 200)
-    @Getter @Setter private int threshold;
+    @Getter
+    @Setter
+    private int threshold;
     @Column(name = "Tokens", nullable = false, length = 50)
-    @Getter @Setter private int tokens;
+    @Getter
+    @Setter
+    private int tokens;
 
     @ManyToMany(fetch = FetchType.EAGER, cascade = CascadeType.PERSIST)
     @JsonIgnore
@@ -34,7 +46,9 @@ public class User {
             joinColumns = {@JoinColumn(name = "user_id")},
             inverseJoinColumns = {@JoinColumn(name = "quest_id")}
     )
-    @Getter @Setter private Set<Quest> questsList = new HashSet<>(0);
+    @Getter
+    @Setter
+    private Set<Quest> questsList = new HashSet<>(0);
 
     @ManyToMany(fetch = FetchType.EAGER, cascade = CascadeType.PERSIST)
     @JsonIgnore
@@ -43,15 +57,19 @@ public class User {
             joinColumns = {@JoinColumn(name = "user_id")},
             inverseJoinColumns = {@JoinColumn(name = "badge_id")}
     )
-    @Getter @Setter private Set<Badge> badgesList = new HashSet<>(0);
+    @Getter
+    @Setter
+    private Set<Badge> badgesList = new HashSet<>(0);
 
     @ManyToMany(fetch = FetchType.LAZY)
-    @JoinTable(	name = "user_roles",
+    @JoinTable(name = "user_roles",
             joinColumns = @JoinColumn(name = "user_id"),
             inverseJoinColumns = @JoinColumn(name = "role_id"))
-    @Getter @Setter private Set<Role> roles = new HashSet<>();
+    @Getter
+    @Setter
+    private Set<Role> roles = new HashSet<>();
 
-    public User(String username, String password, int tokens,String email,int threshold) {
+    public User(String username, String password, int tokens, String email, int threshold) {
         this.username = username;
         this.Email = email;
         this.tokens = tokens;

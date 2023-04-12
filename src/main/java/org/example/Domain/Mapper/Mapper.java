@@ -7,7 +7,6 @@ import org.example.Domain.Models.Badge.Request.CreateBadgeRequest;
 import org.example.Domain.Models.Badge.Response.GetAllBadgesResponse;
 import org.example.Domain.Models.Badge.Response.GetBadgeByIdResponse;
 import org.example.Domain.Models.Quest.Request.CreateQuestRequest;
-import org.example.Domain.Models.Quest.Request.UpdateQuestRequest;
 import org.example.Domain.Models.Quest.Response.GetAllQuestsResponse;
 import org.example.Domain.Models.Quest.Response.GetQuestResponse;
 import org.example.Domain.Models.User.Request.RegisterUserRequest;

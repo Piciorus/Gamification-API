@@ -1,7 +1,5 @@
 package org.example.Domain.Models.Quest.Request;
 
-import org.example.Domain.Entities.Badge;
-
 public class CreateQuestRequest {
     private String answer;
     private String description;
@@ -14,7 +12,7 @@ public class CreateQuestRequest {
     private int rewardTokens;
 
 
-    public CreateQuestRequest(String answer,String description, int questRewardTokens, String difficulty, int threshold, int rewardTokens) {
+    public CreateQuestRequest(String answer, String description, int questRewardTokens, String difficulty, int threshold, int rewardTokens) {
         this.answer = answer;
         this.description = description;
         this.questRewardTokens = questRewardTokens;
@@ -26,13 +24,14 @@ public class CreateQuestRequest {
     public CreateQuestRequest() {
     }
 
-    public int getRewardTokens(){
+    public int getRewardTokens() {
         return rewardTokens;
     }
 
-    public void setRewardTokens(int rewardTokens){
+    public void setRewardTokens(int rewardTokens) {
         this.rewardTokens = rewardTokens;
     }
+
     public String getDescription() {
         return description;
     }

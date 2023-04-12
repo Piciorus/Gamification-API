@@ -16,7 +16,7 @@ public interface IBadgesService {
 
     Iterable<GetAllBadgesResponse> findAllBadges();
 
-    void rewardBadge(int idBadge,int idUser);
+    void rewardBadge(int idBadge, int idUser);
 
     Iterable<Badge> findBadgesByUserId(int idUser);
 }

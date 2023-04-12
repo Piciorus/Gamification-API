@@ -5,8 +5,8 @@ public class LoginUserRequest {
     private static String password;
 
     public LoginUserRequest(String username, String password) {
-        this.username = username;
-        this.password = password;
+        LoginUserRequest.username = username;
+        LoginUserRequest.password = password;
     }
 
     public static String getUsername() {
@@ -14,7 +14,7 @@ public class LoginUserRequest {
     }
 
     public void setUsername(String username) {
-        this.username = username;
+        LoginUserRequest.username = username;
     }
 
     public static String getPassword() {
@@ -22,6 +22,6 @@ public class LoginUserRequest {
     }
 
     public void setPassword(String password) {
-        this.password = password;
+        LoginUserRequest.password = password;
     }
 }

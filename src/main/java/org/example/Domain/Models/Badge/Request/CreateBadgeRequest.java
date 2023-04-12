@@ -4,7 +4,8 @@ import lombok.Getter;
 import lombok.Setter;
 
 public class CreateBadgeRequest {
-    @Getter @Setter
+    @Getter
+    @Setter
     private String name;
 
     public CreateBadgeRequest(String name) {

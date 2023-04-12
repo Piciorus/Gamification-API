@@ -50,7 +50,7 @@ public class BadgeController {
     }
 
     @PostMapping(path = "/rewardBadge/{idBadge}/{idUser}")
-    public void rewardBadge(@PathVariable("idBadge") Integer idBadge,@PathVariable("idUser") Integer idUser) {
+    public void rewardBadge(@PathVariable("idBadge") Integer idBadge, @PathVariable("idUser") Integer idUser) {
         badgeService.rewardBadge(idBadge, idUser);
     }
 

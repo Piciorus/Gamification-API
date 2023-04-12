@@ -30,7 +30,7 @@ public class QuestsService implements IQuestService {
     }
 
     @Override
-    public Quest createQuest(CreateQuestRequest createQuestRequest,int idUser) {
+    public Quest createQuest(CreateQuestRequest createQuestRequest, int idUser) {
         User user = usersRepository.getById(idUser);
         user.setTokens(user.getTokens() - createQuestRequest.getRewardTokens());
         return questsRepository.save(mapper.CreateQuestRequestToQuest(createQuestRequest));
@@ -87,7 +87,7 @@ public class QuestsService implements IQuestService {
     }
 
     @Override
-    public boolean checkAnswer(int userId, String answer,int questId) {
+    public boolean checkAnswer(int userId, String answer, int questId) {
         Quest quest = questsRepository.getById(questId);
         User user = usersRepository.getById(userId);
         if (quest.getAnswer().equalsIgnoreCase(answer)) {
