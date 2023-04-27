@@ -5,11 +5,12 @@ import lombok.Setter;
 import org.example.Domain.Entities.Role;
 
 import java.util.Set;
+import java.util.UUID;
 
 public class GetUserByIdResponse {
     @Getter
     @Setter
-    private int id;
+    private UUID id;
     @Getter
     @Setter
     private String username;
@@ -26,7 +27,7 @@ public class GetUserByIdResponse {
     @Setter
     private Set<Role> roles;
 
-    public GetUserByIdResponse(String username, int threshold, int tokens, String email, Set<Role> roles, int id) {
+    public GetUserByIdResponse(String username, int threshold, int tokens, String email, Set<Role> roles, UUID id) {
         this.username = username;
         this.threshold = threshold;
         this.tokens = tokens;

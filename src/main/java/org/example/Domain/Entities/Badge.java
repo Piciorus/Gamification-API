@@ -10,12 +10,7 @@ import java.util.Set;
 
 @Entity
 @Table(name = "Badges")
-public class Badge {
-    @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
-    @Getter
-    @Setter
-    private int id;
+public class Badge extends BaseEntity {
     @Column(name = "Name", nullable = false, length = 50)
     @Getter
     @Setter

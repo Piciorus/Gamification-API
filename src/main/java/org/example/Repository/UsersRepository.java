@@ -4,13 +4,15 @@ import org.example.Domain.Entities.User;
 import org.springframework.data.repository.CrudRepository;
 import org.springframework.stereotype.Repository;
 
+import java.util.UUID;
+
 @Repository
-public interface UsersRepository extends CrudRepository<User, Integer> {
+public interface UsersRepository extends CrudRepository<User, UUID> {
     User save(User user);
 
-    void deleteById(final Integer id);
+    void deleteById(final UUID id);
 
-    User getById(final Integer id);
+    User getById(final UUID id);
 
     Iterable<User> findAll();
 

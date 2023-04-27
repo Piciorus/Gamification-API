@@ -11,6 +11,7 @@ import org.springframework.stereotype.Service;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
+import java.util.UUID;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import java.util.stream.StreamSupport;
@@ -26,13 +27,13 @@ public class UsersService implements IUserService {
     }
 
     @Override
-    public void deleteUserById(Integer id) {
-        usersRepository.deleteById(id);
+    public void deleteUserById(UUID idUser) {
+        usersRepository.deleteById(idUser);
     }
 
     @Override
-    public GetUserByIdResponse getUserById(Integer id) {
-        User user = usersRepository.getById(id);
+    public GetUserByIdResponse getUserById(UUID idUser) {
+        User user = usersRepository.getById(idUser);
         return mapper.UserToGetUserByIdResponse(user);
     }
 
@@ -46,17 +47,9 @@ public class UsersService implements IUserService {
     }
 
     @Override
-    public User updateTokens(int id, int tokens) {
-        User user = usersRepository.getById(id);
-        user.setTokens(user.getTokens() - tokens);
-        return usersRepository.save(user);
-    }
-
-    @Override
     public Iterable<GetAllUsersResponse> getUsersSortedByTokensAscending() {
         Iterable<User> iterable = usersRepository.findAll();
         Stream<User> stream = StreamSupport.stream(iterable.spliterator(), false);
-
         return stream.sorted(Comparator.comparingInt(User::getTokens)).map(user -> mapper.UserToGetAllUsersResponse(user)).collect(Collectors.toList());
     }
 
@@ -65,14 +58,6 @@ public class UsersService implements IUserService {
         Iterable<User> iterable = usersRepository.findAll();
         Stream<User> stream = StreamSupport.stream(iterable.spliterator(), false);
         return stream.sorted(Comparator.comparingInt(User::getTokens).reversed()).map(user -> mapper.UserToGetAllUsersResponse(user)).collect(Collectors.toList());
-
-    }
-
-    @Override
-    public void updateThreshold(int id, int threshold) {
-        User user = usersRepository.getById(id);
-        user.setThreshold(threshold);
-        usersRepository.save(user);
     }
 
 }

@@ -9,12 +9,13 @@ import org.springframework.security.core.userdetails.UserDetails;
 import java.util.Collection;
 import java.util.List;
 import java.util.Objects;
+import java.util.UUID;
 import java.util.stream.Collectors;
 
 public class UserDetailsImplementation implements UserDetails {
     private static final long serialVersionUID = 1L;
 
-    private final Long id;
+    private final UUID id;
 
     private final String username;
 
@@ -29,7 +30,7 @@ public class UserDetailsImplementation implements UserDetails {
 
     private final Collection<? extends GrantedAuthority> authorities;
 
-    public UserDetailsImplementation(Long id, String username, String email, String password,
+    public UserDetailsImplementation(UUID id, String username, String email, String password,
                                      Collection<? extends GrantedAuthority> authorities, int tokens, int threshold) {
         this.id = id;
         this.username = username;
@@ -47,7 +48,7 @@ public class UserDetailsImplementation implements UserDetails {
                 .collect(Collectors.toList());
 
         return new UserDetailsImplementation(
-                (long) user.getId(),
+                user.getId(),
                 user.getUsername(),
                 user.getEmail(),
                 user.getPassword(),
@@ -60,7 +61,7 @@ public class UserDetailsImplementation implements UserDetails {
         return authorities;
     }
 
-    public Long getId() {
+    public UUID getId() {
         return id;
     }
 

@@ -7,23 +7,17 @@ import org.example.Domain.Models.Badge.Request.CreateBadgeRequest;
 import org.example.Domain.Models.Badge.Response.GetAllBadgesResponse;
 import org.example.Domain.Models.Badge.Response.GetBadgeByIdResponse;
 import org.example.Domain.Models.Quest.Request.CreateQuestRequest;
+import org.example.Domain.Models.Quest.Request.UpdateQuestRequest;
 import org.example.Domain.Models.Quest.Response.GetAllQuestsResponse;
 import org.example.Domain.Models.Quest.Response.GetQuestResponse;
-import org.example.Domain.Models.User.Request.RegisterUserRequest;
 import org.example.Domain.Models.User.Response.GetAllUsersResponse;
 import org.example.Domain.Models.User.Response.GetUserByIdResponse;
 import org.springframework.stereotype.Component;
 
+import java.util.Date;
+
 @Component
 public class Mapper {
-
-    public User RegisterUserRequestToUser(RegisterUserRequest registerUserRequest) {
-        User user = new User();
-        user.setPassword(registerUserRequest.getPassword());
-        user.setUsername(registerUserRequest.getUsername());
-        user.setEmail(registerUserRequest.getEmail());
-        return user;
-    }
 
     public Quest CreateQuestRequestToQuest(CreateQuestRequest createQuestRequest) {
         Quest quest = new Quest();
@@ -32,6 +26,7 @@ public class Mapper {
         quest.setQuestRewardTokens(createQuestRequest.getRewardTokens());
         quest.setDifficulty(createQuestRequest.getDifficulty());
         quest.setThreshold(createQuestRequest.getThreshold());
+        quest.setCreationDate(new Date());
         return quest;
     }
 
@@ -95,21 +90,20 @@ public class Mapper {
         return quest1;
     }
 
-    public Quest CreateQuestToQuestRequest(CreateQuestRequest createQuestRequest) {
-        Quest quest = new Quest();
-        quest.setAnswer(createQuestRequest.getAnswer());
-        quest.setDescription(createQuestRequest.getDescription());
-        quest.setQuestRewardTokens(createQuestRequest.getReward());
-        quest.setDifficulty(createQuestRequest.getDifficulty());
-        quest.setThreshold(createQuestRequest.getThreshold());
-        return quest;
-    }
-
     public Badge CreateBadgeToBadgeRequest(CreateBadgeRequest createBadgeRequest) {
         Badge badge = new Badge();
         badge.setName(createBadgeRequest.getName());
+        badge.setCreationDate(new Date());
         return badge;
     }
 
+    public void UpdateQuestRequestToQuest(UpdateQuestRequest updateQuestRequest, Quest quest) {
+        quest.setAnswer(updateQuestRequest.getAnswer());
+        quest.setQuestRewardTokens(updateQuestRequest.getQuestRewardTokens());
+        quest.setThreshold(updateQuestRequest.getThreshold());
+        quest.setDescription(updateQuestRequest.getDescription());
+        quest.setRewarded(updateQuestRequest.isRewarded());
+        quest.setUpdateDate(new Date());
+    }
 
 }

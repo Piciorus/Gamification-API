@@ -1,27 +1,19 @@
 package org.example.Domain.Models.User.Request;
 
+import lombok.Getter;
+import lombok.Setter;
+
 public class LoginUserRequest {
-    private static String username;
-    private static String password;
+    @Getter
+    @Setter
+    private String username;
+    @Getter
+    @Setter
+    private String password;
 
     public LoginUserRequest(String username, String password) {
-        LoginUserRequest.username = username;
-        LoginUserRequest.password = password;
+        this.username = username;
+        this.password = password;
     }
 
-    public static String getUsername() {
-        return username;
-    }
-
-    public void setUsername(String username) {
-        LoginUserRequest.username = username;
-    }
-
-    public static String getPassword() {
-        return password;
-    }
-
-    public void setPassword(String password) {
-        LoginUserRequest.password = password;
-    }
 }

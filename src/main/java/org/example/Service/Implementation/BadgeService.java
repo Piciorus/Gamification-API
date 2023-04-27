@@ -13,6 +13,7 @@ import org.springframework.stereotype.Service;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.UUID;
 
 @Service
 public class BadgeService implements IBadgesService {
@@ -32,20 +33,13 @@ public class BadgeService implements IBadgesService {
     }
 
     @Override
-    public Badge updateBadge(Badge badges, Integer id) {
-        Badge badgeFromDb = badgesRepository.getById(id);
-        badgeFromDb.setName(badges.getName());
-        return badgesRepository.save(badgeFromDb);
+    public void deleteBadge(UUID idBadge) {
+        badgesRepository.deleteById(idBadge);
     }
 
     @Override
-    public void deleteBadge(Integer id) {
-        badgesRepository.deleteById(id);
-    }
-
-    @Override
-    public GetBadgeByIdResponse findBadgeById(Integer id) {
-        Badge badge = badgesRepository.getById(id);
+    public GetBadgeByIdResponse findBadgeById(UUID idBadge) {
+        Badge badge = badgesRepository.getById(idBadge);
         return mapper.BadgeToGetByIdBadgeResponse(badge);
     }
 
@@ -59,7 +53,7 @@ public class BadgeService implements IBadgesService {
     }
 
     @Override
-    public void rewardBadge(int idBadge, int idUser) {
+    public void rewardBadge(UUID idBadge, UUID idUser) {
         Badge badge = badgesRepository.getById(idBadge);
         User user = usersRepository.getById(idUser);
         user.getBadgesList().add(badge);
@@ -69,8 +63,12 @@ public class BadgeService implements IBadgesService {
     }
 
     @Override
-    public Iterable<Badge> findBadgesByUserId(int idUser) {
+    public Iterable<GetBadgeByIdResponse> findBadgesByUserId(UUID idUser) {
         User user = usersRepository.getById(idUser);
-        return user.getBadgesList();
+        List<GetBadgeByIdResponse> list = new ArrayList<>();
+        user.getBadgesList().forEach(badge -> {
+            list.add(mapper.BadgeToGetByIdBadgeResponse(badge));
+        });
+        return list;
     }
 }

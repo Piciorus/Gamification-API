@@ -1,18 +1,21 @@
 package org.example.Controller;
 
-import org.example.Domain.Entities.Badge;
 import org.example.Domain.Models.Badge.Request.CreateBadgeRequest;
 import org.example.Domain.Models.Badge.Response.GetAllBadgesResponse;
 import org.example.Domain.Models.Badge.Response.GetBadgeByIdResponse;
 import org.example.Service.Interfaces.IBadgesService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
-import org.springframework.stereotype.Component;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
+import javax.validation.Valid;
+import javax.validation.constraints.NotBlank;
+import java.util.UUID;
+
 @CrossOrigin(origins = "*", maxAge = 3600)
-@RestController()
-@Component
+@RestController
+@RequestMapping("/badge")
 public class BadgeController {
     private final IBadgesService badgeService;
 
@@ -22,40 +25,40 @@ public class BadgeController {
     }
 
     @GetMapping(path = "/getAllBadges")
+    @PreAuthorize("hasRole('ADMIN') or hasRole('USER')")
     public ResponseEntity<Iterable<GetAllBadgesResponse>> getAllBadges() {
         return ResponseEntity.ok(badgeService.findAllBadges());
     }
 
     @GetMapping(path = "/getBadgeById/{id}")
-    public ResponseEntity<GetBadgeByIdResponse> getBadgeById(@PathVariable("id") Integer badgeId) {
+    @PreAuthorize("hasRole('ADMIN') or hasRole('USER')")
+    public ResponseEntity<GetBadgeByIdResponse> getBadgeById(@PathVariable("id") @NotBlank UUID badgeId) {
         return ResponseEntity.ok(badgeService.findBadgeById(badgeId));
     }
 
     @PostMapping(path = "/createBadge")
-    public ResponseEntity createBadge(@RequestBody final CreateBadgeRequest createBadgeRequest) {
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity createBadge(@Valid @RequestBody final CreateBadgeRequest createBadgeRequest) {
         badgeService.createBadge(createBadgeRequest);
-        return ResponseEntity.ok().build();
-    }
-
-    @PutMapping(path = "/updateBadge")
-    public ResponseEntity updateBadge(@RequestBody final Badge badges, @PathVariable("id") Integer badgeId) {
-        badgeService.updateBadge(badges, badgeId);
-        return ResponseEntity.ok().build();
+        return ResponseEntity.ok().body("Badge created!");
     }
 
     @DeleteMapping(path = "/deleteBadge")
-    public ResponseEntity deleteBadge(@PathVariable("id") Integer badgeId) {
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity deleteBadge(@PathVariable("id") @NotBlank UUID badgeId) {
         badgeService.deleteBadge(badgeId);
-        return ResponseEntity.ok().build();
+        return ResponseEntity.ok().body("Badge deleted!");
     }
 
     @PostMapping(path = "/rewardBadge/{idBadge}/{idUser}")
-    public void rewardBadge(@PathVariable("idBadge") Integer idBadge, @PathVariable("idUser") Integer idUser) {
+    @PreAuthorize("hasRole('ADMIN') or hasRole('USER')")
+    public void rewardBadge(@PathVariable("idBadge") @NotBlank UUID idBadge, @PathVariable("idUser") @NotBlank UUID idUser) {
         badgeService.rewardBadge(idBadge, idUser);
     }
 
     @GetMapping(path = "/getBadgesByUserId/{idUser}")
-    public ResponseEntity<Iterable<Badge>> getBadgesByUserId(@PathVariable("idUser") Integer idUser) {
+    @PreAuthorize("hasRole('ADMIN') or hasRole('USER')")
+    public ResponseEntity<Iterable<GetBadgeByIdResponse>> getBadgesByUserId(@PathVariable("idUser") @NotBlank UUID idUser) {
         return ResponseEntity.ok(badgeService.findBadgesByUserId(idUser));
     }
 }

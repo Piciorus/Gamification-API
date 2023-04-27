@@ -1,19 +1,23 @@
 package org.example.Controller;
 
-import org.example.Domain.Entities.Quest;
 import org.example.Domain.Models.Quest.Request.CheckAnswerRequest;
 import org.example.Domain.Models.Quest.Request.CreateQuestRequest;
+import org.example.Domain.Models.Quest.Request.UpdateQuestRequest;
 import org.example.Domain.Models.Quest.Response.GetAllQuestsResponse;
 import org.example.Domain.Models.Quest.Response.GetQuestResponse;
 import org.example.Service.Interfaces.IQuestService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
-import org.springframework.stereotype.Component;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
+import javax.validation.Valid;
+import javax.validation.constraints.NotBlank;
+import java.util.UUID;
+
 @CrossOrigin(origins = "*", maxAge = 3600)
-@RestController()
-@Component
+@RestController
+@RequestMapping("/quest")
 public class QuestController {
     private final IQuestService questService;
 
@@ -23,44 +27,47 @@ public class QuestController {
     }
 
     @PostMapping(path = "/createQuest/{id}")
-    public void createQuest(@RequestBody final CreateQuestRequest createQuestRequest, @PathVariable("id") Integer UserId) {
-        questService.createQuest(createQuestRequest, UserId);
+    @PreAuthorize("hasRole('ADMIN') or hasRole('USER')")
+    public ResponseEntity createQuest(@Valid @RequestBody final CreateQuestRequest createQuestRequest, @PathVariable("id") @NotBlank UUID idUser) {
+        questService.createQuest(createQuestRequest, idUser);
+        return ResponseEntity.ok().body("Quest created!");
     }
 
-    @PutMapping(path = "/updateQuest")
-    public ResponseEntity updateQuest(@RequestBody final Quest quests, @PathVariable("id") Integer QuestId) {
-        questService.updateQuest(quests, QuestId);
-        return ResponseEntity.ok().build();
+    @PutMapping(path = "/updateQuest/{id}")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity updateQuest(@Valid @RequestBody final UpdateQuestRequest updateQuestRequest, @PathVariable("id") @NotBlank UUID idQuest) {
+        questService.updateQuest(updateQuestRequest, idQuest);
+        return ResponseEntity.ok().body("Quest updated!");
     }
 
     @DeleteMapping(path = "/deleteQuest/{id}")
-    public ResponseEntity deleteQuest(@PathVariable("id") Integer QuestId) {
-        questService.deleteQuest(QuestId);
-        return ResponseEntity.ok().build();
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity deleteQuest(@PathVariable("id") @NotBlank UUID idQuest) {
+        questService.deleteQuest(idQuest);
+        return ResponseEntity.ok().body("Quest deleted!");
     }
 
     @GetMapping(path = "/getQuestById/{id}")
-    public ResponseEntity<GetQuestResponse> getQuestById(@PathVariable("id") Integer QuestId) {
-        return ResponseEntity.ok(questService.findQuestById(QuestId));
+    @PreAuthorize("hasRole('ADMIN') or hasRole('USER')")
+    public ResponseEntity<GetQuestResponse> getQuestById(@PathVariable("id") @NotBlank UUID idQuest) {
+        return ResponseEntity.ok(questService.findQuestById(idQuest));
     }
 
     @GetMapping(path = "/getAllQuests")
+    @PreAuthorize("hasRole('ADMIN') or hasRole('USER')")
     public ResponseEntity<Iterable<GetAllQuestsResponse>> getAllQuests() {
         return ResponseEntity.ok(questService.findAllQuests());
     }
 
     @PostMapping(path = "/resolveQuest/{idQuest}/{idUser}")
-    public GetQuestResponse resolveQuest(@PathVariable("idQuest") Integer idQuest, @PathVariable("idUser") Integer idUser) {
+    @PreAuthorize("hasRole('ADMIN') or hasRole('USER')")
+    public GetQuestResponse resolveQuest(@PathVariable("idQuest") @NotBlank UUID idQuest, @PathVariable("idUser") @NotBlank UUID idUser) {
         return questService.resolveQuest(idQuest, idUser);
     }
 
-    @PutMapping(path = "/updateRewarded/{idQuest}")
-    public void updateRewarded(@PathVariable("idQuest") Integer idQuest, @RequestBody boolean rewarded) {
-        questService.updateRewarded(idQuest, rewarded);
-    }
-
     @PostMapping(path = "/checkAnswer")
-    public boolean checkAnswer(@RequestBody CheckAnswerRequest checkAnswerRequest) {
+    @PreAuthorize("hasRole('ADMIN') or hasRole('USER')")
+    public boolean checkAnswer(@Valid @RequestBody CheckAnswerRequest checkAnswerRequest) {
         return questService.checkAnswer(checkAnswerRequest.getUserId(), checkAnswerRequest.getAnswer(), checkAnswerRequest.getQuestId());
     }
 }

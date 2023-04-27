@@ -1,13 +1,26 @@
 package org.example.Domain.Models.Quest.Request;
 
+import lombok.Getter;
+import lombok.Setter;
+
 public class CreateQuestRequest {
+    @Getter
+    @Setter
     private String answer;
+    @Getter
+    @Setter
     private String description;
+    @Getter
+    @Setter
     private int questRewardTokens;
+    @Getter
+    @Setter
     private String difficulty;
-
+    @Getter
+    @Setter
     private int threshold;
-
+    @Getter
+    @Setter
     private int rewardTokens;
 
     public CreateQuestRequest(String answer, String description, int questRewardTokens, String difficulty, int threshold, int rewardTokens) {
@@ -22,51 +35,5 @@ public class CreateQuestRequest {
     public CreateQuestRequest() {
     }
 
-    public int getRewardTokens() {
-        return rewardTokens;
-    }
 
-    public void setRewardTokens(int rewardTokens) {
-        this.rewardTokens = rewardTokens;
-    }
-
-    public String getDescription() {
-        return description;
-    }
-
-    public void setDescription(String description) {
-        this.description = description;
-    }
-
-    public int getReward() {
-        return questRewardTokens;
-    }
-
-    public void setReward(int questRewardTokens) {
-        this.questRewardTokens = questRewardTokens;
-    }
-
-    public String getAnswer() {
-        return answer;
-    }
-
-    public void setAnswer(String name) {
-        this.answer = name;
-    }
-
-    public String getDifficulty() {
-        return difficulty;
-    }
-
-    public void setDifficulty(String difficulty) {
-        this.difficulty = difficulty;
-    }
-
-    public int getThreshold() {
-        return threshold;
-    }
-
-    public void setThreshold(int threshold) {
-        this.threshold = threshold;
-    }
 }

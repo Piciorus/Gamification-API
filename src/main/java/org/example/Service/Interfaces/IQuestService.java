@@ -2,25 +2,26 @@ package org.example.Service.Interfaces;
 
 import org.example.Domain.Entities.Quest;
 import org.example.Domain.Models.Quest.Request.CreateQuestRequest;
+import org.example.Domain.Models.Quest.Request.UpdateQuestRequest;
 import org.example.Domain.Models.Quest.Response.GetAllQuestsResponse;
 import org.example.Domain.Models.Quest.Response.GetQuestResponse;
 
+import java.util.UUID;
+
 public interface IQuestService {
 
-    Quest createQuest(CreateQuestRequest createQuestRequest, int UserId);
+    Quest createQuest(CreateQuestRequest createQuestRequest, UUID idUser);
 
-    Quest updateQuest(Quest quests, Integer id);
+    Quest updateQuest(UpdateQuestRequest updateQuestRequest, UUID idQuest);
 
-    void deleteQuest(Integer id);
+    void deleteQuest(UUID idQuest);
 
-    GetQuestResponse findQuestById(Integer id);
+    GetQuestResponse findQuestById(UUID idQuest);
 
     Iterable<GetAllQuestsResponse> findAllQuests();
 
-    GetQuestResponse resolveQuest(int idQuest, int idUser);
+    GetQuestResponse resolveQuest(UUID idQuest, UUID idUser);
 
-    void updateRewarded(int idQuest, boolean rewarded);
-
-    boolean checkAnswer(int userId, String answer, int questId);
+    boolean checkAnswer(UUID userId, String answer, UUID questId);
 
 }

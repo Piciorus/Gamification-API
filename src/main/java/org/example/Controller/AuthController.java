@@ -1,6 +1,7 @@
 package org.example.Controller;
 
 import org.example.Config.JwtUtils;
+import org.example.Config.ResponseEntity;
 import org.example.Domain.Entities.ERole;
 import org.example.Domain.Entities.Role;
 import org.example.Domain.Entities.Security.UserDetailsImplementation;
@@ -11,10 +12,10 @@ import org.example.Domain.Models.User.Response.LoginUserResponse;
 import org.example.Repository.RoleRepository;
 import org.example.Repository.UsersRepository;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.http.ResponseEntity;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
+import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.web.bind.annotation.*;
@@ -30,32 +31,32 @@ import java.util.stream.Collectors;
 @RequestMapping("/auth")
 public class AuthController {
     @Autowired
-    AuthenticationManager authenticationManager;
+    private AuthenticationManager authenticationManager;
 
     @Autowired
-    UsersRepository userRepository;
+    private UsersRepository userRepository;
 
     @Autowired
-    RoleRepository roleRepository;
+    private RoleRepository roleRepository;
 
     @Autowired
-    PasswordEncoder encoder;
+    private PasswordEncoder encoder;
 
     @Autowired
-    JwtUtils jwtUtils;
+    private JwtUtils jwtUtils;
 
     @PostMapping("/login")
-    public LoginUserResponse authenticateUser(@Valid @RequestBody LoginUserRequest loginRequest) {
+    public LoginUserResponse login(@Valid @RequestBody LoginUserRequest loginUserRequest) {
 
         Authentication authentication = authenticationManager.authenticate(
-                new UsernamePasswordAuthenticationToken(LoginUserRequest.getUsername(), LoginUserRequest.getPassword()));
+                new UsernamePasswordAuthenticationToken(loginUserRequest.getUsername(), loginUserRequest.getPassword()));
 
         SecurityContextHolder.getContext().setAuthentication(authentication);
         String jwt = jwtUtils.generateJwtToken(authentication);
 
         UserDetailsImplementation userDetails = (UserDetailsImplementation) authentication.getPrincipal();
         List<String> roles = userDetails.getAuthorities().stream()
-                .map(item -> item.getAuthority())
+                .map(GrantedAuthority::getAuthority)
                 .collect(Collectors.toList());
 
         return new LoginUserResponse(jwt,
@@ -68,7 +69,17 @@ public class AuthController {
     }
 
     @PostMapping("/register")
-    public ResponseEntity<?> registerUser(@Valid @RequestBody RegisterUserRequest signUpRequest) {
+    public ResponseEntity<?> register(@Valid @RequestBody RegisterUserRequest signUpRequest) {
+        String emailRegex = "^[\\w-\\.]+@([\\w-]+\\.)+[\\w-]{2,4}$";
+        if (signUpRequest.getEmail() == null || !signUpRequest.getEmail().matches(emailRegex)) {
+            return new ResponseEntity<>("", 400, "Invalid email format");
+
+        }
+
+        if (userRepository.existsByUsername(signUpRequest.getUsername())) {
+            return new ResponseEntity<>("", 400, "Username is already taken!");
+
+        }
 
         User user = new User(signUpRequest.getUsername(),
                 encoder.encode(signUpRequest.getPassword()),
@@ -101,8 +112,9 @@ public class AuthController {
         }
 
         user.setRoles(roles);
+        user.setCreationDate(signUpRequest.getCreationDate());
         userRepository.save(user);
-
-        return ResponseEntity.ok().body("User registered successfully!");
+        return new ResponseEntity<>("", 200, "Registered successfully!");
     }
+
 }

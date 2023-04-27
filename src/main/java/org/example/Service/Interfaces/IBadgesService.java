@@ -5,18 +5,18 @@ import org.example.Domain.Models.Badge.Request.CreateBadgeRequest;
 import org.example.Domain.Models.Badge.Response.GetAllBadgesResponse;
 import org.example.Domain.Models.Badge.Response.GetBadgeByIdResponse;
 
+import java.util.UUID;
+
 public interface IBadgesService {
     Badge createBadge(CreateBadgeRequest createBadgeRequest);
 
-    Badge updateBadge(Badge badges, Integer id);
+    void deleteBadge(UUID idBadge);
 
-    void deleteBadge(Integer id);
-
-    GetBadgeByIdResponse findBadgeById(Integer id);
+    GetBadgeByIdResponse findBadgeById(UUID idBadge);
 
     Iterable<GetAllBadgesResponse> findAllBadges();
 
-    void rewardBadge(int idBadge, int idUser);
+    void rewardBadge(UUID idBadge, UUID idUser);
 
-    Iterable<Badge> findBadgesByUserId(int idUser);
+    Iterable<GetBadgeByIdResponse> findBadgesByUserId(UUID idUser);
 }

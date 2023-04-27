@@ -1,23 +1,36 @@
 package org.example.Domain.Models.User.Response;
 
 
+import lombok.Getter;
+import lombok.Setter;
+
 import java.util.List;
+import java.util.UUID;
 
 public class LoginUserResponse {
+    @Getter
+    @Setter
     private String jwttoken;
-    private long id;
-
+    @Getter
+    @Setter
+    private UUID id;
+    @Getter
+    @Setter
     private String username;
-
+    @Getter
+    @Setter
     private int tokens;
+    @Getter
+    @Setter
     private String email;
-
+    @Getter
+    @Setter
     private final List<String> roles;
-
+    @Getter
+    @Setter
     private int threshold;
 
-
-    public LoginUserResponse(String accessToken, Long id, String username, String email, List<String> roles, int tokens, int threshold) {
+    public LoginUserResponse(String accessToken, UUID id, String username, String email, List<String> roles, int tokens, int threshold) {
         this.jwttoken = accessToken;
         this.id = id;
         this.username = username;
@@ -27,55 +40,4 @@ public class LoginUserResponse {
         this.threshold = threshold;
     }
 
-    public String getAccessToken() {
-        return jwttoken;
-    }
-
-    public void setAccessToken(String accessToken) {
-        this.jwttoken = accessToken;
-    }
-
-    public Long getId() {
-        return id;
-    }
-
-    public void setId(Long id) {
-        this.id = id;
-    }
-
-    public String getEmail() {
-        return email;
-    }
-
-    public void setEmail(String email) {
-        this.email = email;
-    }
-
-    public String getUsername() {
-        return username;
-    }
-
-    public void setUsername(String username) {
-        this.username = username;
-    }
-
-    public List<String> getRoles() {
-        return roles;
-    }
-
-    public int getTokens() {
-        return tokens;
-    }
-
-    public void setTokens(int tokens) {
-        this.tokens = tokens;
-    }
-
-    public int getThreshold() {
-        return threshold;
-    }
-
-    public void setThreshold(int threshold) {
-        this.threshold = threshold;
-    }
 }

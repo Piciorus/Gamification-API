@@ -10,14 +10,7 @@ import java.util.Set;
 
 @Entity
 @Table(name = "Quests")
-public class Quest {
-
-    @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
-    @Getter
-    @Setter
-    private int id;
-
+public class Quest extends BaseEntity {
     @Column(name = "Answer", nullable = false, length = 50)
     @Getter
     @Setter

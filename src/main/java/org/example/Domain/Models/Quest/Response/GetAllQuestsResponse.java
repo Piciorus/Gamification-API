@@ -3,10 +3,12 @@ package org.example.Domain.Models.Quest.Response;
 import lombok.Getter;
 import lombok.Setter;
 
+import java.util.UUID;
+
 public class GetAllQuestsResponse {
     @Getter
     @Setter
-    private int id;
+    private UUID id;
     @Getter
     @Setter
     private String description;
@@ -26,7 +28,7 @@ public class GetAllQuestsResponse {
     @Setter
     private int questRewardTokens;
 
-    public GetAllQuestsResponse(int id, String description, String answer, boolean rewarded, String difficulty, int threshold, int questRewardTokens) {
+    public GetAllQuestsResponse(UUID id, String description, String answer, boolean rewarded, String difficulty, int threshold, int questRewardTokens) {
         this.id = id;
         this.description = description;
         this.answer = answer;
