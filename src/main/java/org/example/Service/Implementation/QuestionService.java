@@ -21,7 +21,7 @@ public class QuestionService implements IQuestionService {
     }
 
     @Override
-    public List<GetAllQuestionsResponse> getOneQuestionForTest(){
+    public List<GetAllQuestionsResponse> getQuestionsForTest(){
         List<GetAllQuestionsResponse> list = new ArrayList<>();
         questionRepository.findAllRandomQuestions().forEach(quest -> list.add(mapper.QuestionToGetAllQuestionsResponse(quest)));
         return list;

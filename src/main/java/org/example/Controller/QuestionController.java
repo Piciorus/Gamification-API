@@ -29,7 +29,7 @@ public class QuestionController {
     @GetMapping(path = "/question")
     @PreAuthorize("hasRole('ADMIN') or hasRole('USER')")
     public ResponseEntity<List<GetAllQuestionsResponse>> getQuestionForTest() {
-        return ResponseEntity.ok(questionService.getOneQuestionForTest());
+        return ResponseEntity.ok(questionService.getQuestionsForTest());
     }
 
 }
