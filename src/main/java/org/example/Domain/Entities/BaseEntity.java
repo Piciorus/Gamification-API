@@ -1,19 +1,20 @@
 package org.example.Domain.Entities;
 
-import org.hibernate.annotations.Type;
+import jakarta.persistence.Column;
+import jakarta.persistence.GeneratedValue;
+import jakarta.persistence.Id;
+import jakarta.persistence.MappedSuperclass;
+import org.hibernate.annotations.GenericGenerator;
 
-import javax.persistence.Column;
-import javax.persistence.Id;
-import javax.persistence.MappedSuperclass;
 import java.util.Date;
 import java.util.UUID;
 
 @MappedSuperclass
 public class BaseEntity {
     @Id
-    @Column(name = "id")
-    @Type(type = "uuid-char")
-    public UUID id = UUID.randomUUID();
+    @GeneratedValue(generator = "SEQ_USER")
+    @GenericGenerator(name = "SEQ_USER", strategy = "uuid2")
+    public UUID id;
     @Column(name = "CreationDate", nullable = true, length = 50)
     public Date creationDate;
     @Column(name = "UpdateDate", nullable = true, length = 50)

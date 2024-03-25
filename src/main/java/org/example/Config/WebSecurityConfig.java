@@ -1,5 +1,6 @@
 package org.example.Config;
 
+import jakarta.servlet.http.HttpServletResponse;
 import org.example.Service.Implementation.security.UserDetailsServiceImplementation;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Bean;
@@ -17,7 +18,6 @@ import org.springframework.security.web.authentication.UsernamePasswordAuthentic
 
 
 @Configuration
-@EnableGlobalMethodSecurity(prePostEnabled = true)
 public class WebSecurityConfig {
     @Autowired
     UserDetailsServiceImplementation userDetailsService;
@@ -52,12 +52,14 @@ public class WebSecurityConfig {
 
     @Bean
     public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
-        http.cors().and().csrf().disable();
-        http.exceptionHandling().authenticationEntryPoint(unauthorizedHandler).and()
-                .sessionManagement().sessionCreationPolicy(SessionCreationPolicy.STATELESS).and()
-                .authorizeRequests().antMatchers("/auth/**").permitAll()
-                .antMatchers("/**").permitAll()
-                .anyRequest().authenticated();
+        http.csrf(csrf -> csrf.disable())
+                .exceptionHandling(exception -> exception.authenticationEntryPoint(unauthorizedHandler))
+                .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+                .authorizeHttpRequests(auth ->
+                        auth.requestMatchers("/**").permitAll()
+                                .requestMatchers("/**").permitAll()
+                                .anyRequest().authenticated()
+                );
 
         http.authenticationProvider(authenticationProvider());
 

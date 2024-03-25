@@ -59,6 +59,11 @@ public class QuestController {
         return ResponseEntity.ok(questService.findAllQuests());
     }
 
+    @GetMapping(path = "/getAllResolvedQuests/{idUser}")
+    public ResponseEntity<Iterable<GetAllQuestsResponse>> getAllQuests(@PathVariable("idUser") @NotBlank UUID idUser) {
+        return ResponseEntity.ok(questService.findAllResolvedQuestsByUserId(idUser));
+    }
+
     @PostMapping(path = "/resolveQuest/{idQuest}/{idUser}")
     @PreAuthorize("hasRole('ADMIN') or hasRole('USER')")
     public GetQuestResponse resolveQuest(@PathVariable("idQuest") @NotBlank UUID idQuest, @PathVariable("idUser") @NotBlank UUID idUser) {

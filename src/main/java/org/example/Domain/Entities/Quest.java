@@ -4,44 +4,30 @@ import com.fasterxml.jackson.annotation.JsonIgnore;
 import lombok.Getter;
 import lombok.Setter;
 
-import javax.persistence.*;
+import jakarta.persistence.*;
 import java.util.HashSet;
 import java.util.Set;
 
 @Entity
-@Table(name = "Quests")
+@Getter
+@Setter
+@Table(name = "quests")
 public class Quest extends BaseEntity {
-    @Column(name = "Answer", nullable = false, length = 50)
-    @Getter
-    @Setter
+    @Column(name = "answer", nullable = false, length = 50)
     private String answer;
-
-    @Column(name = "Description", nullable = false, length = 200)
-    @Getter
-    @Setter
+    @Column(name = "description", nullable = false, length = 200)
     private String description;
-
-    @Column(name = "Rewarded", nullable = true, length = 200)
-    @Getter
-    @Setter
+    @Column(name = "rewarded", nullable = true, length = 200)
     private boolean rewarded;
-    @Column(name = "Difficulty", nullable = false, length = 50)
-    @Getter
-    @Setter
+    @Column(name = "difficulty", nullable = false, length = 50)
     private String difficulty;
-    @Column(name = "Threshold", nullable = false, length = 50)
-    @Getter
-    @Setter
+    @Column(name = "threshold", nullable = false, length = 50)
     private int threshold;
-    @Column(name = "QuestRewardTokens", nullable = false, length = 50)
-    @Getter
-    @Setter
+    @Column(name = "questRewardTokens", nullable = false, length = 50)
     private int questRewardTokens;
 
     @ManyToMany(mappedBy = "questsList", cascade = CascadeType.PERSIST, fetch = FetchType.EAGER)
     @JsonIgnore
-    @Getter
-    @Setter
     private Set<User> users1 = new HashSet<>();
 
     public Quest(String answer, String description, int questRewardTokens, String difficulty, int threshold, boolean rewarded) {

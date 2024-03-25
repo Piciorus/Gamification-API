@@ -2,6 +2,7 @@ package org.example.Domain.Mapper;
 
 import org.example.Domain.Entities.Badge;
 import org.example.Domain.Entities.Quest;
+import org.example.Domain.Entities.Question;
 import org.example.Domain.Entities.User;
 import org.example.Domain.Models.Badge.Request.CreateBadgeRequest;
 import org.example.Domain.Models.Badge.Response.GetAllBadgesResponse;
@@ -10,6 +11,7 @@ import org.example.Domain.Models.Quest.Request.CreateQuestRequest;
 import org.example.Domain.Models.Quest.Request.UpdateQuestRequest;
 import org.example.Domain.Models.Quest.Response.GetAllQuestsResponse;
 import org.example.Domain.Models.Quest.Response.GetQuestResponse;
+import org.example.Domain.Models.Question.GetAllQuestionsResponse;
 import org.example.Domain.Models.User.Response.GetAllUsersResponse;
 import org.example.Domain.Models.User.Response.GetUserByIdResponse;
 import org.springframework.stereotype.Component;
@@ -104,6 +106,22 @@ public class Mapper {
         quest.setDescription(updateQuestRequest.getDescription());
         quest.setRewarded(updateQuestRequest.isRewarded());
         quest.setUpdateDate(new Date());
+    }
+
+    public GetAllQuestionsResponse QuestionToGetAllQuestionsResponse(Question question) {
+        GetAllQuestionsResponse response = new GetAllQuestionsResponse();
+        response.setQuestionText(question.getQuestionText());
+        response.setAnswer1(question.getAnswer1());
+        response.setAnswer2(question.getAnswer2());
+        response.setAnswer3(question.getAnswer3());
+        response.setCorrectAnswer(question.getCorrectAnswer());
+        response.setRewarded(question.isRewarded());
+        response.setDifficulty(question.getDifficulty());
+        response.setThreshold(question.getThreshold());
+        response.setQuestRewardTokens(question.getQuestRewardTokens());
+        response.setCategory(question.getCategory());
+        response.setCheckByAdmin(question.isCheckByAdmin());
+        return response;
     }
 
 }

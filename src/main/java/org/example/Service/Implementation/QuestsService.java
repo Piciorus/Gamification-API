@@ -66,6 +66,16 @@ public class QuestsService implements IQuestService {
     }
 
     @Override
+    public Iterable<GetAllQuestsResponse> findAllResolvedQuestsByUserId(UUID idUser) {
+        List<GetAllQuestsResponse> list = new ArrayList<>();
+        questsRepository.findAllQuestsByUserId(idUser).forEach(quest -> {
+            list.add(mapper.QuestToGetAllQuestResponse(quest));
+        });
+        return list;
+    }
+
+
+    @Override
     public GetQuestResponse resolveQuest(UUID idQuest, UUID idUser) {
         Quest quest = questsRepository.getById(idQuest);
         User user = usersRepository.getById(idUser);

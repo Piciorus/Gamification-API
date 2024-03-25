@@ -20,6 +20,8 @@ public interface IQuestService {
 
     Iterable<GetAllQuestsResponse> findAllQuests();
 
+    Iterable<GetAllQuestsResponse> findAllResolvedQuestsByUserId(UUID idUser);
+
     GetQuestResponse resolveQuest(UUID idQuest, UUID idUser);
 
     boolean checkAnswer(UUID userId, String answer, UUID questId);

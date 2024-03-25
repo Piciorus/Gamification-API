@@ -1,29 +1,41 @@
 package org.example.Domain.Entities;
 
+import lombok.AllArgsConstructor;
 import lombok.Getter;
+import lombok.NoArgsConstructor;
 import lombok.Setter;
 
-import javax.persistence.*;
+import jakarta.persistence.*;
+import org.hibernate.annotations.GenericGenerator;
 
+import java.util.Objects;
+import java.util.UUID;
+
+@Getter
+@Setter
+@AllArgsConstructor
+@NoArgsConstructor
 @Entity
 @Table(name = "roles")
 public class Role {
     @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
-    @Getter
-    @Setter
-    private Integer id;
+    @GeneratedValue(generator = "SEQ_ROLE")
+    @GenericGenerator(name = "SEQ_ROLE", strategy = "uuid2")
+    private UUID id;
 
-    @Enumerated(EnumType.STRING)
-    @Column(length = 20)
-    @Getter
-    @Setter
-    private ERole name;
+    @Column(name = "name", nullable = false, unique = true)
+    private String name;
 
-    public Role() {
+    @Override
+    public int hashCode() {
+        return Objects.hash(id);
     }
 
-    public Role(ERole name) {
-        this.name = name;
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) return true;
+        if (o == null || getClass() != o.getClass()) return false;
+        Role child = (Role) o;
+        return Objects.equals(id, child.getId());
     }
 }
