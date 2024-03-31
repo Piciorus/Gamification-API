@@ -2,7 +2,6 @@ package org.example.Controller;
 
 import org.example.Config.JwtUtils;
 import org.example.Config.ResponseEntity;
-import org.example.Domain.Entities.ERole;
 import org.example.Domain.Entities.Role;
 import org.example.Domain.Entities.Security.UserDetailsImplementation;
 import org.example.Domain.Entities.User;
@@ -73,7 +72,6 @@ public class AuthController {
         String emailRegex = "^[\\w-\\.]+@([\\w-]+\\.)+[\\w-]{2,4}$";
         if (signUpRequest.getEmail() == null || !signUpRequest.getEmail().matches(emailRegex)) {
             return new ResponseEntity<>("", 400, "Invalid email format");
-
         }
 
         if (userRepository.existsByUsername(signUpRequest.getUsername())) {

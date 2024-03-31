@@ -1,18 +1,18 @@
 package org.example.Controller;
 
-import org.example.Domain.Entities.Quest;
-import org.example.Domain.Entities.Question;
-import org.example.Domain.Models.Question.GetAllQuestionsResponse;
+import org.example.Domain.Models.Question.Request.CreateQuestionRequest;
+import org.example.Domain.Models.Question.Response.GetAllQuestionsResponse;
+import org.example.Domain.Models.Question.Request.UpdateQuestionRequest;
 import org.example.Service.Interfaces.IQuestionService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
-import org.springframework.web.bind.annotation.CrossOrigin;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
 
+import javax.validation.Valid;
+import javax.validation.constraints.NotBlank;
 import java.util.List;
+import java.util.UUID;
 
 
 @CrossOrigin(origins = "*", maxAge = 3600)
@@ -30,6 +30,20 @@ public class QuestionController {
     @PreAuthorize("hasRole('ADMIN') or hasRole('USER')")
     public ResponseEntity<List<GetAllQuestionsResponse>> getQuestionForTest() {
         return ResponseEntity.ok(questionService.getQuestionsForTest());
+    }
+
+    @PostMapping(path = "/createQuestion")
+    @PreAuthorize("hasRole('ADMIN') or hasRole('USER')")
+    public ResponseEntity createQuestion(@Valid @RequestBody final CreateQuestionRequest createQuestionRequest) {
+        questionService.createQuestion(createQuestionRequest);
+        return ResponseEntity.ok().body("Question created!");
+    }
+
+    @PutMapping(path = "/updateQuestion/{id}")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity updateQuestion(@Valid @RequestBody final UpdateQuestionRequest updateQuestionRequest, @PathVariable("id") @NotBlank UUID idQuestion) {
+        questionService.updateQuestion(updateQuestionRequest, idQuestion);
+        return ResponseEntity.ok().body("Question updated!");
     }
 
 }

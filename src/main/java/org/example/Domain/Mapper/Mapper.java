@@ -11,7 +11,9 @@ import org.example.Domain.Models.Quest.Request.CreateQuestRequest;
 import org.example.Domain.Models.Quest.Request.UpdateQuestRequest;
 import org.example.Domain.Models.Quest.Response.GetAllQuestsResponse;
 import org.example.Domain.Models.Quest.Response.GetQuestResponse;
-import org.example.Domain.Models.Question.GetAllQuestionsResponse;
+import org.example.Domain.Models.Question.Request.CreateQuestionRequest;
+import org.example.Domain.Models.Question.Response.GetAllQuestionsResponse;
+import org.example.Domain.Models.Question.Request.UpdateQuestionRequest;
 import org.example.Domain.Models.User.Response.GetAllUsersResponse;
 import org.example.Domain.Models.User.Response.GetUserByIdResponse;
 import org.springframework.stereotype.Component;
@@ -110,6 +112,7 @@ public class Mapper {
 
     public GetAllQuestionsResponse QuestionToGetAllQuestionsResponse(Question question) {
         GetAllQuestionsResponse response = new GetAllQuestionsResponse();
+        response.setId(question.getId());
         response.setQuestionText(question.getQuestionText());
         response.setAnswer1(question.getAnswer1());
         response.setAnswer2(question.getAnswer2());
@@ -122,6 +125,32 @@ public class Mapper {
         response.setCategory(question.getCategory());
         response.setCheckByAdmin(question.isCheckByAdmin());
         return response;
+    }
+
+    public Question CreateQuestionRequestToQuestion(CreateQuestionRequest createQuestionRequest) {
+        Question quest = new Question();
+        quest.setQuestionText(createQuestionRequest.getQuestionText());
+        quest.setAnswer1(createQuestionRequest.getAnswer1());
+        quest.setAnswer2(createQuestionRequest.getAnswer2());
+        quest.setAnswer3(createQuestionRequest.getAnswer3());
+        quest.setCorrectAnswer(createQuestionRequest.getCorrectAnswer());
+        quest.setDifficulty(createQuestionRequest.getDifficulty());
+        quest.setQuestRewardTokens(createQuestionRequest.getQuestRewardTokens());
+        quest.setThreshold(createQuestionRequest.getThreshold());
+        return quest;
+    }
+
+    public void UpdateQuestionRequestToQuestion(UpdateQuestionRequest updateQuestionRequest,Question question) {
+        question.setQuestionText(updateQuestionRequest.getQuestionText());
+        question.setAnswer1(updateQuestionRequest.getAnswer1());
+        question.setAnswer2(updateQuestionRequest.getAnswer2());
+        question.setAnswer3(updateQuestionRequest.getAnswer3());
+        question.setDifficulty(updateQuestionRequest.getDifficulty());
+        question.setCheckByAdmin(updateQuestionRequest.isCheckedByAdmin());
+        question.setThreshold(updateQuestionRequest.getThreshold());
+        question.setCorrectAnswer(updateQuestionRequest.getCorrectAnswer());
+        question.setQuestRewardTokens(updateQuestionRequest.getQuestRewardTokens());
+        question.setUpdateDate(new Date());
     }
 
 }

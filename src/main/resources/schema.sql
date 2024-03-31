@@ -58,8 +58,8 @@ create table if not exists quests_users (
     user_id     uuid,
     quest_id    uuid,
     constraint  pk_quests_users  primary key (user_id, quest_id),
-    constraint  fk_user_id    foreign key (user_id)  references users(id) on delete cascade,
-    constraint  fk_quest_id   foreign key (quest_id)  references quests(id) on delete cascade
+    constraint  fk_user_id       foreign key (user_id)  references users(id) on delete cascade,
+    constraint  fk_quest_id      foreign key (quest_id)  references quests(id) on delete cascade
 );
 
 create table if not exists categories (
@@ -70,20 +70,20 @@ create table if not exists categories (
 );
 
 create table if not exists questions (
-    id                uuid not null primary key default public.uuid_generate_v4(),
-    question_text     varchar(200),
-    answer1           varchar(50),
-    answer2           varchar(50),
-    answer3           varchar(50),
-    correct_answer    varchar(50),
+    id                     uuid not null primary key default public.uuid_generate_v4(),
+    question_text          varchar(200),
+    answer1                varchar(50),
+    answer2                varchar(50),
+    answer3                varchar(50),
+    correct_answer         varchar(50),
     difficulty             varchar(50),
     quest_reward_tokens    int,
     rewarded               boolean,
     threshold              int,
-    category_id       uuid,
-    creation_date  timestamp,
-    update_date    timestamp,
-    checked_by_admin        boolean default false,
+    category_id            uuid,
+    creation_date          timestamp,
+    update_date            timestamp,
+    checked_by_admin       boolean default false,
     foreign key (category_id) references categories(id) on delete cascade
 );
 
