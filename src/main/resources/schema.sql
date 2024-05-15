@@ -14,6 +14,7 @@ create table if not exists users
     password               varchar(100),
     threshold              int,
     tokens                 int,
+    avatar                 varchar(100),
     username               varchar(100),
     creation_date          timestamp,
     update_date            timestamp
@@ -62,6 +63,8 @@ create table if not exists quests_users (
     constraint  fk_quest_id      foreign key (quest_id)  references quests(id) on delete cascade
 );
 
+
+
 create table if not exists categories (
     id             uuid not null primary key default public.uuid_generate_v4(),
     name           varchar(100) unique,
@@ -87,3 +90,18 @@ create table if not exists questions (
     foreign key (category_id) references categories(id) on delete cascade
 );
 
+create table if not exists quests_users (
+    user_id     uuid,
+    question_id    uuid,
+    constraint  pk_quests_users  primary key (user_id, question_id),
+    constraint  fk_user_id       foreign key (user_id)  references users(id) on delete cascade,
+    constraint  fk_question_id      foreign key (question_id)  references questions(id) on delete cascade
+    );
+
+create table if not exists user_questions (
+    user_id     uuid,
+    question_id    uuid,
+    constraint  pk_user_questions  primary key (user_id, question_id),
+    constraint  fk_user_id       foreign key (user_id)  references users(id) on delete cascade,
+    constraint  fk_question_id      foreign key (question_id)  references questions(id) on delete cascade
+    );

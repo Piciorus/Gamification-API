@@ -1,17 +1,25 @@
 package org.example.Domain.Entities;
 
-import jakarta.persistence.*;
-import lombok.AllArgsConstructor;
+import jakarta.persistence.Column;
+import jakarta.persistence.Entity;
+import jakarta.persistence.FetchType;
+import jakarta.persistence.JoinColumn;
+import jakarta.persistence.ManyToMany;
+import jakarta.persistence.ManyToOne;
+import jakarta.persistence.Table;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
+
+import java.util.HashSet;
+import java.util.Set;
 
 @Entity
 @Table(name = "questions")
 @Getter
 @Setter
 @NoArgsConstructor
-public class Question extends BaseEntity{
+public class Question extends BaseEntity {
     @Column(name = "question_text", nullable = false)
     private String questionText;
     @Column(name = "answer1")
@@ -35,5 +43,6 @@ public class Question extends BaseEntity{
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "category_id")
     private Category category;
-
+    @ManyToMany(mappedBy = "answeredQuestions", fetch = FetchType.LAZY)
+    private Set<User> answeredByUsers = new HashSet<>();
 }

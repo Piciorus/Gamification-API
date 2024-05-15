@@ -10,8 +10,6 @@ import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.util.Optional;
-
 @Service
 public class UserDetailsServiceImplementation implements UserDetailsService {
     @Autowired
@@ -25,5 +23,4 @@ public class UserDetailsServiceImplementation implements UserDetailsService {
 
         return UserDetailsImplementation.build(user);
     }
-
 }

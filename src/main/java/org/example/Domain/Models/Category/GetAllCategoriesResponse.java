@@ -1,4 +1,4 @@
-package org.example.Domain.Models.Badge.Response;
+package org.example.Domain.Models.Category;
 
 import lombok.AllArgsConstructor;
 import lombok.Getter;
@@ -11,8 +11,7 @@ import java.util.UUID;
 @Setter
 @AllArgsConstructor
 @NoArgsConstructor
-public class GetBadgeByIdResponse {
+public class GetAllCategoriesResponse {
     private UUID id;
     private String name;
 }
-

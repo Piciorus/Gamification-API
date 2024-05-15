@@ -1,13 +1,21 @@
 package org.example.Controller;
 
 import org.example.Domain.Models.Question.Request.CreateQuestionRequest;
-import org.example.Domain.Models.Question.Response.GetAllQuestionsResponse;
 import org.example.Domain.Models.Question.Request.UpdateQuestionRequest;
+import org.example.Domain.Models.Question.Response.GetAllQuestionsResponse;
 import org.example.Service.Interfaces.IQuestionService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
-import org.springframework.web.bind.annotation.*;
+import org.springframework.web.bind.annotation.CrossOrigin;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.RestController;
 
 import javax.validation.Valid;
 import javax.validation.constraints.NotBlank;
@@ -27,9 +35,13 @@ public class QuestionController {
     }
 
     @GetMapping(path = "/question")
-    @PreAuthorize("hasRole('ADMIN') or hasRole('USER')")
-    public ResponseEntity<List<GetAllQuestionsResponse>> getQuestionForTest() {
-        return ResponseEntity.ok(questionService.getQuestionsForTest());
+    public ResponseEntity<List<GetAllQuestionsResponse>> getQuestionForTest(
+            @RequestParam(required = false) String category,
+            @RequestParam(required = false) String difficulty
+    ) {
+        List<GetAllQuestionsResponse> questions = questionService.getQuestionsForTest(category, difficulty);
+
+        return ResponseEntity.ok(questions);
     }
 
     @PostMapping(path = "/createQuestion")
@@ -46,4 +58,10 @@ public class QuestionController {
         return ResponseEntity.ok().body("Question updated!");
     }
 
+    @PostMapping(path = "/resolveQuestion/{idQuest}/{idUser}")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<String> resolveQuestion(@PathVariable("idQuest") @NotBlank UUID idQuest, @PathVariable("idUser") @NotBlank UUID idUser) {
+        questionService.resolveQuestion(idQuest, idUser);
+        return ResponseEntity.ok().body("Question updated!");
+    }
 }

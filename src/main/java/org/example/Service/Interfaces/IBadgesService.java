@@ -8,7 +8,6 @@ import org.example.Domain.Models.Badge.Response.GetBadgeByIdResponse;
 import java.util.UUID;
 
 public interface IBadgesService {
-
     /**
      * Creates a new badge.
      *

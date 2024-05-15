@@ -10,7 +10,10 @@ import java.util.UUID;
 
 @Repository
 public interface QuestionRepository extends JpaRepository<Question, UUID> {
-    @Query(value = "SELECT q FROM Question q")
-    List<Question> findAllRandomQuestions();
+    @Query("SELECT q FROM Question q " +
+            "WHERE (:category is null OR q.category.name LIKE (:category)) " +
+            "AND (:difficulty is null OR q.difficulty IN (:difficulty)) " +
+            "ORDER BY q.category.name ASC, q.difficulty ASC")
+    List<Question> findAllWithSorting(String category, String difficulty);
     Question getById(final UUID id);
 }

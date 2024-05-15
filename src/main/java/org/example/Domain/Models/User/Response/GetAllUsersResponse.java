@@ -1,43 +1,26 @@
 package org.example.Domain.Models.User.Response;
 
+import lombok.AllArgsConstructor;
 import lombok.Getter;
+import lombok.NoArgsConstructor;
 import lombok.Setter;
+import org.example.Domain.Entities.Badge;
 import org.example.Domain.Entities.Role;
 
 import java.util.Set;
 import java.util.UUID;
 
+@Getter
+@Setter
+@AllArgsConstructor
+@NoArgsConstructor
 public class GetAllUsersResponse {
-    @Getter
-    @Setter
     private UUID id;
-    @Getter
-    @Setter
     private String username;
-    @Getter
-    @Setter
     private int threshold;
-    @Getter
-    @Setter
     private int tokens;
-    @Getter
-    @Setter
     private String email;
-    @Getter
-    @Setter
     private Set<Role> roles;
-
-    public GetAllUsersResponse(UUID id, String username, int threshold, int tokens, String email, Set<Role> roles) {
-        this.username = username;
-        this.threshold = threshold;
-        this.tokens = tokens;
-        this.email = email;
-        this.roles = roles;
-        this.id = id;
-    }
-
-    public GetAllUsersResponse() {
-    }
-
-
+    private Set<Badge> badges;
+    private String avatar;
 }

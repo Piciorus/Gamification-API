@@ -59,5 +59,4 @@ public class UsersService implements IUserService {
         Stream<User> stream = StreamSupport.stream(iterable.spliterator(), false);
         return stream.sorted(Comparator.comparingInt(User::getTokens).reversed()).map(user -> mapper.UserToGetAllUsersResponse(user)).collect(Collectors.toList());
     }
-
 }
