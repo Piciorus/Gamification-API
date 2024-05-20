@@ -46,12 +46,6 @@ public class User extends BaseEntity {
             inverseJoinColumns = @JoinColumn(name = "role_id"))
     private Set<Role> roles = new HashSet<>();
 
-    @ManyToMany(fetch = FetchType.LAZY)
-    @JoinTable(name = "user_questions",
-            joinColumns = @JoinColumn(name = "user_id"),
-            inverseJoinColumns = @JoinColumn(name = "question_id"))
-    private Set<Question> answeredQuestions = new HashSet<>();
-
     public User(String username, String password, int tokens, String email, int threshold) {
         this.username = username;
         this.Email = email;

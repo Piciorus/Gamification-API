@@ -4,18 +4,43 @@ VALUES
     ('4637ad14-9bd2-435b-bb03-3dfebb658d31', 'ROLE_ADMIN');
 
 -- Insert sample data into users table
-INSERT INTO users (id, email, password, threshold, tokens, username,creation_date,update_date)
+INSERT INTO users (id, email, password, threshold, tokens,avatar, username,creation_date,update_date)
 VALUES
-    ('21841092-b56f-4dbf-ad1c-1190a231cdfb', 'admin@example.com', 'admin', 100, 50, 'admin',CURRENT_TIMESTAMP,CURRENT_TIMESTAMP),
-    ('ec3c532d-8d3f-4be8-b583-c7c93dba044b', 'user@example.com', 'user', 150, 75, 'user',CURRENT_TIMESTAMP,CURRENT_TIMESTAMP),
-    ('d2a8d77e-a72d-4288-bca7-bba6631b4166', 'user1@example.com', 'user1', 200, 100, 'user1',CURRENT_TIMESTAMP,CURRENT_TIMESTAMP);
+    ('21841092-b56f-4dbf-ad1c-1190a231cdfb', 'admin@example.com', '$2a$12$RH4AW0odQgNqEBHMYNRnTu0ED7gkzfANp7tZE9w0auiWbBbOGpMWK', 100, 50,'#A52A2A', 'admin',CURRENT_TIMESTAMP,CURRENT_TIMESTAMP),
+    ('ec3c532d-8d3f-4be8-b583-c7c93dba044b', 'user@example.com', '$2a$12$30piE8UgHOQ66VETsvo9GOY4U6gidJzImz5cpz6IzndnhP6hvDsay', 150, 75,'#7FFFD4', 'user',CURRENT_TIMESTAMP,CURRENT_TIMESTAMP),
+    ('d2a8d77e-a72d-4288-bca7-bba6631b4166', 'user1@example.com', '$2a$12$ojEVe9Zlitv6gDhkeH1McefImw.8Tb/c/t7JzTDS1tWld9BytZA5O', 130, 20,'#7FFF00', 'user1',CURRENT_TIMESTAMP,CURRENT_TIMESTAMP),
+    ('d82a9816-f498-4d2c-9209-a4d39698f54d', 'alexandru@example.com', '$2a$12$30piE8UgHOQ66VETsvo9GOY4U6gidJzImz5cpz6IzndnhP6hvDsay', 140, 50,'#006400', 'alexandru',CURRENT_TIMESTAMP,CURRENT_TIMESTAMP),
+    ('6a079546-91e9-4d88-98a3-2013d695f488', 'andrei@example.com', '$2a$12$30piE8UgHOQ66VETsvo9GOY4U6gidJzImz5cpz6IzndnhP6hvDsay', 170, 250,'#556B2F', 'andrei',CURRENT_TIMESTAMP,CURRENT_TIMESTAMP),
+    ('8d83434d-ddba-4f0d-ae7b-7df97e652ad2', 'vlad@example.com', '$2a$12$30piE8UgHOQ66VETsvo9GOY4U6gidJzImz5cpz6IzndnhP6hvDsay', 180, 100,'#8B0000', 'vlad',CURRENT_TIMESTAMP,CURRENT_TIMESTAMP),
+    ('61d8b2f0-8eb2-475e-94fd-fa1ea38b4617', 'ionut@example.com', '$2a$12$30piE8UgHOQ66VETsvo9GOY4U6gidJzImz5cpz6IzndnhP6hvDsay', 220, 150,'#483D8B', 'ionut',CURRENT_TIMESTAMP,CURRENT_TIMESTAMP),
+    ('3cad4865-1070-4ac4-8d67-7af4f4639a64', 'mihai@example.com', '$2a$12$30piE8UgHOQ66VETsvo9GOY4U6gidJzImz5cpz6IzndnhP6hvDsay', 230, 190,'#FF1493', 'mihai',CURRENT_TIMESTAMP,CURRENT_TIMESTAMP),
+    ('42b09843-8bca-4fe9-91bc-a66ea4141874', 'andreea@example.com', '$2a$12$30piE8UgHOQ66VETsvo9GOY4U6gidJzImz5cpz6IzndnhP6hvDsay', 300, 350,'#228B22', 'andreea',CURRENT_TIMESTAMP,CURRENT_TIMESTAMP),
+    ('790feb6d-6bda-4d1a-ae43-a7cec75fe812', 'bianca@example.com', '$2a$12$30piE8UgHOQ66VETsvo9GOY4U6gidJzImz5cpz6IzndnhP6hvDsay', 250, 230,'#DAA520', 'bianca',CURRENT_TIMESTAMP,CURRENT_TIMESTAMP),
+    ('d36f6687-3c80-4d15-b3e9-4df0726a4e90', 'rares@example.com', '$2a$12$30piE8UgHOQ66VETsvo9GOY4U6gidJzImz5cpz6IzndnhP6hvDsay', 450, 450,'#CD5C5C', 'rares',CURRENT_TIMESTAMP,CURRENT_TIMESTAMP),
+    ('3f5f9602-e100-41ad-b0ce-e071f3252fdf', 'dragos@example.com', '$2a$12$30piE8UgHOQ66VETsvo9GOY4U6gidJzImz5cpz6IzndnhP6hvDsay', 60, 70,'#F0E68C', 'dragos',CURRENT_TIMESTAMP,CURRENT_TIMESTAMP),
+    ('fe755da8-35d3-40bb-b060-9991f6693205', 'radu@example.com', '$2a$12$30piE8UgHOQ66VETsvo9GOY4U6gidJzImz5cpz6IzndnhP6hvDsay', 80, 90,'#7CFC00', 'radu',CURRENT_TIMESTAMP,CURRENT_TIMESTAMP),
+    ('b92aa798-94bc-4413-9dc4-9fc66977776e', 'mariana@example.com', '$2a$12$30piE8UgHOQ66VETsvo9GOY4U6gidJzImz5cpz6IzndnhP6hvDsay', 50, 40,'#FFB6C1', 'mariana',CURRENT_TIMESTAMP,CURRENT_TIMESTAMP),
+    ('e259629b-c3a1-4690-b61c-396745eee7e7', 'ionel@example.com', '$2a$12$30piE8UgHOQ66VETsvo9GOY4U6gidJzImz5cpz6IzndnhP6hvDsay', 30, 50,'#800000', 'ionel',CURRENT_TIMESTAMP,CURRENT_TIMESTAMP);
 
 -- Insert sample data into user_roles table
 INSERT INTO user_roles (user_id, role_id)
 VALUES
     ('21841092-b56f-4dbf-ad1c-1190a231cdfb', '4637ad14-9bd2-435b-bb03-3dfebb658d31'),
     ('ec3c532d-8d3f-4be8-b583-c7c93dba044b', 'a56c2a6a-0212-4dde-a0d0-f016f0349498'),
-    ('d2a8d77e-a72d-4288-bca7-bba6631b4166', 'a56c2a6a-0212-4dde-a0d0-f016f0349498');
+    ('d2a8d77e-a72d-4288-bca7-bba6631b4166', 'a56c2a6a-0212-4dde-a0d0-f016f0349498'),
+    ('d82a9816-f498-4d2c-9209-a4d39698f54d', 'a56c2a6a-0212-4dde-a0d0-f016f0349498'),
+    ('6a079546-91e9-4d88-98a3-2013d695f488', 'a56c2a6a-0212-4dde-a0d0-f016f0349498'),
+    ('8d83434d-ddba-4f0d-ae7b-7df97e652ad2', 'a56c2a6a-0212-4dde-a0d0-f016f0349498'),
+    ('61d8b2f0-8eb2-475e-94fd-fa1ea38b4617', 'a56c2a6a-0212-4dde-a0d0-f016f0349498'),
+    ('3cad4865-1070-4ac4-8d67-7af4f4639a64', 'a56c2a6a-0212-4dde-a0d0-f016f0349498'),
+    ('42b09843-8bca-4fe9-91bc-a66ea4141874', 'a56c2a6a-0212-4dde-a0d0-f016f0349498'),
+    ('790feb6d-6bda-4d1a-ae43-a7cec75fe812', 'a56c2a6a-0212-4dde-a0d0-f016f0349498'),
+    ('d36f6687-3c80-4d15-b3e9-4df0726a4e90', 'a56c2a6a-0212-4dde-a0d0-f016f0349498'),
+    ('3f5f9602-e100-41ad-b0ce-e071f3252fdf', 'a56c2a6a-0212-4dde-a0d0-f016f0349498'),
+    ('b92aa798-94bc-4413-9dc4-9fc66977776e', 'a56c2a6a-0212-4dde-a0d0-f016f0349498'),
+    ('fe755da8-35d3-40bb-b060-9991f6693205', 'a56c2a6a-0212-4dde-a0d0-f016f0349498'),
+    ('e259629b-c3a1-4690-b61c-396745eee7e7', 'a56c2a6a-0212-4dde-a0d0-f016f0349498');
+
 
 -- Insert sample data into badges table
 INSERT INTO badges (id, name, creation_date, update_date)
@@ -46,12 +71,6 @@ VALUES
     ('ec3c532d-8d3f-4be8-b583-c7c93dba044b', '58bf523d-5ae8-4ff1-8ddc-c722db53b517');
 
 -- Inserting data into the categories table
-INSERT INTO categories (name, creation_date, update_date)
-VALUES
-    ('Category 1', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
-    ('Category 2', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
-    ('Category 3', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP);
-
 INSERT INTO public.categories
 (id, "name", creation_date, update_date)
 VALUES
@@ -97,8 +116,6 @@ VALUES
     ('c0429aa4-9fc3-41a4-8314-c29f5e01eb4f', 'What is the main function of the heart?', 'Pumping blood', 'Digestion', 'Respiration', 'Pumping blood', 'Easy', 10, true, 50, '1c924683-72f3-4a7f-bd0d-336aa5b2902a', NOW(), NOW(), false),
     ('ac9ddcc1-91dc-4914-8163-3fb82a188008', 'Which vitamin is essential for good vision?', 'Vitamin A', 'Vitamin C', 'Vitamin D', 'Vitamin A', 'Easy', 10, true, 50, '1c924683-72f3-4a7f-bd0d-336aa5b2902a', NOW(), NOW(), false);
 
----------------------
-- Education & Reference Category
 INSERT INTO public.questions
 (id, question_text, answer1, answer2, answer3, correct_answer, difficulty, quest_reward_tokens, rewarded, threshold, category_id, creation_date, update_date, checked_by_admin)
 VALUES
@@ -126,11 +143,9 @@ VALUES
     ('d2f95bd7-9ed2-45af-9e96-2209df4e6d8d', 'Which country won the most gold medals in the 2016 Summer Olympics?', 'United States', 'China', 'Russia', 'United States', 'Medium', 20, true, 75, '52393790-e9f0-4025-8e27-b32a044bc2c0', NOW(), NOW(), false),
     ('f35cf7ec-5a18-4198-8245-e1f53604f64b', 'Who holds the record for the fastest 100-meter sprint?', 'Usain Bolt', 'Carl Lewis', 'Justin Gatlin', 'Usain Bolt', 'Medium', 20, true, 75, '52393790-e9f0-4025-8e27-b32a044bc2c0', NOW(), NOW(), false),
     ('f5b21e57-d0d1-47e2-b7a2-08694be51dc9', 'Which sport uses the term "birdie"?', 'Golf', 'Tennis', 'Badminton', 'Golf', 'Easy', 10, true, 50, '52393790-e9f0-4025-8e27-b32a044bc2c0', NOW(), NOW(), false),
-    ('fce5064b-63ab-45e3-8054-59a85c230b10', 'Who won the Wimbledon Men\'s Singles title in 2021?', 'Novak Djokovic', 'Roger Federer', 'Rafael Nadal', 'Novak Djokovic', 'Medium', 20, true, 75, '52393790-e9f0-4025-8e27-b32a044bc2c0', NOW(), NOW(), false);
+    ('fce5064b-63ab-45e3-8054-59a85c230b10', 'Who won the Wimbledon Mens Singles title in 2021?', 'Novak Djokovic', 'Roger Federer', 'Rafael Nadal', 'Novak Djokovic', 'Medium', 20, true, 75, '52393790-e9f0-4025-8e27-b32a044bc2c0', NOW(), NOW(), false);
 
------@@@@@@@@@@@@@@@@@@@@@@
--- Business & Finance Category
-
+-- Business & Finance Category'
 INSERT INTO public.questions
 (id, question_text, answer1, answer2, answer3, correct_answer, difficulty, quest_reward_tokens, rewarded, threshold, category_id, creation_date, update_date, checked_by_admin)
 VALUES

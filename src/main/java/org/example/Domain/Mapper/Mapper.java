@@ -4,13 +4,18 @@ import org.example.Domain.Entities.Badge;
 import org.example.Domain.Entities.Category;
 import org.example.Domain.Entities.Question;
 import org.example.Domain.Entities.User;
+import org.example.Domain.Entities.UserQuestionHistory;
+import org.example.Domain.Entities.UserTestsHistory;
 import org.example.Domain.Models.Badge.Request.CreateBadgeRequest;
 import org.example.Domain.Models.Badge.Response.GetAllBadgesResponse;
 import org.example.Domain.Models.Badge.Response.GetBadgeByIdResponse;
 import org.example.Domain.Models.Category.GetAllCategoriesResponse;
 import org.example.Domain.Models.Question.Request.CreateQuestionRequest;
+import org.example.Domain.Models.Question.Request.SaveTestHistoryRequest;
 import org.example.Domain.Models.Question.Request.UpdateQuestionRequest;
+import org.example.Domain.Models.Question.Response.GetAllQuestionsHistoryUserResponse;
 import org.example.Domain.Models.Question.Response.GetAllQuestionsResponse;
+import org.example.Domain.Models.Question.Response.GetAllTestsHistoryResponse;
 import org.example.Domain.Models.User.Response.GetAllUsersResponse;
 import org.example.Domain.Models.User.Response.GetUserByIdResponse;
 import org.springframework.stereotype.Component;
@@ -112,5 +117,61 @@ public class Mapper {
         getAllCategoriesResponse.setName(category.getName());
         getAllCategoriesResponse.setId(category.getId());
         return getAllCategoriesResponse;
+    }
+
+    public GetAllQuestionsHistoryUserResponse userQuestionHistoryToResponse(UserQuestionHistory userQuestionHistory) {
+        GetAllQuestionsHistoryUserResponse response = new GetAllQuestionsHistoryUserResponse();
+        response.setId(userQuestionHistory.getId());
+        response.setCreationDate(userQuestionHistory.getCreationDate());
+        response.setUpdateDate(userQuestionHistory.getUpdateDate());
+        response.setQuestion(questionToResponse(userQuestionHistory.getQuestion()));
+        response.setAnswerDate(userQuestionHistory.getAnswerDate());
+        response.setCorrect(userQuestionHistory.isCorrect());
+        response.setUserAnswer(userQuestionHistory.getUserAnswer());
+        return response;
+    }
+
+    private GetAllQuestionsResponse questionToResponse(Question question) {
+        GetAllQuestionsResponse response = new GetAllQuestionsResponse();
+        response.setId(question.getId());
+        response.setQuestionText(question.getQuestionText());
+        response.setAnswer1(question.getAnswer1());
+        response.setAnswer2(question.getAnswer2());
+        response.setAnswer3(question.getAnswer3());
+        response.setCorrectAnswer(question.getCorrectAnswer());
+        response.setRewarded(question.isRewarded());
+        response.setDifficulty(question.getDifficulty());
+        response.setThreshold(question.getThreshold());
+        response.setQuestRewardTokens(question.getQuestRewardTokens());
+        response.setCategory(question.getCategory());
+        response.setCheckByAdmin(question.isCheckByAdmin());
+        return response;
+    }
+
+    public GetAllTestsHistoryResponse userTestsHistoryToResponse(UserTestsHistory userTestsHistory) {
+        GetAllTestsHistoryResponse response = new GetAllTestsHistoryResponse();
+        response.setTestDate(userTestsHistory.getTestDate());
+        response.setChatGptCorrectAnswers(userTestsHistory.getChatGptCorrectAnswers());
+        response.setUserCorrectAnswers(userTestsHistory.getUserCorrectAnswers());
+        response.setQuestionsAnswered(userTestsHistory.getQuestionsAnswered());
+        response.setCategory(userTestsHistory.getCategory());
+        return response;
+    }
+
+    public UserTestsHistory saveTestHistoryRequestToUserTestsHistory(SaveTestHistoryRequest request) {
+        UserTestsHistory userTestsHistory = new UserTestsHistory();
+        userTestsHistory.setTestDate(request.getTestDate());
+        userTestsHistory.setChatGptCorrectAnswers(request.getChatGptCorrectAnswers());
+        userTestsHistory.setUserCorrectAnswers(request.getUserCorrectAnswers());
+        userTestsHistory.setQuestionsAnswered(request.getQuestionsAnswered());
+        userTestsHistory.setCategory(categoryResponseToCategory(request.getCategory())); // Assuming you have a method to map category response to category entity
+        return userTestsHistory;
+    }
+
+    private Category categoryResponseToCategory(GetAllCategoriesResponse categoryResponse) {
+        Category category = new Category();
+        category.setId(categoryResponse.getId());
+        category.setName(categoryResponse.getName());
+        return category;
     }
 }

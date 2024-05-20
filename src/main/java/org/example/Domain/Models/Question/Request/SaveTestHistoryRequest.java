@@ -7,20 +7,16 @@ import lombok.Setter;
 import org.example.Domain.Entities.Category;
 import org.example.Domain.Models.Category.GetAllCategoriesResponse;
 
-import java.util.UUID;
+import java.time.LocalDateTime;
 
 @Getter
 @Setter
 @AllArgsConstructor
 @NoArgsConstructor
-public class CreateQuestionRequest {
-    private String questionText;
-    private String answer1;
-    private String answer2;
-    private String answer3;
-    private String correctAnswer;
-    private String difficulty;
-    private int threshold;
-    private int questRewardTokens;
-    private String category;
+public class SaveTestHistoryRequest {
+    private LocalDateTime testDate;
+    private int chatGptCorrectAnswers;
+    private int userCorrectAnswers;
+    private int questionsAnswered;
+    private GetAllCategoriesResponse category;
 }

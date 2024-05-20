@@ -19,4 +19,5 @@ public class UpdateQuestionRequest {
     private int threshold;
     private boolean checkedByAdmin;
     private int questRewardTokens;
+    private String category;
 }

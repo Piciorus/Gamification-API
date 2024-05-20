@@ -43,6 +43,4 @@ public class Question extends BaseEntity {
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "category_id")
     private Category category;
-    @ManyToMany(mappedBy = "answeredQuestions", fetch = FetchType.LAZY)
-    private Set<User> answeredByUsers = new HashSet<>();
 }
