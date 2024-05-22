@@ -72,19 +72,18 @@ VALUES
 
 -- Inserting data into the categories table
 INSERT INTO public.categories
-(id, "name", creation_date, update_date)
+(id, "name", color, creation_date, update_date)
 VALUES
-    ('c00be767-f747-4ac8-9e1d-1f7a3f0e4760', 'Society & Culture', NOW(), NOW()),
-    ('3014a547-2f15-4c98-a376-b7683d5e9325', 'Science & Mathematics', NOW(), NOW()),
-    ('1c924683-72f3-4a7f-bd0d-336aa5b2902a', 'Health', NOW(), NOW()),
-    ('3071582d-c0ad-4213-8060-8527918d558e', 'Education & Reference', NOW(), NOW()),
-    ('e32bef0e-79c5-4f09-85ba-783de3aafd69', 'Computers & Internet', NOW(), NOW()),
-    ('52393790-e9f0-4025-8e27-b32a044bc2c0', 'Sports', NOW(), NOW()),
-    ('a515d9e8-a636-465f-964c-6b740222b216', 'Business & Finance', NOW(), NOW()),
-    ('a8425ba5-3d7d-4fb0-a711-8cc548906048', 'Entertainment & Music', NOW(), NOW()),
-    ('16f269d2-af46-4e44-8b32-f13949976457', 'Family & Relationships', NOW(), NOW()),
-    ('8b4d7863-21b6-4d5a-b62f-5236d1f80e0b', 'Politics & Government', NOW(), NOW());
-
+    ('c00be767-f747-4ac8-9e1d-1f7a3f0e4760', 'Society & Culture', '#008FFB',NOW(), NOW()),
+    ('3014a547-2f15-4c98-a376-b7683d5e9325', 'Science & Mathematics','#FEB019', NOW(), NOW()),
+    ('1c924683-72f3-4a7f-bd0d-336aa5b2902a', 'Health','#775DD0',NOW(), NOW()),
+    ('3071582d-c0ad-4213-8060-8527918d558e', 'Education & Reference','#00FFFF',NOW(), NOW()),
+    ('e32bef0e-79c5-4f09-85ba-783de3aafd69', 'Computers & Internet','#B8860B' ,NOW(), NOW()),
+    ('52393790-e9f0-4025-8e27-b32a044bc2c0', 'Sports','#FF4560' ,NOW(), NOW()),
+    ('a515d9e8-a636-465f-964c-6b740222b216', 'Business & Finance','#006400',NOW(), NOW()),
+    ('a8425ba5-3d7d-4fb0-a711-8cc548906048', 'Entertainment & Music', '#FF69B4',NOW(), NOW()),
+    ('16f269d2-af46-4e44-8b32-f13949976457', 'Family & Relationships','#00E396',NOW(), NOW()),
+    ('8b4d7863-21b6-4d5a-b62f-5236d1f80e0b', 'Politics & Government', '#FF1493',NOW(), NOW());
 
 -- Society & Culture Category
 INSERT INTO public.questions

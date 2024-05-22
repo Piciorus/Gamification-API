@@ -68,6 +68,7 @@ create table if not exists quests_users (
 create table if not exists categories (
     id             uuid not null primary key default public.uuid_generate_v4(),
     name           varchar(100) unique,
+    color          varchar(100),
     creation_date  timestamp,
     update_date    timestamp
 );

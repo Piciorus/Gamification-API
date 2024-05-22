@@ -15,4 +15,6 @@ import lombok.Setter;
 public class Category extends BaseEntity {
     @Column(name = "name", nullable = false, unique = true)
     private String name;
+    @Column(name = "color", nullable = false, unique = true)
+    private String color;
 }
