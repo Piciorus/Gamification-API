@@ -9,9 +9,13 @@ import jakarta.persistence.JoinColumn;
 import jakarta.persistence.JoinTable;
 import jakarta.persistence.ManyToMany;
 import jakarta.persistence.Table;
+import lombok.AllArgsConstructor;
 import lombok.Getter;
+import lombok.NoArgsConstructor;
 import lombok.Setter;
 
+import javax.security.auth.Subject;
+import java.security.Principal;
 import java.util.HashSet;
 import java.util.Set;
 
@@ -19,9 +23,11 @@ import java.util.Set;
 @Table(name = "users")
 @Getter
 @Setter
-public class User extends BaseEntity {
-    @Column(name = "Email", nullable = false, length = 50)
-    private String Email;
+@AllArgsConstructor
+@NoArgsConstructor
+public class User extends BaseEntity implements Principal {
+    @Column(name = "email", nullable = false, length = 50)
+    private String email;
     @Column(name = "username", nullable = false, length = 50)
     private String username;
     @Column(name = "password", nullable = false, length = 200)
@@ -32,6 +38,8 @@ public class User extends BaseEntity {
     private int tokens;
     @Column(name = "avatar", nullable = false, length = 50)
     private String avatar;
+    @Column(name = "firstLogin", nullable = true, length = 50)
+    private boolean firstLogin;
     @ManyToMany(fetch = FetchType.EAGER, cascade = CascadeType.PERSIST)
     @JsonIgnore
     @JoinTable(
@@ -40,21 +48,19 @@ public class User extends BaseEntity {
             inverseJoinColumns = {@JoinColumn(name = "badge_id")}
     )
     private Set<Badge> badgesList = new HashSet<>(0);
-    @ManyToMany(fetch = FetchType.LAZY)
+    @ManyToMany(fetch = FetchType.EAGER)
     @JoinTable(name = "user_roles",
             joinColumns = @JoinColumn(name = "user_id"),
             inverseJoinColumns = @JoinColumn(name = "role_id"))
     private Set<Role> roles = new HashSet<>();
 
-    public User(String username, String password, int tokens, String email, int threshold) {
-        this.username = username;
-        this.Email = email;
-        this.tokens = tokens;
-        this.password = password;
-        this.threshold = threshold;
+    @Override
+    public String getName() {
+        return null;
     }
 
-    public User() {
-
+    @Override
+    public boolean implies(Subject subject) {
+        return Principal.super.implies(subject);
     }
 }

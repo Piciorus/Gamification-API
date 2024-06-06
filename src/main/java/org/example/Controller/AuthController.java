@@ -1,38 +1,63 @@
 package org.example.Controller;
 
+import jakarta.servlet.http.Cookie;
+import jakarta.servlet.http.HttpServletRequest;
 import org.example.Config.JwtUtils;
-import org.example.Config.ResponseEntity;
+import org.example.Config.ResponseEntity1;
 import org.example.Domain.Entities.Role;
 import org.example.Domain.Entities.Security.UserDetailsImplementation;
 import org.example.Domain.Entities.User;
+import org.example.Domain.Models.RefreshToken.Response.RefreshTokenResponseDTO;
 import org.example.Domain.Models.User.Request.LoginUserRequest;
 import org.example.Domain.Models.User.Request.RegisterUserRequest;
 import org.example.Domain.Models.User.Response.LoginUserResponse;
+import org.example.Exception.BusinessException;
+import org.example.Exception.BusinessExceptionCode;
 import org.example.Repository.RoleRepository;
 import org.example.Repository.UsersRepository;
+import org.example.Service.Implementation.security.UserDetailsServiceImplementation;
+import org.example.Service.RefreshTokenService;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseCookie;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
+import org.springframework.security.core.AuthenticationException;
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.web.bind.annotation.CrossOrigin;
+import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.http.ResponseEntity;
 
+import javax.crypto.Cipher;
+import javax.crypto.spec.IvParameterSpec;
+import javax.crypto.spec.SecretKeySpec;
 import javax.validation.Valid;
+import java.nio.charset.StandardCharsets;
+import java.time.Duration;
+import java.util.Arrays;
+import java.util.Base64;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Optional;
 import java.util.Set;
+import java.util.UUID;
 import java.util.stream.Collectors;
 
 @CrossOrigin(origins = "*", maxAge = 3600)
 @RestController
 @RequestMapping("/auth")
 public class AuthController {
+    private static final String REFRESH_TOKEN_COOKIE_NAME = "RefreshTokenCookie";
+
     @Autowired
     private AuthenticationManager authenticationManager;
 
@@ -43,75 +68,75 @@ public class AuthController {
     private RoleRepository roleRepository;
 
     @Autowired
-    private PasswordEncoder encoder;
-
+    private RefreshTokenService refreshTokenService;
+    @Value("${security.decipherKey}")
+    private String key;
     @Autowired
     private JwtUtils jwtUtils;
-
+    @Autowired
+    UserDetailsServiceImplementation userDetailsService;
     @PostMapping("/login")
-    public LoginUserResponse login(@Valid @RequestBody LoginUserRequest loginUserRequest) {
+    public ResponseEntity<?> login(@Valid @RequestBody LoginUserRequest loginUserRequest) throws BusinessException {
+        try {
+            String decryptedPassword = decrypt(loginUserRequest.getPassword(), key);
 
-        Authentication authentication = authenticationManager.authenticate(
-                new UsernamePasswordAuthenticationToken(loginUserRequest.getUsername(), loginUserRequest.getPassword()));
+            Authentication authentication = authenticationManager
+                    .authenticate(new UsernamePasswordAuthenticationToken(loginUserRequest.getUsername(), decryptedPassword));
 
-        SecurityContextHolder.getContext().setAuthentication(authentication);
-        String jwt = jwtUtils.generateJwtToken(authentication);
+            SecurityContextHolder.getContext().setAuthentication(authentication);
 
-        UserDetailsImplementation userDetails = (UserDetailsImplementation) authentication.getPrincipal();
-        List<String> roles = userDetails.getAuthorities().stream()
-                .map(GrantedAuthority::getAuthority)
-                .collect(Collectors.toList());
+            UserDetailsImplementation userDetails = (UserDetailsImplementation) authentication.getPrincipal();
 
-        return new LoginUserResponse(jwt,
-                userDetails.getId(),
-                userDetails.getUsername(),
-                userDetails.getEmail(),
-                roles,
-                userDetails.getTokens(),
-                userDetails.getThreshold());
+            String jwt = jwtUtils.generateJwtToken(userDetails);
+
+            String refreshToken = UUID.randomUUID().toString();
+
+            refreshTokenService.deleteRefreshTokenForUser(userDetails.getId());
+            refreshTokenService.createRefreshToken(refreshToken, userDetails.getId());
+
+            HttpHeaders headers = new HttpHeaders();
+            headers.add(HttpHeaders.SET_COOKIE, createCookie(refreshToken).toString());
+            LoginUserResponse response = new LoginUserResponse(jwt,userDetails.getId(),userDetails.getUsername(),userDetails.getEmail(),userDetails.getTokens(),userDetails.getThreshold());
+
+            return new ResponseEntity<>(response, headers, HttpStatus.OK);
+        } catch (AuthenticationException e) {
+            throw new BusinessException(BusinessExceptionCode.INVALID_CREDENTIALS);
+        }
+    }
+    private ResponseCookie createCookie(String token) {
+        return ResponseCookie.from(REFRESH_TOKEN_COOKIE_NAME, token)
+                .httpOnly(true)
+                .maxAge(Duration.ofDays(1))
+                .sameSite("Lax")
+                .path("/auth/refreshToken")
+                .build();
+    }
+    @PostMapping("/register")
+    public ResponseEntity1<?> registerUser(@RequestBody RegisterUserRequest registerRequest) throws BusinessException {
+        this.userDetailsService.registerUser(registerRequest);
+        return new ResponseEntity1<>("", 200, "Registered successfully!");
     }
 
-    @PostMapping("/register")
-    public ResponseEntity<?> register(@Valid @RequestBody RegisterUserRequest signUpRequest) {
-        String emailRegex = "^[\\w-\\.]+@([\\w-]+\\.)+[\\w-]{2,4}$";
-        if (signUpRequest.getEmail() == null || !signUpRequest.getEmail().matches(emailRegex)) {
-            return new ResponseEntity<>("", 400, "Invalid email format");
+    @GetMapping("/refreshToken")
+    public ResponseEntity<RefreshTokenResponseDTO> checkCookie(HttpServletRequest request) throws BusinessException {
+        Optional<Cookie> cookie = Arrays.stream(request.getCookies()).filter(c -> c.getName().equals(REFRESH_TOKEN_COOKIE_NAME)).findFirst();
+        if (cookie.isPresent()) {
+            return ResponseEntity.ok(new RefreshTokenResponseDTO(refreshTokenService.exchangeRefreshToken(cookie.get().getValue())));
         }
+        throw new BusinessException(BusinessExceptionCode.MISSING_COOKIE);
+    }
 
-        if (userRepository.existsByUsername(signUpRequest.getUsername())) {
-            return new ResponseEntity<>("", 400, "Username is already taken!");
+    public static String decrypt(String toDecrypt, String key) {
+        try {
+            IvParameterSpec iv = new IvParameterSpec(key.getBytes(StandardCharsets.UTF_8));
+            SecretKeySpec skeySpec = new SecretKeySpec(key.getBytes(StandardCharsets.UTF_8), "AES");
+            Cipher cipher = Cipher.getInstance("AES/CBC/PKCS5PADDING");
+            cipher.init(Cipher.DECRYPT_MODE, skeySpec, iv);
+            byte[] cipherText = cipher.doFinal(Base64.getDecoder().decode(toDecrypt));
+            return new String(cipherText);
+        } catch (Exception e) {
+            e.printStackTrace();
+            return null;
         }
-
-        User user = new User(signUpRequest.getUsername(),
-                encoder.encode(signUpRequest.getPassword()),
-                0,
-                signUpRequest.getEmail(), 0
-        );
-
-        Set<String> strRoles = signUpRequest.getRoles();
-        Set<Role> roles = new HashSet<>();
-
-        if (strRoles == null) {
-            Role userRole = roleRepository.findByName("ROLE_USER")
-                    .orElseThrow(() -> new RuntimeException("Error: Role is not found."));
-            roles.add(userRole);
-        } else {
-            strRoles.forEach(role -> {
-                if ("admin".equals(role)) {
-                    Role adminRole = roleRepository.findByName("ROLE_ADMIN")
-                            .orElseThrow(() -> new RuntimeException("Error: Role is not found."));
-                    roles.add(adminRole);
-                } else {
-                    Role userRole = roleRepository.findByName("ROLE_USER")
-                            .orElseThrow(() -> new RuntimeException("Error: Role is not found."));
-                    roles.add(userRole);
-                }
-            });
-        }
-
-        user.setRoles(roles);
-        user.setCreationDate(signUpRequest.getCreationDate());
-        userRepository.save(user);
-        return new ResponseEntity<>("", 200, "Registered successfully!");
     }
 }

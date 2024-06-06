@@ -16,6 +16,7 @@ import org.example.Domain.Models.Question.Request.UpdateQuestionRequest;
 import org.example.Domain.Models.Question.Response.GetAllQuestionsHistoryUserResponse;
 import org.example.Domain.Models.Question.Response.GetAllQuestionsResponse;
 import org.example.Domain.Models.Question.Response.GetAllTestsHistoryResponse;
+import org.example.Domain.Models.User.Request.UpdateUserRequest;
 import org.example.Domain.Models.User.Response.GetAllUsersResponse;
 import org.example.Domain.Models.User.Response.GetUserByIdResponse;
 import org.springframework.stereotype.Component;
@@ -110,6 +111,12 @@ public class Mapper {
         question.setCorrectAnswer(updateQuestionRequest.getCorrectAnswer());
         question.setQuestRewardTokens(updateQuestionRequest.getQuestRewardTokens());
         question.setUpdateDate(new Date());
+    }
+
+    public void UpdateUserRequestToUser(UpdateUserRequest updateUserRequest, User user) {
+        user.setUsername(updateUserRequest.getUsername());
+        user.setThreshold(updateUserRequest.getThreshold());
+        user.setTokens(updateUserRequest.getTokens());
     }
 
     public GetAllCategoriesResponse CategoryToGetAllCategoriesResponse(Category category){

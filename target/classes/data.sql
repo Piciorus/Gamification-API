@@ -1,7 +1,7 @@
 INSERT INTO roles (id, name)
 VALUES
-    ('a56c2a6a-0212-4dde-a0d0-f016f0349498', 'ROLE_USER'),
-    ('4637ad14-9bd2-435b-bb03-3dfebb658d31', 'ROLE_ADMIN');
+    ('a56c2a6a-0212-4dde-a0d0-f016f0349498', 0),
+    ('4637ad14-9bd2-435b-bb03-3dfebb658d31', 1);
 
 -- Insert sample data into users table
 INSERT INTO users (id, email, password, threshold, tokens,avatar, username,creation_date,update_date)
@@ -57,18 +57,18 @@ VALUES
     ('21841092-b56f-4dbf-ad1c-1190a231cdfb', 'e40d891f-1889-4449-8a27-ee1e4409f10a');
 
 -- Insert sample data into quests table
-INSERT INTO quests (id, answer, description, difficulty, quest_reward_tokens, rewarded, threshold, creation_date, update_date)
-VALUES
-    ('58bf523d-5ae8-4ff1-8ddc-c722db53b517', 'Answer1', 'Description1', 'Easy', 10, true, 50, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
-    ('40e2f3d1-e992-4c50-8dc3-849f984e635c', 'Answer2', 'Description2', 'Medium', 20, true, 75, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
-    ('24111738-48b8-42dc-a294-2eb3156d4002', 'Answer3', 'Description3', 'Hard', 30, true, 100, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP);
-
--- Insert sample data into quests_users table
-INSERT INTO quests_users (user_id, quest_id)
-VALUES
-    ('ec3c532d-8d3f-4be8-b583-c7c93dba044b', '24111738-48b8-42dc-a294-2eb3156d4002'),
-    ('ec3c532d-8d3f-4be8-b583-c7c93dba044b', '40e2f3d1-e992-4c50-8dc3-849f984e635c'),
-    ('ec3c532d-8d3f-4be8-b583-c7c93dba044b', '58bf523d-5ae8-4ff1-8ddc-c722db53b517');
+-- INSERT INTO quests (id, answer, description, difficulty, quest_reward_tokens, rewarded, threshold, creation_date, update_date)
+-- VALUES
+--     ('58bf523d-5ae8-4ff1-8ddc-c722db53b517', 'Answer1', 'Description1', 'Easy', 10, true, 50, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
+--     ('40e2f3d1-e992-4c50-8dc3-849f984e635c', 'Answer2', 'Description2', 'Medium', 20, true, 75, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
+--     ('24111738-48b8-42dc-a294-2eb3156d4002', 'Answer3', 'Description3', 'Hard', 30, true, 100, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP);
+--
+-- -- Insert sample data into quests_users table
+-- INSERT INTO quests_users (user_id, quest_id)
+-- VALUES
+--     ('ec3c532d-8d3f-4be8-b583-c7c93dba044b', '24111738-48b8-42dc-a294-2eb3156d4002'),
+--     ('ec3c532d-8d3f-4be8-b583-c7c93dba044b', '40e2f3d1-e992-4c50-8dc3-849f984e635c'),
+--     ('ec3c532d-8d3f-4be8-b583-c7c93dba044b', '58bf523d-5ae8-4ff1-8ddc-c722db53b517');
 
 -- Inserting data into the categories table
 INSERT INTO public.categories

@@ -1,5 +1,7 @@
 package org.example.Service.Interfaces;
 
+import org.example.Domain.Entities.User;
+import org.example.Domain.Models.User.Request.UpdateUserRequest;
 import org.example.Domain.Models.User.Response.GetAllUsersResponse;
 import org.example.Domain.Models.User.Response.GetUserByIdResponse;
 
@@ -18,6 +20,7 @@ public interface IUserService {
      * Retrieves a user by ID.
      *
      * @param idUser The ID of the user to retrieve.
+     *
      * @return The user response.
      */
     GetUserByIdResponse getUserById(final UUID idUser);
@@ -42,4 +45,8 @@ public interface IUserService {
      * @return An iterable of users sorted by tokens in descending order.
      */
     Iterable<GetAllUsersResponse> getUsersSortedByTokensDescending();
+
+    User updateUser(UpdateUserRequest updateUserRequest, UUID idUser);
+
+    void deleteUser(UUID idUser);
 }

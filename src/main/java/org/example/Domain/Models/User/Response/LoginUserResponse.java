@@ -14,16 +14,22 @@ public class LoginUserResponse {
     private String username;
     private int tokens;
     private String email;
-    private final List<String> roles;
     private int threshold;
 
-    public LoginUserResponse(String accessToken, UUID id, String username, String email, List<String> roles, int tokens, int threshold) {
-        this.jwttoken = accessToken;
+    public LoginUserResponse(String jwttoken, UUID id, String username, String email, int tokens, int threshold) {
+        this.jwttoken = jwttoken;
         this.id = id;
         this.username = username;
         this.email = email;
-        this.roles = roles;
         this.tokens = tokens;
         this.threshold = threshold;
     }
+
+//    public LoginUserResponse(String username, String email, List<String> roles, int tokens, int threshold) {
+//        this.username = username;
+//        this.email = email;
+//        this.roles = roles;
+//        this.tokens = tokens;
+//        this.threshold = threshold;
+//    }
 }

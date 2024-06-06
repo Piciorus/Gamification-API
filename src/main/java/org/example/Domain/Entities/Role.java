@@ -24,7 +24,7 @@ public class Role {
     private UUID id;
 
     @Column(name = "name", nullable = false, unique = true)
-    private String name;
+    private ERole name;
 
     @Override
     public int hashCode() {

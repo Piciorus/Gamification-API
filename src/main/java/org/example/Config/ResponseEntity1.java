@@ -1,11 +1,11 @@
 package org.example.Config;
 
-public class ResponseEntity<T> {
+public class ResponseEntity1<T> {
     private T data;
     private int statusCode;
     private String message;
 
-    public ResponseEntity(T data, int statusCode, String message) {
+    public ResponseEntity1(T data, int statusCode, String message) {
         this.data = data;
         this.statusCode = statusCode;
         this.message = message;
