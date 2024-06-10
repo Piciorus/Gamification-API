@@ -96,7 +96,7 @@ public class AuthController {
 
             HttpHeaders headers = new HttpHeaders();
             headers.add(HttpHeaders.SET_COOKIE, createCookie(refreshToken).toString());
-            LoginUserResponse response = new LoginUserResponse(jwt,userDetails.getId(),userDetails.getUsername(),userDetails.getEmail(),userDetails.getTokens(),userDetails.getThreshold());
+            LoginUserResponse response = new LoginUserResponse(jwt,userDetails.getId(),userDetails.getUsername(),userDetails.getEmail(),userDetails.getTokens(),userDetails.getThreshold(),userDetails.isFirstLogin());
 
             return new ResponseEntity<>(response, headers, HttpStatus.OK);
         } catch (AuthenticationException e) {

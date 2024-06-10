@@ -15,14 +15,16 @@ public class LoginUserResponse {
     private int tokens;
     private String email;
     private int threshold;
+    private boolean firstLogin;
 
-    public LoginUserResponse(String jwttoken, UUID id, String username, String email, int tokens, int threshold) {
+    public LoginUserResponse(String jwttoken, UUID id, String username, String email, int tokens, int threshold,boolean firstLogin) {
         this.jwttoken = jwttoken;
         this.id = id;
         this.username = username;
         this.email = email;
         this.tokens = tokens;
         this.threshold = threshold;
+        this.firstLogin = firstLogin;
     }
 
 //    public LoginUserResponse(String username, String email, List<String> roles, int tokens, int threshold) {

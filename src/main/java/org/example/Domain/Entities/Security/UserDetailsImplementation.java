@@ -1,6 +1,7 @@
 package org.example.Domain.Entities.Security;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
+import lombok.Getter;
 import org.example.Domain.Entities.User;
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
@@ -24,11 +25,13 @@ public class UserDetailsImplementation implements UserDetails {
 
     @JsonIgnore
     private final String password;
+    @Getter
+    private boolean firstLogin;
 
     private final Collection<? extends GrantedAuthority> authorities;
 
     public UserDetailsImplementation(UUID id, String username, String email, String password,
-                                     Collection<? extends GrantedAuthority> authorities, int tokens, int threshold) {
+                                     Collection<? extends GrantedAuthority> authorities, int tokens, int threshold, boolean firstLogin) {
         this.id = id;
         this.username = username;
         this.email = email;
@@ -36,6 +39,8 @@ public class UserDetailsImplementation implements UserDetails {
         this.authorities = authorities;
         this.tokens = tokens;
         this.threshold = threshold;
+        this.firstLogin = firstLogin;
+
     }
 
     public static UserDetailsImplementation build(User user) {
@@ -49,7 +54,7 @@ public class UserDetailsImplementation implements UserDetails {
                 user.getEmail(),
                 user.getPassword(),
                 authorities,
-                user.getTokens(), user.getThreshold());
+                user.getTokens(), user.getThreshold(),user.isFirstLogin());
     }
 
     @Override
