@@ -230,4 +230,17 @@ public class LutSegmentScoresEntity {
         return entity;
     }
 }
+CsvUtils {
 
+    /**
+     * Reads a CSV file from the given {@link InputStream}, validates the headers, and maps each row to an entity
+     * using the provided {@link CsvRowMapper}.
+     *
+     * @param inputStream    The input stream of the CSV file.
+     * @param rowMapper      A {@link CsvRowMapper} implementation that defines how to map CSV records to entities.
+     * @param requiredHeaders An array of header names that are required to be present in the CSV file.
+     * @param <T>            The type of the entity to be created from the CSV records.
+     * @return A list of entities created from the CSV records.
+     * @throws IOException If an I/O error occurs while reading the CSV file or parsing the records.
+     * @throws IllegalArgumentException If any of the required headers are missing in the CSV file.
+     */
