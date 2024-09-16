@@ -168,3 +168,48 @@ public class CSVUtils {
         return null;
     }
 }
+import org.apache.commons.csv.CSVRecord;
+
+@FunctionalInterface
+public interface CsvRowMapper<T> {
+    T mapRow(CSVRecord record);
+}import org.apache.commons.csv.CSVFormat;
+import org.apache.commons.csv.CSVParser;
+import org.apache.commons.csv.CSVRecord;
+
+import java.io.BufferedReader;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.InputStreamReader;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+
+public class CsvUtils {
+
+    public static <T> List<T> readCsv(InputStream inputStream, CsvRowMapper<T> rowMapper, String[] requiredHeaders) throws IOException {
+        List<T> entities = new ArrayList<>();
+        
+        try (BufferedReader reader = new BufferedReader(new InputStreamReader(inputStream, "UTF-8"));
+             CSVParser parser = new CSVParser(reader, CSVFormat.DEFAULT.withFirstRecordAsHeader().withIgnoreHeaderCase().withTrim())) {
+            
+            Map<String, Integer> headers = parser.getHeaderMap();
+
+            // Validate headers
+            for (String requiredHeader : requiredHeaders) {
+                if (!headers.containsKey(requiredHeader)) {
+                    throw new IllegalArgumentException("CSV file is missing required header: " + requiredHeader);
+                }
+            }
+
+            // Map each record to the entity
+            for (CSVRecord record : parser.getRecords()) {
+                entities.add(rowMapper.mapRow(record));
+            }
+        }
+
+        return entities;
+    }
+}
+
