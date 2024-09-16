@@ -212,4 +212,22 @@ public class CsvUtils {
         return entities;
     }
 }
+import org.apache.commons.csv.CSVRecord;
+import java.math.BigDecimal;
+
+public class LutSegmentScoresEntity {
+    private BigDecimal scoreId;
+    private String segmentationId;
+    private String scoreName;
+
+    // Getters and setters...
+
+    public static LutSegmentScoresEntity fromCsvRecord(CSVRecord record) {
+        LutSegmentScoresEntity entity = new LutSegmentScoresEntity();
+        entity.setScoreId(new BigDecimal(record.get("SCORE 10")));
+        entity.setSegmentationId(record.get("SEGMENTATION ID"));
+        entity.setScoreName(record.get("SCORE NAME"));
+        return entity;
+    }
+}
 
