@@ -1,3 +1,46 @@
+plugins {
+    id 'org.openapi.generator' version '6.0.1'
+}
+
+task generateOpenApiMultipleFiles {
+    def yamlFiles = [
+        "${projectDir}/src/main/resources/common-error-handling.yaml",
+        "${projectDir}/src/main/resources/another-api-spec.yaml"
+    ]
+
+    def outputDirs = [
+        "${buildDir}/generated/openapi/common-error-handling",
+        "${buildDir}/generated/openapi/another-api-spec"
+    ]
+
+    yamlFiles.eachWithIndex { yamlFile, index ->
+        def outputDir = outputDirs[index]
+        def taskName = "openApiGenerate${index}"
+        
+        tasks.create(name: taskName, type: org.openapitools.generator.gradle.plugin.tasks.GenerateTask) {
+            generatorName = "spring"
+            inputSpec = yamlFile
+            outputDir = outputDir
+            apiPackage = "com.consorsbank.generated.api.${index}"
+            modelPackage = "com.consorsbank.generated.model.${index}"
+            skipValidateSpec = true
+            generateApiTests = false
+            configOptions = [
+                useSpringBoot3: "true",
+                delegatePattern: "true",
+                interfaceOnly: "true",
+                unhandledException: "true"
+            ]
+            useTags = true
+            additionalModelTypeAnnotations = "@lombok.Builder @lombok.NoArgsConstructor @lombok.AllArgsConstructor"
+        }
+    }
+}
+
+task generateAllOpenApi {
+    dependsOn generateOpenApiMultipleFiles
+}
+
 import org.apache.commons.csv.CSVFormat;
 import org.apache.commons.csv.CSVParser;
 import org.apache.commons.csv.CSVRecord;
