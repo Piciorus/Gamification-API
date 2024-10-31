@@ -52,4 +52,60 @@ public class CRMGetLastCallAgentsServiceImplTest {
         // Verify that the web service template was called exactly once
         verify(getLastCallAgentsWebServiceTemplate, times(1)).marshalSendAndReceive(any(JAXBElement.class));
     }
+}import io.swagger.v3.oas.models.OpenAPI;
+import io.swagger.v3.oas.models.servers.Server;
+import io.swagger.v3.oas.models.Components;
+import io.swagger.v3.oas.models.security.SecurityScheme;
+import io.swagger.v3.oas.models.security.SecurityRequirement;
+import org.springdoc.core.GroupedOpenApi;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
+
+import java.util.List;
+
+@Configuration
+public class OpenApiConfig {
+
+    @Value("${api.base-url}")
+    private String baseUrl;
+
+    @Value("${api.actuator-path}")
+    private String actuatorPath;  // "/management"
+
+    // Method to insert "mgmt" into the base URL specifically for actuator group
+    private String getActuatorBaseUrlWithMgmt() {
+        return baseUrl.replace("crmsps-sc-", "crmsps-sc-mgmt-");
+    }
+
+    @Bean
+    public GroupedOpenApi applicationApi() {
+        return GroupedOpenApi.builder()
+                .group("1-Application")
+                .displayName("Application")
+                .packagesToScan("com.consorsbank.grmaps.rest.adeptor.controller")
+                .build();
+    }
+
+    @Bean
+    public GroupedOpenApi actuatorApi() {
+        return GroupedOpenApi.builder()
+                .group("2-Actuator")
+                .displayName("Actuators")
+                .pathsToMatch(actuatorPath + "/**")  // Match paths under "/management"
+                .addOpenApiCustomiser(openApi -> openApi.addServersItem(
+                        new Server().url(getActuatorBaseUrlWithMgmt() + actuatorPath)))  // Insert "mgmt" for actuator group only
+                .build();
+    }
+
+    @Bean
+    public OpenAPI customOpenAPI() {
+        return new OpenAPI()
+                .addServersItem(new Server().url(baseUrl))  // Main application URL without "mgmt"
+                .components(new Components()
+                        .addSecuritySchemes("Bearer Authentication",
+                                new SecurityScheme().type(SecurityScheme.Type.HTTP).scheme("bearer")))
+                .security(List.of(new SecurityRequirement().addList("Bearer Authentication")));
+    }
 }
+
