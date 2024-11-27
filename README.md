@@ -138,3 +138,54 @@ public I getPort() throws WebServiceException {
     }
 }
 
+import org.springframework.ws.client.support.interceptor.ClientInterceptor;
+import org.springframework.ws.context.MessageContext;
+
+import javax.xml.transform.TransformerFactory;
+import javax.xml.transform.stream.StreamResult;
+import java.io.StringWriter;
+
+public class LoggingInterceptor implements ClientInterceptor {
+
+    @Override
+    public boolean handleRequest(MessageContext messageContext) {
+        try {
+            StringWriter requestWriter = new StringWriter();
+            TransformerFactory.newInstance()
+                .newTransformer()
+                .transform(messageContext.getRequest().getPayloadSource(), new StreamResult(requestWriter));
+            System.out.println("SOAP Request: " + requestWriter.toString());
+        } catch (Exception e) {
+            System.err.println("Failed to log SOAP Request: " + e.getMessage());
+        }
+        return true; // Continue the processing of the request
+    }
+
+    @Override
+    public boolean handleResponse(MessageContext messageContext) {
+        try {
+            StringWriter responseWriter = new StringWriter();
+            TransformerFactory.newInstance()
+                .newTransformer()
+                .transform(messageContext.getResponse().getPayloadSource(), new StreamResult(responseWriter));
+            System.out.println("SOAP Response: " + responseWriter.toString());
+        } catch (Exception e) {
+            System.err.println("Failed to log SOAP Response: " + e.getMessage());
+        }
+        return true; // Continue the processing of the response
+    }
+
+    @Override
+    public boolean handleFault(MessageContext messageContext) {
+        try {
+            StringWriter faultWriter = new StringWriter();
+            TransformerFactory.newInstance()
+                .newTransformer()
+                .transform(messageContext.getResponse().getPayloadSource(), new StreamResult(faultWriter));
+            System.out.println("SOAP Fault: " + faultWriter.toString());
+        } catch (Exception e) {
+            System.err.println("Failed to log SOAP Fault: " + e.getMessage());
+        }
+        return true; // Continue the processing of the fault
+    }
+}
