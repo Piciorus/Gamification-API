@@ -340,3 +340,68 @@ public class GenericCrmRestClient {
         }
     }
 }
+
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.stereotype.Component;
+import org.springframework.web.client.RestTemplate;
+
+import java.util.Map;
+import java.util.function.BiFunction;
+import java.util.function.Function;
+
+@Component
+public class GenericCrmRestClient {
+
+    private final RestTemplate restTemplate;
+    private final CraRestClientConnectionProperties crmConnectionProperties;
+
+    @Autowired
+    public GenericCrmRestClient(
+            CraRestClientConnectionProperties crmConnectionProperties,
+            @Qualifier("crmRestClientTemplate") RestTemplate restTemplate) {
+        this.crmConnectionProperties = crmConnectionProperties;
+        this.restTemplate = restTemplate;
+    }
+
+    /**
+     * Perform a generic CRM request for methods like GET or DELETE
+     *
+     * @param endpoint    the relative endpoint (e.g., "/contact/{id}")
+     * @param uriVariables map of URI variables to be replaced in the endpoint
+     * @param executor    a function defining the HTTP operation (GET or DELETE)
+     * @param <T>         the type of the response object
+     * @return the response object
+     */
+    public <T> T executeRequest(
+            String endpoint,
+            Map<String, String> uriVariables,
+            Function<String, T> executor) {
+        String url = crmConnectionProperties.getUrl() + endpoint;
+        return executor.apply(url);
+    }
+
+    /**
+     * Perform a generic CRM request for methods like POST or PUT that include a request body
+     *
+     * @param endpoint     the relative endpoint (e.g., "/contact/{id}")
+     * @param requestBody  the request body
+     * @param uriVariables map of URI variables to be replaced in the endpoint
+     * @param executor     a function defining the HTTP operation (POST or PUT)
+     * @param <T>          the type of the response object
+     * @return the response object
+     */
+    public <T> T executeRequestWithBody(
+            String endpoint,
+            Object requestBody,
+            Map<String, String> uriVariables,
+            BiFunction<String, Object, T> executor) {
+        String url = crmConnectionProperties.getUrl() + endpoint;
+        return executor.apply(url, requestBody);
+    }
+
+    public RestTemplate getRestTemplate() {
+        return restTemplate;
+    }
+}
+
