@@ -254,3 +254,89 @@ public class CrmService {
     }
 }
 
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.stereotype.Component;
+import org.springframework.web.client.RestTemplate;
+
+import java.util.Map;
+import java.util.function.Function;
+
+@Component
+public class GenericCrmRestClient {
+
+    private final RestTemplate restTemplate;
+    private final CraRestClientConnectionProperties crmConnectionProperties;
+
+    @Autowired
+    public GenericCrmRestClient(
+            CraRestClientConnectionProperties crmConnectionProperties,
+            @Qualifier("crmRestClientTemplate") RestTemplate restTemplate) {
+        this.crmConnectionProperties = crmConnectionProperties;
+        this.restTemplate = restTemplate;
+    }
+
+    /**
+     * Perform a generic CRM request using a functional approach
+     *
+     * @param endpoint    the relative endpoint (e.g., "/contact/{id}")
+     * @param uriVariables map of URI variables to be replaced in the endpoint
+     * @param executor    a function defining the HTTP operation (GET, POST, PUT, DELETE)
+     * @param <T>         the type of the response object
+     * @return the response object
+     */
+    public <T> T executeRequest(
+            String endpoint,
+            Map<String, String> uriVariables,
+            Function<String, T> executor) {
+        String url = crmConnectionProperties.getUrl() + endpoint;
+        return executor.apply(url);
+    }
+
+    /**
+     * Execute a POST, PUT, or DELETE request with a request body
+     *
+     * @param endpoint     the relative endpoint (e.g., "/contact/{id}")
+     * @param requestBody  the request body
+     * @param uriVariables map of URI variables to be replaced in the endpoint
+     * @param executor     a function defining the HTTP operation
+     * @param <T>          the type of the response object
+     * @return the response object
+     */
+    public <T> T executeRequestWithBody(
+            String endpoint,
+            Object requestBody,
+            Map<String, String> uriVariables,
+            Function<RequestDetails, T> executor) {
+        String url = crmConnectionProperties.getUrl() + endpoint;
+        RequestDetails requestDetails = new RequestDetails(url, requestBody, uriVariables);
+        return executor.apply(requestDetails);
+    }
+
+    /**
+     * Inner class to encapsulate request details
+     */
+    public static class RequestDetails {
+        private final String url;
+        private final Object body;
+        private final Map<String, String> uriVariables;
+
+        public RequestDetails(String url, Object body, Map<String, String> uriVariables) {
+            this.url = url;
+            this.body = body;
+            this.uriVariables = uriVariables;
+        }
+
+        public String getUrl() {
+            return url;
+        }
+
+        public Object getBody() {
+            return body;
+        }
+
+        public Map<String, String> getUriVariables() {
+            return uriVariables;
+        }
+    }
+}
