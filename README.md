@@ -189,3 +189,68 @@ public class LoggingInterceptor implements ClientInterceptor {
         return true; // Continue the processing of the fault
     }
 }
+@Component
+public class CrmService {
+
+    private final GenericCrmRestClient crmRestClient;
+
+    @Autowired
+    public CrmService(GenericCrmRestClient crmRestClient) {
+        this.crmRestClient = crmRestClient;
+    }
+
+    public RelatedContactResponse getRelatedContact(Long contactId) {
+        Map<String, String> uriVariables = Map.of("id", String.valueOf(contactId));
+
+        return crmRestClient.executeRequest(
+                "/contact/{id}/related",
+                uriVariables,
+                url -> crmRestClient.getRestTemplate().getForObject(url, RelatedContactResponse.class, uriVariables)
+        );
+    }
+
+    public void updateContact(Long contactId, ContactRequest contactRequest) {
+        Map<String, String> uriVariables = Map.of("id", String.valueOf(contactId));
+
+        crmRestClient.executeRequestWithBody(
+                "/contact/{id}",
+                contactRequest,
+                uriVariables,
+                requestDetails -> {
+                    crmRestClient.getRestTemplate().put(
+                            requestDetails.getUrl(),
+                            requestDetails.getBody(),
+                            requestDetails.getUriVariables()
+                    );
+                    return null; // No response for PUT
+                }
+        );
+    }
+
+    public void deleteContact(Long contactId) {
+        Map<String, String> uriVariables = Map.of("id", String.valueOf(contactId));
+
+        crmRestClient.executeRequest(
+                "/contact/{id}",
+                uriVariables,
+                url -> {
+                    crmRestClient.getRestTemplate().delete(url, uriVariables);
+                    return null; // No response for DELETE
+                }
+        );
+    }
+
+    public ContactResponse createContact(ContactRequest contactRequest) {
+        return crmRestClient.executeRequestWithBody(
+                "/contact",
+                contactRequest,
+                Map.of(),
+                requestDetails -> crmRestClient.getRestTemplate().postForObject(
+                        requestDetails.getUrl(),
+                        requestDetails.getBody(),
+                        ContactResponse.class
+                )
+        );
+    }
+}
+
