@@ -462,3 +462,75 @@ public class CraRestClient {
         return restTemplate.getForObject(url, responseType, uriVariables);
     }
 }
+import io.swagger.v3.oas.models.OpenAPI;
+import io.swagger.v3.parser.OpenAPIV3Parser;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.stereotype.Component;
+import org.springframework.web.client.RestTemplate;
+
+import java.io.File;
+import java.util.Arrays;
+
+@Component
+public class CriRestBaseService {
+
+    private final RestTemplate restTemplate;
+    private final OpenAPI openAPI;
+
+    @Value("${com.rest.client.url}")
+    private String baseUrl;
+
+    @Autowired
+    public CriRestBaseService(@Qualifier("craRestClientTemplate") RestTemplate restTemplate) {
+        this.restTemplate = restTemplate;
+        this.openAPI = loadOpenApiSpec("src/main/resources");
+    }
+
+    /**
+     * Loads the OpenAPI specification dynamically from a directory.
+     *
+     * @param directoryPath The directory containing the OpenAPI YAML files.
+     * @return The parsed OpenAPI object.
+     */
+    private OpenAPI loadOpenApiSpec(String directoryPath) {
+        File directory = new File(directoryPath);
+
+        // Filter YAML files in the directory
+        File[] yamlFiles = directory.listFiles((dir, name) -> name.endsWith(".yaml") || name.endsWith(".yml"));
+
+        if (yamlFiles == null || yamlFiles.length == 0) {
+            throw new IllegalArgumentException("No OpenAPI YAML files found in directory: " + directoryPath);
+        }
+
+        // Use the first YAML file found in the directory
+        File yamlFile = yamlFiles[0];
+        System.out.println("Loading OpenAPI spec from: " + yamlFile.getAbsolutePath());
+
+        return new OpenAPIV3Parser().read(yamlFile.getAbsolutePath());
+    }
+
+    /**
+     * Resolves the endpoint dynamically from the OpenAPI specification using the operation ID.
+     *
+     * @param operationId The operation ID.
+     * @return The resolved endpoint.
+     */
+    public String resolveEndpoint(String operationId) {
+        return openAPI.getPaths()
+                .entrySet()
+                .stream()
+                .filter(entry -> entry.getValue().readOperationsMap()
+                        .values()
+                        .stream()
+                        .anyMatch(operation -> operationId.equals(operation.getOperationId())))
+                .map(entry -> entry.getKey())
+                .findFirst()
+                .orElseThrow(() -> new IllegalArgumentException("Operation ID not found in OpenAPI spec: " + operationId));
+    }
+
+    // Example usage
+    public String getDynamicEndpoint(String operationId) {
+        return resolveEndpoint(operationId);
+    }
+}
