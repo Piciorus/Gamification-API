@@ -534,3 +534,68 @@ public class CriRestBaseService {
         return resolveEndpoint(operationId);
     }
 }
+import io.swagger.v3.oas.models.OpenAPI;
+import io.swagger.v3.oas.models.PathItem;
+import io.swagger.v3.oas.models.Paths;
+import io.swagger.v3.parser.OpenAPIV3Parser;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.stereotype.Component;
+import org.springframework.web.client.RestTemplate;
+
+import java.io.File;
+import java.util.Map;
+
+@Component
+public class CriRestBaseService {
+
+    private final RestTemplate restTemplate;
+
+    @Value("${com.rest.client.url}")
+    private String baseUrl;
+
+    @Autowired
+    public CriRestBaseService(@Qualifier("craRestClientTemplate") RestTemplate restTemplate) {
+        this.restTemplate = restTemplate;
+    }
+
+    /**
+     * Searches for an endpoint with a specific operation ID in all YAML files in the specified directory.
+     *
+     * @param directoryPath The directory containing OpenAPI YAML files.
+     * @param operationId   The operation ID to search for.
+     * @return The resolved endpoint path.
+     * @throws IllegalArgumentException If the operation ID is not found in any file.
+     */
+    public String searchEndpointInAllYamlFiles(String directoryPath, String operationId) {
+        File directory = new File(directoryPath);
+
+        // Filter YAML files in the directory
+        File[] yamlFiles = directory.listFiles((dir, name) -> name.endsWith(".yaml") || name.endsWith(".yml"));
+
+        if (yamlFiles == null || yamlFiles.length == 0) {
+            throw new IllegalArgumentException("No OpenAPI YAML files found in directory: " + directoryPath);
+        }
+
+        // Iterate over each YAML file and search for the operation ID
+        for (File yamlFile : yamlFiles) {
+            System.out.println("Searching in file: " + yamlFile.getName());
+            OpenAPI openAPI = new OpenAPIV3Parser().read(yamlFile.getAbsolutePath());
+
+            if (openAPI != null) {
+                Paths paths = openAPI.getPaths();
+                for (Map.Entry<String, PathItem> entry : paths.entrySet()) {
+                    PathItem pathItem = entry.getValue();
+                    for (Map.Entry<PathItem.HttpMethod, io.swagger.v3.oas.models.Operation> operationEntry : pathItem.readOperationsMap().entrySet()) {
+                        if (operationId.equals(operationEntry.getValue().getOperationId())) {
+                            System.out.println("Found in file: " + yamlFile.getName());
+                            return entry.getKey(); // Return the resolved endpoint path
+                        }
+                    }
+                }
+            }
+        }
+
+        throw new IllegalArgumentException("Operation ID not found in any OpenAPI YAML file: " + operationId);
+    }
+}
