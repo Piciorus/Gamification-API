@@ -405,3 +405,60 @@ public class GenericCrmRestClient {
     }
 }
 
+import io.swagger.v3.oas.models.OpenAPI;
+import io.swagger.v3.oas.models.PathItem;
+import io.swagger.v3.oas.models.Paths;
+import io.swagger.v3.parser.OpenAPIV3Parser;
+import org.springframework.web.client.RestTemplate;
+
+import java.util.Map;
+
+public class CraRestClient {
+
+    private final RestTemplate restTemplate;
+    private final CraRestClientConnectionProperties craConnectionProperties;
+    private final OpenAPI openApiSpec;
+
+    public CraRestClient(CraRestClientConnectionProperties craConnectionProperties,
+                         RestTemplate restTemplate,
+                         String openApiFilePath) {
+        this.craConnectionProperties = craConnectionProperties;
+        this.restTemplate = restTemplate;
+        this.openApiSpec = new OpenAPIV3Parser().read(openApiFilePath); // Load OpenAPI spec
+    }
+
+    /**
+     * Resolves the endpoint dynamically from OpenAPI specification using the operation ID.
+     *
+     * @param operationId the operation ID
+     * @return the resolved endpoint
+     */
+    private String resolveEndpoint(String operationId) {
+        Paths paths = openApiSpec.getPaths();
+        for (Map.Entry<String, PathItem> entry : paths.entrySet()) {
+            PathItem pathItem = entry.getValue();
+
+            for (Map.Entry<PathItem.HttpMethod, io.swagger.v3.oas.models.Operation> operationEntry : pathItem.readOperationsMap().entrySet()) {
+                if (operationId.equals(operationEntry.getValue().getOperationId())) {
+                    return entry.getKey(); // Return the resolved endpoint path
+                }
+            }
+        }
+        throw new IllegalArgumentException("Operation ID not found in OpenAPI spec: " + operationId);
+    }
+
+    /**
+     * Makes a GET request to a dynamically resolved endpoint.
+     *
+     * @param operationId  the OpenAPI operation ID
+     * @param responseType the expected response type
+     * @param uriVariables optional URI variables for path replacement
+     * @param <T>          the response object type
+     * @return the response object
+     */
+    public <T> T callRestEndpointWithoutBody(String operationId, Class<T> responseType, Map<String, ?> uriVariables) {
+        String endpoint = resolveEndpoint(operationId);
+        String url = craConnectionProperties.getUrl() + endpoint;
+        return restTemplate.getForObject(url, responseType, uriVariables);
+    }
+}
