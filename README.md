@@ -1,49 +1,58 @@
-import io.swagger.v3.parser.OpenAPIV3Parser;
-import io.swagger.v3.oas.models.OpenAPI;
-import io.swagger.v3.oas.models.PathItem;
-import io.swagger.v3.oas.models.Operation;
-
-import java.io.File;
-import java.util.*;
-
-public class YamlEndpointSearcher {
-
-    private final Map<String, String> operationIdToPathMap = new HashMap<>();
-
-    public YamlEndpointSearcher() {
-        initializeOperationIdMap();
-    }
-
-    private void initializeOperationIdMap() {
-        try {
-            File directory = new File(this.getClass().getClassLoader().getResource("crw").getFile());
-            File[] yamlFiles = directory.listFiles((dir, name) -> name.endsWith(".yanl"));
-
-            if (yamlFiles == null || yamlFiles.length == 0) {
-                throw new IllegalStateException("No YAML files found in the directory.");
-            }
-
-            for (File yamlFile : yamlFiles) {
-                OpenAPI openAPI = new OpenAPIV3Parser().read(yamlFile.getAbsolutePath());
-                if (openAPI != null && openAPI.getPaths() != null) {
-                    openAPI.getPaths().forEach((path, pathItem) -> {
-                        if (pathItem != null) {
-                            pathItem.readOperationsMap().forEach((httpMethod, operation) -> {
-                                if (operation.getOperationId() != null) {
-                                    operationIdToPathMap.put(operation.getOperationId(), path);
-                                }
-                            });
-                        }
-                    });
-                }
-            }
-        } catch (Exception e) {
-            throw new RuntimeException("Error initializing YAML files", e);
-        }
-    }
-
-    public String searchEndpointInAllYamlFiles(String operationId) {
-        return operationIdToPathMap.getOrDefault(operationId, null);
-    }
+@Bean(initMethod = "init", destroyMethod = "close")
+public UserTransactionManager atomikosTransactionManager() {
+    UserTransactionManager txManager = new UserTransactionManager();
+    txManager.setForceShutdown(true);
+    return txManager;
 }
 
+@Bean
+public UserTransactionImp userTransaction() throws Throwable {
+    UserTransactionImp userTransaction = new UserTransactionImp();
+    userTransaction.setTransactionTimeout(300);
+    return userTransaction;
+}
+
+@Bean
+public PlatformTransactionManager transactionManager() throws Throwable {
+    return new JtaTransactionManager(userTransaction(), atomikosTransactionManager());
+}
+@SpringBootTest
+@Transactional
+public class DistributedTransactionTest {
+
+    @Autowired
+    private EntityManagerFactory emf1;
+
+    @Autowired
+    private EntityManagerFactory emf2;
+
+    @Test
+    void testDistributedTransaction() {
+        EntityManager em1 = emf1.createEntityManager();
+        EntityManager em2 = emf2.createEntityManager();
+
+        try {
+            em1.getTransaction().begin();
+            em2.getTransaction().begin();
+
+            // Perform operations on both data sources
+            em1.persist(new Entity1(...));
+            em2.persist(new Entity2(...));
+
+            // Simulate an error in one of the operations
+            if (true) {
+                throw new RuntimeException("Simulated failure");
+            }
+
+            em1.getTransaction().commit();
+            em2.getTransaction().commit();
+        } catch (Exception e) {
+            em1.getTransaction().rollback();
+            em2.getTransaction().rollback();
+            // Verify that both transactions were rolled back
+        } finally {
+            em1.close();
+            em2.close();
+        }
+    }
+}
