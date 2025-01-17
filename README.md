@@ -56,3 +56,77 @@ public class DistributedTransactionTest {
         }
     }
 }
+@Service
+@Transactional
+public class DistributedTransactionService {
+
+    @Autowired
+    private Db1Repository db1Repository;
+
+    @Autowired
+    private Db2Repository db2Repository;
+
+    public void performDistributedTransaction() {
+        // Insert into Database 1
+        db1Repository.save(new Db1Entity("Test data for DB1"));
+
+        // Insert into Database 2
+        db2Repository.save(new Db2Entity("Test data for DB2"));
+
+        // Simulate an error to test rollback
+        if (true) {
+            throw new RuntimeException("Simulated error to test rollback");
+        }
+    }
+}
+
+@SpringBootTest
+public class DistributedTransactionTest {
+
+    @Autowired
+    private DistributedTransactionService distributedTransactionService;
+
+    @Autowired
+    private Db1Repository db1Repository;
+
+    @Autowired
+    private Db2Repository db2Repository;
+
+    @Test
+    @Transactional
+    public void testDistributedTransactionRollback() {
+        try {
+            distributedTransactionService.performDistributedTransaction();
+        } catch (Exception e) {
+            // Exception expected
+        }
+
+        // Verify rollback in both databases
+        Assertions.assertEquals(0, db1Repository.count());
+        Assertions.assertEquals(0, db2Repository.count());
+    }
+}
+spring:
+  datasource:
+    db1:
+      xa:
+        data-source-class-name: com.mysql.cj.jdbc.MysqlXADataSource
+      url: jdbc:mysql://localhost:3306/db1
+      username: root
+      password: password
+
+    db2:
+      xa:
+        data-source-class-name: com.mysql.cj.jdbc.MysqlXADataSource
+      url: jdbc:mysql://localhost:3306/db2
+      username: root
+      password: password
+
+  jpa:
+    hibernate:
+      ddl-auto: update
+    properties:
+      hibernate:
+        transaction.jta.platform: org.hibernate.engine.transaction.jta.platform.internal.AtomikosJtaPlatform
+    show-sql: true
+
