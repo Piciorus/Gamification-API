@@ -415,5 +415,54 @@ public void testDistributedTransactionRollback() {
 
     Assertions.assertFalse(messageFound, "Message should NOT be present in Kafka due to rollback.");
 }
+import com.zaxxer.hikari.HikariConfig;
+import com.zaxxer.hikari.HikariDataSource;
+import org.springframework.boot.context.properties.ConfigurationProperties;
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
+import org.springframework.context.annotation.Primary;
+import org.springframework.orm.jpa.JpaTransactionManager;
+import org.springframework.orm.jpa.LocalContainerEntityManagerFactoryBean;
+import org.springframework.boot.orm.jpa.EntityManagerFactoryBuilder;
+import javax.sql.DataSource;
+
+@Configuration
+public class DataSourceConfig {
+
+    @Primary
+    @Bean
+    @ConfigurationProperties("spring.datasource.hikari")
+    public HikariConfig hikariConfig() {
+        return new HikariConfig();
+    }
+
+    @Primary
+    @Bean
+    public DataSource dataSource() {
+        // Configure HikariDataSource with distributed transactions disabled
+        HikariConfig hikariConfig = hikariConfig();
+        hikariConfig.setRegisterMbeans(false); // No JTA
+        hikariConfig.setTransactionIsolation("TRANSACTION_READ_COMMITTED"); // Default transaction isolation level
+        return new HikariDataSource(hikariConfig);
+    }
+
+    @Primary
+    @Bean
+    public LocalContainerEntityManagerFactoryBean entityManagerFactory(EntityManagerFactoryBuilder builder) {
+        return builder
+                .dataSource(dataSource())
+                .packages("com.conersbank.gress.persistence.adapter.entity") // Replace with your package containing JPA entities
+                .persistenceUnit("gress")
+                .build();
+    }
+
+    @Primary
+    @Bean
+    public JpaTransactionManager transactionManager(LocalContainerEntityManagerFactoryBean entityManagerFactory) {
+        JpaTransactionManager transactionManager = new JpaTransactionManager();
+        transactionManager.setEntityManagerFactory(entityManagerFactory.getObject());
+        return transactionManager;
+    }
+}
 
 
