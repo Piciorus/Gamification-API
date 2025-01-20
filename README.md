@@ -129,4 +129,79 @@ spring:
       hibernate:
         transaction.jta.platform: org.hibernate.engine.transaction.jta.platform.internal.AtomikosJtaPlatform
     show-sql: true
+@SpringBootTest
+@EmbeddedKafka(partitions = 1, topics = { "test-topic" }, brokerProperties = { "log.dir=./kafka-test-logs" })
+@Transactional
+public class DistributedTransactionTest {
+
+    @Autowired
+    private DistributedTransactionService transactionService;
+
+    @Autowired
+    private SomeEntityRepository repository;
+
+    @Autowired
+    private ConsumerFactory<String, String> consumerFactory;
+
+    @Test
+    public void testDistributedTransactionSuccess() {
+        // Given
+        String testMessage = "test-message-success";
+        String testEntityName = "Test Entity Success";
+
+        // When
+        transactionService.performDistributedTransaction(testMessage, testEntityName, false);
+
+        // Then
+        // Verify that the database contains the new entity
+        Optional<SomeEntity> entity = repository.findAll().stream()
+                .filter(e -> e.getName().equals(testEntityName))
+                .findFirst();
+        Assertions.assertTrue(entity.isPresent(), "Entity should be present in the database");
+
+        // Verify that the Kafka topic contains the message
+        KafkaConsumer<String, String> consumer = createConsumer();
+        consumer.subscribe(Collections.singletonList("test-topic"));
+        ConsumerRecords<String, String> records = consumer.poll(Duration.ofSeconds(5));
+        boolean messageFound = StreamSupport.stream(records.spliterator(), false)
+                .anyMatch(record -> record.value().equals(testMessage));
+        Assertions.assertTrue(messageFound, "Message should be present in Kafka");
+    }
+
+    @Test
+    public void testDistributedTransactionRollback() {
+        // Given
+        String testMessage = "test-message-fail";
+        String testEntityName = "Test Entity Fail";
+
+        // When
+        Assertions.assertThrows(RuntimeException.class, () -> {
+            transactionService.performDistributedTransaction(testMessage, testEntityName, true);
+        });
+
+        // Then
+        // Verify that the database does not contain the new entity
+        Optional<SomeEntity> entity = repository.findAll().stream()
+                .filter(e -> e.getName().equals(testEntityName))
+                .findFirst();
+        Assertions.assertFalse(entity.isPresent(), "Entity should NOT be present in the database");
+
+        // Verify that the Kafka topic does not contain the message
+        KafkaConsumer<String, String> consumer = createConsumer();
+        consumer.subscribe(Collections.singletonList("test-topic"));
+        ConsumerRecords<String, String> records = consumer.poll(Duration.ofSeconds(5));
+        boolean messageFound = StreamSupport.stream(records.spliterator(), false)
+                .anyMatch(record -> record.value().equals(testMessage));
+        Assertions.assertFalse(messageFound, "Message should NOT be present in Kafka");
+    }
+
+    private KafkaConsumer<String, String> createConsumer() {
+        Map<String, Object> props = new HashMap<>();
+        props.put(ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG, "localhost:9092");
+        props.put(ConsumerConfig.GROUP_ID_CONFIG, "test-group");
+        props.put(ConsumerConfig.KEY_DESERIALIZER_CLASS_CONFIG, StringDeserializer.class);
+        props.put(ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG, StringDeserializer.class);
+        return new KafkaConsumer<>(props);
+    }
+}
 
