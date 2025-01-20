@@ -205,3 +205,29 @@ public class DistributedTransactionTest {
     }
 }
 
+@Test
+public void testDistributedTransactionSuccess() {
+    // Given
+    String testMessage = "test-message-success";
+    String testEntityName = "Test Skill";
+
+    // When
+    distributedTransactionService.performDistributedTransaction(testMessage, false);
+
+    // Then
+    // Verify that the database contains the new entity
+    Optional<TargetSkillEntity> entity = db1Repository.findAll().stream()
+            .filter(targetSkillEntity -> targetSkillEntity.getName().equals(testEntityName))
+            .findFirst();
+    Assertions.assertTrue(entity.isPresent(), "Entity should be present in the database");
+
+    // Verify that the Kafka topic contains the message
+    KafkaConsumer<String, String> consumer = createConsumer();
+    consumer.subscribe(Collections.singletonList("test-topic"));
+    ConsumerRecords<String, String> records = consumer.poll(Duration.ofSeconds(5));
+
+    boolean messageFound = StreamSupport.stream(records.spliterator(), false)
+            .anyMatch(record -> record.value().equals(testMessage));
+    Assertions.assertTrue(messageFound, "Message should be present in Kafka");
+}
+
