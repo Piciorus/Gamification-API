@@ -344,4 +344,40 @@ public class DistributedTransactionWithKafkaTest {
         }
     }
 }
+@Test
+public void testDistributedTransactionRollback() {
+    // Arrange: Prepare test message and mock behavior
+    String testMessage = "test-message-fail";
+
+    TargetSkillEntity targetSkillEntity = new TargetSkillEntity();
+    targetSkillEntity.setId(11);
+    targetSkillEntity.setName("Test Skill");
+
+    // Mock DB repository to return an entity
+    when(db1Repository.findById(any())).thenReturn(Optional.of(targetSkillEntity));
+
+    // Mock the distributedTransactionService to throw a RuntimeException for a void method
+    doThrow(RuntimeException.class).when(distributedTransactionService)
+            .performDistributedTransaction(testMessage, true);
+
+    // Act: Call the method under test and expect a RuntimeException
+    Assertions.assertThrows(RuntimeException.class, () -> {
+        distributedTransactionService.performDistributedTransaction(testMessage, true);
+    });
+
+    // Assert: Verify that the database does not contain the entity after rollback
+    Optional<TargetSkillEntity> entity = db1Repository.findById(11);
+    System.out.println(entity);
+    Assertions.assertTrue(entity.isPresent(), "Entity should still be present in the database because rollback occurs.");
+
+    // Assert: Verify that the Kafka topic does not contain the message
+    KafkaConsumer<String, String> consumer = createConsumer();
+    consumer.subscribe(Collections.singletonList("test-topic"));
+
+    ConsumerRecords<String, String> records = consumer.poll(Duration.ofSeconds(5));
+    boolean messageFound = StreamSupport.stream(records.spliterator(), false)
+            .anyMatch(record -> record.value().equals(testMessage));
+
+    Assertions.assertFalse(messageFound, "Message should NOT be present in Kafka after rollback.");
+}
 
