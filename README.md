@@ -230,4 +230,37 @@ public void testDistributedTransactionSuccess() {
             .anyMatch(record -> record.value().equals(testMessage));
     Assertions.assertTrue(messageFound, "Message should be present in Kafka");
 }
+@SpringBootTest
+public class HikariDataSourceTest {
+
+    @Autowired
+    private SomeEntityRepository repository;
+
+    @Test
+    public void testNonTransactionalBehaviour() {
+        // Given
+        String testName = "Test Skill Non-Transactional";
+
+        // When
+        try {
+            // Insert an entity into the database
+            SomeEntity entity = new SomeEntity();
+            entity.setName(testName);
+            repository.save(entity);
+
+            // Simulate a failure after saving
+            throw new RuntimeException("Simulated failure");
+
+        } catch (RuntimeException ex) {
+            // Expected exception
+        }
+
+        // Then
+        // Verify that the entity is still present in the database (no rollback)
+        Optional<SomeEntity> entity = repository.findAll().stream()
+                .filter(e -> e.getName().equals(testName))
+                .findFirst();
+        Assertions.assertTrue(entity.isPresent(), "Entity should be present in the database even after failure");
+    }
+}
 
