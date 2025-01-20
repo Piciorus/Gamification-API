@@ -263,4 +263,85 @@ public class HikariDataSourceTest {
         Assertions.assertTrue(entity.isPresent(), "Entity should be present in the database even after failure");
     }
 }
+@SpringBootTest
+@Testcontainers
+public class DistributedTransactionWithKafkaTest {
+
+    @Container
+    static PostgreSQLContainer<?> postgreSQLContainer = new PostgreSQLContainer<>("postgres:15")
+            .withDatabaseName("testdb")
+            .withUsername("test")
+            .withPassword("test");
+
+    @Container
+    static KafkaContainer kafkaContainer = new KafkaContainer(DockerImageName.parse("confluentinc/cp-kafka:7.5.0"))
+            .withKraft();
+
+    @Autowired
+    private TransactionalService transactionalService;
+
+    @Autowired
+    private YourEntityRepository repository;
+
+    @Autowired
+    private KafkaTemplate<String, String> kafkaTemplate;
+
+    @DynamicPropertySource
+    static void properties(DynamicPropertyRegistry registry) {
+        // Database configuration
+        registry.add("spring.datasource.url", postgreSQLContainer::getJdbcUrl);
+        registry.add("spring.datasource.username", postgreSQLContainer::getUsername);
+        registry.add("spring.datasource.password", postgreSQLContainer::getPassword);
+
+        // Kafka configuration
+        registry.add("spring.kafka.bootstrap-servers", kafkaContainer::getBootstrapServers);
+        registry.add("spring.kafka.producer.transaction-id-prefix", () -> "tx-");
+    }
+
+    @Test
+    @Transactional
+    void testDistributedTransactionSuccess() {
+        // Act
+        transactionalService.performTransactionalOperation();
+
+        // Assert: Check database
+        List<YourEntity> entities = repository.findAll();
+        assertEquals(1, entities.size());
+
+        // Assert: Check Kafka message
+        ConsumerRecord<String, String> record = getMessageFromKafka("test-topic");
+        assertNotNull(record);
+        assertEquals("Message from distributed transaction", record.value());
+    }
+
+    @Test
+    void testDistributedTransactionRollback() {
+        // Simulate a failure in the transaction
+        Assertions.assertThrows(RuntimeException.class, () -> {
+            transactionalService.performTransactionalOperationWithFailure();
+        });
+
+        // Assert: Database is empty due to rollback
+        List<YourEntity> entities = repository.findAll();
+        assertTrue(entities.isEmpty());
+
+        // Assert: No message sent to Kafka
+        ConsumerRecord<String, String> record = getMessageFromKafka("test-topic");
+        assertNull(record);
+    }
+
+    private ConsumerRecord<String, String> getMessageFromKafka(String topic) {
+        Properties props = new Properties();
+        props.put(ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG, kafkaContainer.getBootstrapServers());
+        props.put(ConsumerConfig.GROUP_ID_CONFIG, "test-group");
+        props.put(ConsumerConfig.KEY_DESERIALIZER_CLASS_CONFIG, StringDeserializer.class.getName());
+        props.put(ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG, StringDeserializer.class.getName());
+
+        try (KafkaConsumer<String, String> consumer = new KafkaConsumer<>(props)) {
+            consumer.subscribe(Collections.singleton(topic));
+            ConsumerRecords<String, String> records = consumer.poll(Duration.ofSeconds(5));
+            return records.isEmpty() ? null : records.iterator().next();
+        }
+    }
+}
 
