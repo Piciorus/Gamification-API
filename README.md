@@ -3,30 +3,23 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
-import org.testcontainers.containers.PostgreSQLContainer;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
 @SpringBootTest
 public class UserRepositoryTest {
 
-    // Create a PostgreSQL container
-    static PostgreSQLContainer<?> postgresContainer = new PostgreSQLContainer<>("postgres:15.3-alpine")
-            .withDatabaseName("testdb")
-            .withUsername("admin")
-            .withPassword("admin");
-
-    // Start the container before running tests
-    static {
-        postgresContainer.start();
-    }
+    // Use your existing PostgreSQL container configuration
+    static final String POSTGRES_URL = "jdbc:postgresql://localhost:5433/mydb";
+    static final String POSTGRES_USERNAME = "admin";
+    static final String POSTGRES_PASSWORD = "admin";
 
     // Override Spring properties dynamically
     @DynamicPropertySource
     static void configureProperties(DynamicPropertyRegistry registry) {
-        registry.add("spring.datasource.url", postgresContainer::getJdbcUrl);
-        registry.add("spring.datasource.username", postgresContainer::getUsername);
-        registry.add("spring.datasource.password", postgresContainer::getPassword);
+        registry.add("spring.datasource.url", () -> POSTGRES_URL);
+        registry.add("spring.datasource.username", () -> POSTGRES_USERNAME);
+        registry.add("spring.datasource.password", () -> POSTGRES_PASSWORD);
     }
 
     @Autowired
