@@ -1,136 +1,38 @@
-package com.example.config;
+package com.example.repository.secondary;
 
-import com.zaxxer.hikari.HikariConfig;
-import com.zaxxer.hikari.HikariDataSource;
-import org.springframework.boot.autoconfigure.orm.jpa.EntityManagerFactoryBuilder;
-import org.springframework.boot.context.properties.ConfigurationProperties;
-import org.springframework.context.annotation.Bean;
-import org.springframework.context.annotation.Configuration;
-import org.springframework.context.annotation.Primary;
-import org.springframework.orm.jpa.JpaTransactionManager;
-import org.springframework.orm.jpa.LocalContainerEntityManagerFactoryBean;
+import com.example.entity.secondary.UserSecondary;
+import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.autoconfigure.orm.jpa.DataJpaTest;
+import org.springframework.test.context.TestPropertySource;
 
-import javax.sql.DataSource;
+import java.util.Optional;
 
-@Configuration
-public class DataSourceConfig {
+import static org.assertj.core.api.Assertions.assertThat;
 
-    @Primary
-    @Bean
-    @ConfigurationProperties("spring.datasource.hikari")
-    public HikariConfig hikariConfig() {
-        return new HikariConfig();
-    }
+@DataJpaTest
+@TestPropertySource(properties = {
+        "spring.datasource.secondary.hikari.jdbc-url=jdbc:postgresql://localhost:5434/db2",
+        "spring.datasource.secondary.hikari.username=admin2",
+        "spring.datasource.secondary.hikari.password=admin2"
+})
+public class UserSecondaryRepositoryTest {
 
-    @Primary
-    @Bean
-    public DataSource dataSource() {
-        HikariConfig hikariConfig = hikariConfig();
-        hikariConfig.setRegisterMbeans(false);
-        hikariConfig.setTransactionIsolation("TRANSACTION_READ_COMMITTED");
-        return new HikariDataSource(hikariConfig);
-    }
+    @Autowired
+    private UserSecondaryRepository userSecondaryRepository;
 
-    @Primary
-    @Bean
-    public LocalContainerEntityManagerFactoryBean entityManagerFactory(EntityManagerFactoryBuilder builder) {
-        return builder
-                .dataSource(dataSource())
-                .packages("com.example.entity")
-                .persistenceUnit("example")
-                .build();
-    }
+    @Test
+    public void testSaveUserInSecondaryDatabase() {
+        // Arrange
+        UserSecondary user = new UserSecondary();
+        user.setName("Jane Doe");
 
-    @Primary
-    @Bean
-    public JpaTransactionManager transactionManager(LocalContainerEntityManagerFactoryBean entityManagerFactory) {
-        JpaTransactionManager transactionManager = new JpaTransactionManager();
-        transactionManager.setEntityManagerFactory(entityManagerFactory.getObject());
-        return transactionManager;
+        // Act
+        UserSecondary savedUser = userSecondaryRepository.save(user);
+
+        // Assert
+        Optional<UserSecondary> retrievedUser = userSecondaryRepository.findById(savedUser.getId());
+        assertThat(retrievedUser).isPresent();
+        assertThat(retrievedUser.get().getName()).isEqualTo("Jane Doe");
     }
 }
-databaseChangeLog:
-  - changeSet:
-      id: 1
-      author: liquibase
-      changes:
-        - createTable:
-            tableName: user
-            columns:
-              - column:
-                  name: id
-                  type: BIGINT
-                  autoIncrement: true
-                  constraints:
-                    primaryKey: true
-              - column:
-                  name: name
-                  type: VARCHAR(100)
-              - column:
-                  name: email
-                  type: VARCHAR(100)
-                  constraints:
-                    unique: true
-              - column:
-                  name: created_at
-                  type: TIMESTAMP
-                  defaultValueComputed: CURRENT_TIMESTAMP
-
-package com.example.entity;
-
-import jakarta.persistence.*;
-import java.time.LocalDateTime;
-
-@Entity
-@Table(name = "user")
-public class User {
-
-    @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Long id;
-
-    private String name;
-
-    @Column(unique = true)
-    private String email;
-
-    @Column(name = "created_at", updatable = false)
-    private LocalDateTime createdAt;
-
-    public User() {
-    }
-
-    public User(String name, String email) {
-        this.name = name;
-        this.email = email;
-        this.createdAt = LocalDateTime.now();
-    }
-
-    // Getters and Setters
-}
-databaseChangeLog:
-  - changeSet:
-      id: 1
-      author: liquibase
-      changes:
-        - createTable:
-            tableName: user
-            columns:
-              - column:
-                  name: id
-                  type: BIGINT
-                  autoIncrement: true
-                  constraints:
-                    primaryKey: true
-              - column:
-                  name: name
-                  type: VARCHAR(100)
-              - column:
-                  name: email
-                  type: VARCHAR(100)
-                  constraints:
-                    unique: true
-              - column:
-                  name: created_at
-                  type: TIMESTAMP
-                  defaultValueComputed: CURRENT_TIMESTAMP
