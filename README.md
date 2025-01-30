@@ -64,4 +64,61 @@ public class CraRestExampleServiceTest {
         assertEquals(0, repository2.count(), "Repository2 should be empty after rollback");
     }
 }
+import org.junit.jupiter.api.*;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.boot.test.web.client.TestRestTemplate;
+import org.springframework.boot.web.server.LocalServerPort;
+import org.springframework.http.*;
+
+import static org.junit.jupiter.api.Assertions.*;
+
+@TestMethodOrder(MethodOrderer.OrderAnnotation.class)
+@SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
+public class DistributedTransactionIntegrationTest {
+
+    @LocalServerPort
+    private int port;
+
+    @Autowired
+    private TestRestTemplate restTemplate;
+
+    @Autowired
+    private LutSegmenteRepository1 repository1;
+
+    @Autowired
+    private LutSegmenteRepository2 repository2;
+
+    private String getBaseUrl() {
+        return "http://localhost:" + port + "/api/test/distributed-transaction";
+    }
+
+    @Test
+    @Order(1)
+    public void testSuccessfulDistributedTransaction() {
+        // Ensure both repositories are empty before test
+        repository1.deleteAll();
+        repository2.deleteAll();
+
+        ResponseEntity<String> response = restTemplate.postForEntity(getBaseUrl() + "?fail=false", null, String.class);
+
+        assertEquals(HttpStatus.OK, response.getStatusCode());
+        assertEquals(1, repository1.count(), "Repository1 should contain one record");
+        assertEquals(1, repository2.count(), "Repository2 should contain one record");
+    }
+
+    @Test
+    @Order(2)
+    public void testFailedDistributedTransactionRollback() {
+        // Ensure both repositories are empty before test
+        repository1.deleteAll();
+        repository2.deleteAll();
+
+        ResponseEntity<String> response = restTemplate.postForEntity(getBaseUrl() + "?fail=true", null, String.class);
+
+        assertEquals(HttpStatus.INTERNAL_SERVER_ERROR, response.getStatusCode());
+        assertEquals(0, repository1.count(), "Repository1 should be empty after rollback");
+        assertEquals(0, repository2.count(), "Repository2 should be empty after rollback");
+    }
+}
 
