@@ -25,4 +25,43 @@ task extractCommonErrorYaml {
 
         println "Extracted $yamlFileName to: ${outputFile.absolutePath}"
     }
+}import static org.junit.jupiter.api.Assertions.*;
+
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.autoconfigure.orm.jpa.DataJpaTest;
+import org.springframework.test.context.junit.jupiter.SpringExtension;
+import org.springframework.transaction.TransactionSystemException;
+
+@ExtendWith(SpringExtension.class)
+@DataJpaTest
+public class CraRestExampleServiceTest {
+
+    @Autowired
+    private CraRestExampleService craRestExampleService;
+
+    @Autowired
+    private LutSegmenteRepository1 repository1;
+
+    @Autowired
+    private LutSegmenteRepository2 repository2;
+
+    @Test
+    public void testDistributedTransactionRollback() {
+        // Ensure repositories are empty before the test
+        assertEquals(0, repository1.count());
+        assertEquals(0, repository2.count());
+
+        try {
+            craRestExampleService.saveEntitiesWithTransaction();
+        } catch (RuntimeException e) {
+            // Expected exception
+        }
+
+        // Both repositories should still be empty due to rollback
+        assertEquals(0, repository1.count(), "Repository1 should be empty after rollback");
+        assertEquals(0, repository2.count(), "Repository2 should be empty after rollback");
+    }
 }
+
