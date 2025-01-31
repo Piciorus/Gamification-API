@@ -119,6 +119,53 @@ public class DistributedTransactionIntegrationTest {
         assertEquals(HttpStatus.INTERNAL_SERVER_ERROR, response.getStatusCode());
         assertEquals(0, repository1.count(), "Repository1 should be empty after rollback");
         assertEquals(0, repository2.count(), "Repository2 should be empty after rollback");
+ 
+    
     }
 }
+
+package com.example.demo.integration;
+
+import com.example.demo.model.User;
+import com.example.demo.repository.UserRepository;
+import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
+import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.http.MediaType;
+import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.test.web.servlet.result.MockMvcResultMatchers;
+
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
+
+@SpringBootTest
+@AutoConfigureMockMvc
+public class UserIntegrationTest {
+
+    @Autowired
+    private MockMvc mockMvc;
+
+    @Autowired
+    private UserRepository userRepository;
+
+    @Test
+    void testCreateUserAndRetrieveIt() throws Exception {
+        // Create a user
+        String userJson = "{ \"name\": \"John Doe\", \"email\": \"john@example.com\" }";
+
+        mockMvc.perform(post("/users")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(userJson))
+                .andExpect(status().isOk());
+
+        // Verify user retrieval
+        mockMvc.perform(get("/users"))
+                .andExpect(status().isOk())
+                .andExpect(MockMvcResultMatchers.jsonPath("$[0].name").value("John Doe"))
+                .andExpect(MockMvcResultMatchers.jsonPath("$[0].email").value("john@example.com"));
+    }
+}
+
 
