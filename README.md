@@ -169,3 +169,45 @@ public class UserIntegrationTest {
 }
 
 
+package org.springframework.boot.actuate.health;
+
+import org.springframework.boot.actuate.endpoint.annotation.Endpoint;
+import org.springframework.boot.actuate.endpoint.annotation.ReadOperation;
+import org.springframework.boot.actuate.endpoint.annotation.Selector;
+
+@Endpoint(id = "health")
+public class HealthEndpoint extends HealthEndpointSupport<HealthContributor, HealthComponent> {
+
+    public HealthEndpoint() {
+        super();
+    }
+
+    @ReadOperation
+    public HealthComponent health() {
+        HealthComponent health = health(ApiVersion.V3, EMPTY_PATH);
+        return (health != null) ? health : DEFAULT_HEALTH;
+    }
+
+    // Removed the @ReadOperation annotation on this method
+    public HealthComponent healthForPath(@Selector(match = Selector.Match.ALL_REMAINING) String path) {
+        return health(ApiVersion.V3, path);
+    }
+}
+
+package org.springframework.boot.actuate.health;
+
+import org.springframework.boot.actuate.endpoint.annotation.Endpoint;
+import org.springframework.boot.actuate.endpoint.annotation.Selector;
+import org.springframework.boot.actuate.endpoint.annotation.ReadOperation;
+import org.springframework.boot.actuate.endpoint.annotation.WriteOperation;
+
+public abstract class HealthEndpointSupport<C, H> {
+
+    protected static final String EMPTY_PATH = "";
+
+    protected static final HealthComponent DEFAULT_HEALTH = Health.down().build();
+
+    protected HealthEndpointSupport() {}
+
+    protected abstract H health(ApiVersion apiVersion, String path);
+}
