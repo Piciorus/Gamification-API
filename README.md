@@ -211,3 +211,34 @@ public abstract class HealthEndpointSupport<C, H> {
 
     protected abstract H health(ApiVersion apiVersion, String path);
 }
+
+import org.springframework.cloud.contract.spec.Contract
+
+Contract.make {
+    description "Stub for User Logout Metadata"
+
+    request {
+        method 'POST'
+        urlPath('/v1/Logout') // Ensure this matches your API contract
+        headers {
+            contentType(applicationJson())
+            header 'Authorization': value(consumer(regex('.+')), producer('Bearer sample-token'))
+            header 'x-request-id': value(consumer(regex('.+')), producer('12345-abc'))
+        }
+        body([
+            "crmCustomerNo": value(consumer(optional(regex('[0-9]{1,18}'))), producer('123456789'))
+        ])
+    }
+
+    response {
+        status OK()
+        headers {
+            contentType(applicationJson())
+        }
+        body([
+            "message": "User successfully logged out",
+            "status": "SUCCESS"
+        ])
+    }
+}
+
