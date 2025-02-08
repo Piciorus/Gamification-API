@@ -242,3 +242,30 @@ Contract.make {
     }
 }
 
+@Mapper(componentModel = "spring")
+public interface EcmDocumentsCountMapper {
+
+    @Mapping(target = "backendownerNumberResponse", source = "allBackendOwnersRows")
+    @Mapping(target = "personalDocCounts", source = "allPersonalDocTypeCountRows")
+    DocumentStatisticsResponse mapResponseFromEcm(OACountDocumentsResp oaCountDocumentsResp);
+
+    @Mapping(target = "backendOwnerNumber", source = "backendOwnerNumber") 
+    @Mapping(target = "docTypeCount", source = "allDocTypeCountRows") // Add this mapping
+    BackendOwnerNumbersResponse mapBackendOwner(BackendOwnersRowFromEcm backendOwnersRowFromEcm);
+
+    @Mapping(target = "docTypeId", source = "docTypeId")
+    @Mapping(target = "docTypeDesc", source = "docTypeDesc")
+    @Mapping(target = "hitsFound", source = "hitsFound")
+    DocumentCountsResponse mapDocTypeCount(DocTypeCountRow docTypeCountRow);
+
+    default List<DocumentCountsResponse> mapDocTypeCounts(List<DocTypeCountRow> docTypeCountRows) {
+        if (docTypeCountRows == null) {
+            return new ArrayList<>();
+        }
+        return docTypeCountRows.stream()
+                .map(this::mapDocTypeCount)
+                .collect(Collectors.toList());
+    }
+}@Mapping(target = "docTypeCount", expression = "java(row.getAllDocTypeCountRows() != null ? mapDocTypeCounts(row.getAllDocTypeCountRows()) : new ArrayList<>())")
+BackendOwnerNumbersResponse mapBackendOwner(BackendOwnersRowFromEcm row);
+
