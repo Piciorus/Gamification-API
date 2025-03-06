@@ -269,3 +269,21 @@ public interface EcmDocumentsCountMapper {
 }@Mapping(target = "docTypeCount", expression = "java(row.getAllDocTypeCountRows() != null ? mapDocTypeCounts(row.getAllDocTypeCountRows()) : new ArrayList<>())")
 BackendOwnerNumbersResponse mapBackendOwner(BackendOwnersRowFromEcm row);
 
+    def yamlFileName = "common-error-handling.yaml"
+    def outputDir = file("$buildDir/extracted-yaml")
+    outputDir.mkdirs()
+
+    def outputFile = new File(outputDir, yamlFileName)
+
+    new ZipFile(jarFile).withCloseable { zip ->
+        def entry = zip.getEntry(yamlFileName)
+        if (entry == null) {
+            throw new FileNotFoundException("$yamlFileName not found inside $jarFile")
+        }
+        zip.getInputStream(entry).withCloseable { input ->
+            outputFile.bytes = input.bytes
+        }
+    }
+
+    println "Extracted $yamlFileName to: ${outputFile.absolutePath}"
+}
