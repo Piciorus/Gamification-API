@@ -287,3 +287,12 @@ BackendOwnerNumbersResponse mapBackendOwner(BackendOwnersRowFromEcm row);
 
     println "Extracted $yamlFileName to: ${outputFile.absolutePath}"
 }
+
+
+curl -X POST "https://your-api-endpoint.com" \
+     -H "Content-Type: application/xml" \
+     -d '<?xml version="1.0" encoding="UTF-8"?>
+<request servicename="MWCRM0penContact" sessionid="" feid="WEB" language="DE" version="">
+    <CONTACT_OBJID>754378419</CONTACT_OBJID>
+    <USER_LOGIN_ID>1</USER_LOGIN_ID>
+</request>'
