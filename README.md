@@ -99,3 +99,29 @@ public class AuthorizationFeignClientActuator {
     }
 }
 
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.actuate.endpoint.annotation.Endpoint;
+import org.springframework.boot.actuate.endpoint.annotation.ReadOperation;
+import org.springframework.context.ApplicationContext;
+import org.springframework.stereotype.Component;
+
+import java.util.Map;
+import java.util.stream.Collectors;
+
+@Component
+@Endpoint(id = "feignClients")
+public class FeignClientsActuator {
+
+    @Autowired
+    private ApplicationContext applicationContext;
+
+    @ReadOperation
+    public Map<String, Object> feignClients() {
+        // Get all Feign client beans
+        Map<String, Object> feignClients = applicationContext.getBeansWithAnnotation(org.springframework.cloud.openfeign.FeignClient.class);
+
+        // Return a map of Feign client names and their classes
+        return feignClients.entrySet().stream()
+                .collect(Collectors.toMap(Map.Entry::getKey, entry -> entry.getValue().getClass().getName()));
+    }
+}
