@@ -153,3 +153,40 @@ public interface AuthorizeFeignApi {
                                       @RequestParam("serviceId") String serviceId,
                                       @RequestBody List<String> serviceProducts);
 }
+
+import feign.Client;
+import feign.httpclient.ApacheHttpClient;
+import org.apache.hc.client5.http.config.ConnectionConfig;
+import org.apache.hc.client5.http.config.RequestConfig;
+import org.apache.hc.client5.http.impl.classic.CloseableHttpClient;
+import org.apache.hc.client5.http.impl.classic.HttpClients;
+import org.apache.hc.client5.http.impl.io.PoolingHttpClientConnectionManager;
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
+
+import java.time.Duration;
+
+@Configuration
+public class FeignClientConfig {
+
+    @Bean
+    public Client feignClient() {
+        return new ApacheHttpClient(httpClient());
+    }
+
+    @Bean
+    public CloseableHttpClient httpClient() {
+        PoolingHttpClientConnectionManager connectionManager = new PoolingHttpClientConnectionManager();
+        connectionManager.setMaxTotal(100); // Maximum total connections
+        connectionManager.setDefaultMaxPerRoute(20); // Max per route
+
+        return HttpClients.custom()
+                .setConnectionManager(connectionManager)
+                .setDefaultRequestConfig(RequestConfig.custom()
+                        .setConnectTimeout(Duration.ofSeconds(5))
+                        .setResponseTimeout(Duration.ofSeconds(10))
+                        .build())
+                .build();
+    }
+}
+
