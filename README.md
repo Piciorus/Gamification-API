@@ -189,4 +189,44 @@ public class FeignClientConfig {
                 .build();
     }
 }
+import feign.Client;
+import feign.httpclient.ApacheHttpClient;
+import org.apache.hc.client5.http.config.ConnectionConfig;
+import org.apache.hc.client5.http.config.RequestConfig;
+import org.apache.hc.client5.http.impl.classic.CloseableHttpClient;
+import org.apache.hc.client5.http.impl.classic.HttpClients;
+import org.apache.hc.client5.http.impl.io.PoolingHttpClientConnectionManager;
+import org.apache.hc.core5.util.Timeout;
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
+
+import java.util.concurrent.TimeUnit;
+
+@Configuration
+public class FeignApacheHttpClientConfig {
+
+    @Bean
+    public Client feignClient() {
+        return new ApacheHttpClient(httpClient());
+    }
+
+    @Bean
+    public CloseableHttpClient httpClient() {
+        // Create a connection pool manager
+        PoolingHttpClientConnectionManager connectionManager = new PoolingHttpClientConnectionManager();
+        connectionManager.setMaxTotal(100); // Max total connections
+        connectionManager.setDefaultMaxPerRoute(20); // Max per route
+        connectionManager.closeIdle(TimeValue.ofMinutes(5)); // Close idle connections after 5 minutes
+
+        return HttpClients.custom()
+                .setConnectionManager(connectionManager)
+                .setDefaultRequestConfig(RequestConfig.custom()
+                        .setConnectTimeout(Timeout.ofSeconds(5)) // Connection timeout
+                        .setResponseTimeout(Timeout.ofSeconds(10)) // Response timeout
+                        .build())
+                .evictIdleConnections(30, TimeUnit.SECONDS) // Evict idle connections every 30 seconds
+                .evictExpiredConnections() // Evict expired connections
+                .build();
+    }
+}
 
