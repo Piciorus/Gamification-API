@@ -125,3 +125,31 @@ public class FeignClientsActuator {
                 .collect(Collectors.toMap(Map.Entry::getKey, entry -> entry.getValue().getClass().getName()));
     }
 }
+
+import io.github.resilience4j.retry.annotation.Retry;
+import org.springframework.cloud.openfeign.FeignClient;
+import org.springframework.web.bind.annotation.*;
+
+import java.util.List;
+
+@FeignClient(value = "authorization", fallback = AuthorizeFeignApiFallback.class)
+public interface AuthorizeFeignApi {
+
+    @Retry(name = "ProductServiceRetry")
+    @PostMapping(path = "/v1/authorization/authorize/{serviceId}", consumes = "application/json;charset=utf-8")
+    XAuthorizeResponse xauthorize(@RequestHeader("Authorization") String authorization,
+                                  @RequestHeader("Language") String language,
+                                  @RequestHeader("Feid") String feid,
+                                  @RequestHeader("TraceId") String traceid,
+                                  @RequestParam("serviceId") String serviceId,
+                                  @RequestBody List<String> serviceProducts);
+
+    @Retry(name = "ProductServiceRetry")
+    @PostMapping(path = "/v2/authorization/authorize/{serviceId}", consumes = "application/json;charset=utf-8")
+    XAuthorizeResponseV2 xauthorizeV2(@RequestHeader("Authorization") String authorization,
+                                      @RequestHeader("Language") String language,
+                                      @RequestHeader("Feid") String feid,
+                                      @RequestHeader("TraceId") String traceid,
+                                      @RequestParam("serviceId") String serviceId,
+                                      @RequestBody List<String> serviceProducts);
+}
