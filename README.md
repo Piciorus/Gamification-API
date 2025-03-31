@@ -230,3 +230,103 @@ public class FeignApacheHttpClientConfig {
     }
 }
 
+import static org.mockito.Mockito.*;
+import static org.junit.jupiter.api.Assertions.*;
+
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.InjectMocks;
+import org.mockito.Mock;
+import org.mockito.Spy;
+import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.ws.client.WebServiceTransportException;
+import org.springframework.ws.soap.client.SoapFaultClientException;
+
+import java.util.Collections;
+
+@ExtendWith(MockitoExtension.class)
+class OpenContactServiceTest {
+
+    @Mock
+    private OpenContactMapper openContactMapper;
+
+    @Mock
+    private WebServiceTemplate openContactWebServiceTemplate;
+
+    @Spy
+    private CRMWsOpenContactService crollsOpenContactService;
+
+    @InjectMocks
+    private OpenContactService underTest;
+
+    @BeforeEach
+    void setup() {
+        underTest = new OpenContactService(crollsOpenContactService, openContactMapper);
+    }
+
+    @Test
+    void shouldThrowCustomerNotFoundException_WhenCrmReturnsNoCustomerFoundError() {
+        // Given
+        var openContactRequest = createOpenContactRequest();
+        var openContactRequestCRM = createOpenContactRequestCRM();
+
+        when(openContactMapper.mapRequestToCrm(openContactRequest)).thenReturn(openContactRequestCRM);
+        doThrow(new SoapFaultClientException(CRMWsOpenContactService.CRM_NO_CUSTOMER_FOUND_ERRORCODE))
+                .when(crollsOpenContactService).openContact(openContactRequestCRM);
+
+        // When & Then
+        CommonException exception = assertThrows(CommonException.class, () ->
+                underTest.openContact(openContactRequest));
+
+        assertEquals(CustomExceptionCode.CRM_CUSTOMER_NOT_FOUND, exception.getCode());
+        verify(crollsOpenContactService, times(1)).openContact(openContactRequestCRM);
+    }
+
+    @Test
+    void shouldThrowMandatoryFieldMissingException_WhenCrmReturnsMandatoryFieldMissingError() {
+        // Given
+        var openContactRequest = createOpenContactRequest();
+        var openContactRequestCRM = createOpenContactRequestCRM();
+
+        when(openContactMapper.mapRequestToCrm(openContactRequest)).thenReturn(openContactRequestCRM);
+        doThrow(new SoapFaultClientException(CRMWsOpenContactService.CRM_MANDATORY_FIELD_MISSING_ERRORCODE))
+                .when(crollsOpenContactService).openContact(openContactRequestCRM);
+
+        // When & Then
+        CommonException exception = assertThrows(CommonException.class, () ->
+                underTest.openContact(openContactRequest));
+
+        assertEquals(CustomExceptionCode.CRM_OPEN_CONTACT_MANDATORY_FIELD_MISSING, exception.getCode());
+        verify(crollsOpenContactService, times(1)).openContact(openContactRequestCRM);
+    }
+
+    @Test
+    void shouldThrowServerErrorException_WhenUnknownExceptionOccurs() {
+        // Given
+        var openContactRequest = createOpenContactRequest();
+        var openContactRequestCRM = createOpenContactRequestCRM();
+
+        when(openContactMapper.mapRequestToCrm(openContactRequest)).thenReturn(openContactRequestCRM);
+        doThrow(new WebServiceTransportException("Unexpected error"))
+                .when(crollsOpenContactService).openContact(openContactRequestCRM);
+
+        // When & Then
+        CommonException exception = assertThrows(CommonException.class, () ->
+                underTest.openContact(openContactRequest));
+
+        assertEquals(CommonExceptionCode.SERVER_ERROR, exception.getCode());
+        verify(crollsOpenContactService, times(1)).openContact(openContactRequestCRM);
+    }
+
+    // Helper methods
+    private OpenContactRequest createOpenContactRequest() {
+        return new OpenContactRequest();
+    }
+
+    private OpenContactRequest createOpenContactRequestCRM() {
+        return new OpenContactRequest();
+    }
+}
+
+
