@@ -43,4 +43,91 @@ public class EvidenceServiceTest {
         assertNotNull(evi.getEvidenceStartDate());
         assertEquals(service.getToday().toString(), evi.getEvidenceStartDate());
     }
+}import org.junit.jupiter.api.Test;
+import java.text.SimpleDateFormat;
+import java.util.Date;
+
+import static org.junit.jupiter.api.Assertions.*;
+import static org.mockito.Mockito.*;
+
+class CrsEvidencesServiceTest {
+
+    private final CrsEvidencesService service = new CrsEvidencesService();
+    private final SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd");
+
+    @Test
+    void testConvertStringToDate_validDate() throws Exception {
+        String dateStr = "2025-08-14";
+        Date date = service.convertStringToDate(dateStr);
+        assertNotNull(date);
+        assertEquals(dateStr, sdf.format(date));
+    }
+
+    @Test
+    void testConvertStringToDate_invalidDate() {
+        assertNull(service.convertStringToDate("invalid-date"));
+    }
+
+    @Test
+    void testCheckEvidenceStartDate_setsDateIfNull() {
+        EvidenceElem evidence = mock(EvidenceElem.class);
+
+        when(evidence.getEvidenceStartDate()).thenReturn(null);
+
+        service.checkEvidenceStartDate(evidence);
+
+        verify(evidence).setEvidenceStartDate(anyString());
+    }
+
+    @Test
+    void testCheckEvidenceStartDate_doesNothingIfDatePresent() {
+        EvidenceElem evidence = mock(EvidenceElem.class);
+
+        when(evidence.getEvidenceStartDate()).thenReturn("2025-08-14");
+
+        service.checkEvidenceStartDate(evidence);
+
+        verify(evidence, never()).setEvidenceStartDate(anyString());
+    }
+
+    @Test
+    void testIsOldEvidenceAffected_sameTypeAndOverlap() {
+        EvidenceElem newEvidence = mock(EvidenceElem.class);
+        EvidenceElem oldEvidence = mock(EvidenceElem.class);
+
+        when(newEvidence.getEvidenceStartDate()).thenReturn("2025-08-10");
+        when(newEvidence.getEvidenceEndDate()).thenReturn("2025-08-20");
+        when(oldEvidence.getEvidenceStartDate()).thenReturn("2025-08-15");
+        when(oldEvidence.getEvidenceEndDate()).thenReturn("2025-08-25");
+
+        when(newEvidence.getEvidenceType()).thenReturn("TypeA");
+        when(newEvidence.getEvidenceSubType()).thenReturn("Sub1");
+        when(oldEvidence.getEvidenceType()).thenReturn("TypeA");
+        when(oldEvidence.getEvidenceSubType()).thenReturn("Sub1");
+
+        boolean result = service.isOldEvidenceAffected(newEvidence, oldEvidence);
+
+        assertTrue(result);
+    }
+
+    @Test
+    void testIsOldEvidenceAffected_differentType() {
+        EvidenceElem newEvidence = mock(EvidenceElem.class);
+        EvidenceElem oldEvidence = mock(EvidenceElem.class);
+
+        when(newEvidence.getEvidenceStartDate()).thenReturn("2025-08-10");
+        when(newEvidence.getEvidenceEndDate()).thenReturn("2025-08-20");
+        when(oldEvidence.getEvidenceStartDate()).thenReturn("2025-08-15");
+        when(oldEvidence.getEvidenceEndDate()).thenReturn("2025-08-25");
+
+        when(newEvidence.getEvidenceType()).thenReturn("TypeA");
+        when(newEvidence.getEvidenceSubType()).thenReturn("Sub1");
+        when(oldEvidence.getEvidenceType()).thenReturn("TypeB");
+        when(oldEvidence.getEvidenceSubType()).thenReturn("Sub1");
+
+        boolean result = service.isOldEvidenceAffected(newEvidence, oldEvidence);
+
+        assertFalse(result);
+    }
 }
+
