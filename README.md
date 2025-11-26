@@ -215,4 +215,96 @@ class CrsEvidencesServiceTest {
     }
 }
 
+package de.consorsbank.trading.brkprcsc.brokerageprocessor.config;
+
+import com.atomikos.jms.AtomikosConnectionFactoryBean;
+import de.consorsbank.trading.brkprcsc.brokerageprocessor.config.properties.ActiveMqProperties;
+import jakarta.jms.ConnectionFactory;
+import org.apache.activemq.artemis.jms.client.ActiveMQXAConnectionFactory;
+import org.apache.activemq.artemis.jms.client.RedeliveryPolicy;
+import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
+import org.springframework.jms.annotation.EnableJms;
+import org.springframework.jms.config.DefaultJmsListenerContainerFactory;
+import org.springframework.jms.core.JmsTemplate;
+import org.springframework.transaction.annotation.EnableTransactionManagement;
+
+import java.util.List;
+
+@Configuration
+@EnableJms
+@EnableTransactionManagement
+@ConditionalOnProperty(name = "public-message-connector.activemq.enabled", havingValue = "true")
+public class ActiveMqConfig {
+
+    private static final String TRUSTED_PACKAGE =
+            "de.consorsbank.trading.brkprcsc.brokerageprocessor";
+
+    // -----------------------------------------------
+    //  Redelivery Policy
+    // -----------------------------------------------
+    @Bean("jmsRedeliveryPolicy")
+    public RedeliveryPolicy jmsRedeliveryPolicy() {
+        var policy = new RedeliveryPolicy();
+        policy.setMaxRedeliveryDelay(5000);
+        policy.setInitialRedeliveryDelay(1000);
+        policy.setMultiplier(2.0);
+        return policy;
+    }
+
+    // -----------------------------------------------
+    //  XA Connection Factory (Atomikos + Artemis)
+    // -----------------------------------------------
+    @Bean("jmsConnectionFactory")
+    public AtomikosConnectionFactoryBean jmsConnectionFactory(
+            @Qualifier("jmsRedeliveryPolicy") RedeliveryPolicy redeliveryPolicy,
+            ActiveMqProperties props
+    ) {
+        // Artemis XA factory (Jakarta compatible)
+        ActiveMQXAConnectionFactory xaFactory =
+                new ActiveMQXAConnectionFactory(props.getBrokerUrl());
+
+        xaFactory.setDeserializationWhiteList(List.of(TRUSTED_PACKAGE));
+        xaFactory.setRedeliveryPolicy(redeliveryPolicy);
+
+        // Atomikos wrapper
+        AtomikosConnectionFactoryBean atomikos = new AtomikosConnectionFactoryBean();
+        atomikos.setUniqueResourceName(props.getUniqueResourceName());
+        atomikos.setXaConnectionFactory(xaFactory);
+
+        atomikos.setMinPoolSize(props.getConnectionFactoryMinPoolSize());
+        atomikos.setMaxPoolSize(props.getConnectionFactoryMaxPoolSize());
+        atomikos.setMaxIdleTime(props.getMaxIdleTime());
+        atomikos.setMaxLifetime(props.getMaxLifeTime());
+        atomikos.setMaintenanceInterval(props.getMaintenanceInterval());
+        atomikos.setBorrowConnectionTimeout(props.getBorrowConnectionTimeout());
+
+        return atomikos;
+    }
+
+    // -----------------------------------------------
+    //  JMS Listener Factory
+    // -----------------------------------------------
+    @Bean
+    public DefaultJmsListenerContainerFactory jmsListenerContainerFactory(
+            @Qualifier("jmsConnectionFactory") ConnectionFactory connectionFactory
+    ) {
+        var factory = new DefaultJmsListenerContainerFactory();
+        factory.setConnectionFactory(connectionFactory);
+        factory.setSessionTransacted(true);
+        return factory;
+    }
+
+    // -----------------------------------------------
+    //  JMS Template
+    // -----------------------------------------------
+    @Bean("jmsTemplate")
+    public JmsTemplate jmsTemplate(
+            @Qualifier("jmsConnectionFactory") ConnectionFactory connectionFactory
+    ) {
+        return new JmsTemplate(connectionFactory);
+    }
+}
 
