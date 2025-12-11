@@ -1,310 +1,231 @@
+package de.consorsbank.trading.brkprcsc.custpm.rest.adapter.feign;
 
-zgrep -i "SendTechnicalEmail" * | grep "<ns2:data>" | sed -n 's/.*<ns2:data>\(.*\)<\/ns2:data>.*/\1/p' | head -n 1
-import static org.junit.jupiter.api.Assertions.*;
+import com.consorsbank.common.error.handling.exception.CommonException;
+import com.consorsbank.common.error.handling.exception.authorization.CommonExceptionCode;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import de.consorsbank.trading.brkprcsc.custpm.rest.adapter.dtos.CustpmApiError;
+import feign.Request;
+import feign.Response;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import java.util.Date;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.Mock;
+import org.mockito.junit.jupiter.MockitoExtension;
 
-public class EvidenceServiceTest {
-
-    @Test
-    void testOverlapAndSameType() {
-        EvidenceElen oldEvi = new EvidenceElen("TypeA", "SubA", "2025-01-01", "2025-01-31");
-        EvidenceElen newEvi = new EvidenceElen("TypeA", "SubA", "2025-01-15", "2025-02-10");
-
-        EvidenceService service = new EvidenceService();
-        assertTrue(service.isOldEvidenceAffected(newEvi, oldEvi));
-    }
-
-    @Test
-    void testNoOverlapSameType() {
-        EvidenceElen oldEvi = new EvidenceElen("TypeA", "SubA", "2025-01-01", "2025-01-31");
-        EvidenceElen newEvi = new EvidenceElen("TypeA", "SubA", "2025-02-01", "2025-02-28");
-
-        EvidenceService service = new EvidenceService();
-        assertFalse(service.isOldEvidenceAffected(newEvi, oldEvi));
-    }
-
-    @Test
-    void testDifferentTypeOverlap() {
-        EvidenceElen oldEvi = new EvidenceElen("TypeA", "SubA", "2025-01-01", "2025-01-31");
-        EvidenceElen newEvi = new EvidenceElen("TypeB", "SubA", "2025-01-15", "2025-02-10");
-
-        EvidenceService service = new EvidenceService();
-        assertFalse(service.isOldEvidenceAffected(newEvi, oldEvi));
-    }
-
-    @Test
-    void testCheckEvidenceStartDateSetsTodayIfNull() {
-        EvidenceElen evi = new EvidenceElen("TypeA", "SubA", null, "2025-01-31");
-
-        EvidenceService service = new EvidenceService();
-        service.checkEvidenceStartDate(evi);
-
-        assertNotNull(evi.getEvidenceStartDate());
-        assertEquals(service.getToday().toString(), evi.getEvidenceStartDate());
-    }
-}import org.junit.jupiter.api.Test;
-import java.text.SimpleDateFormat;
-import java.util.Date;
+import java.io.ByteArrayInputStream;
+import java.io.IOException;
+import java.io.InputStream;
+import java.nio.charset.StandardCharsets;
+import java.util.Collections;
+import java.util.HashMap;
 
 import static org.junit.jupiter.api.Assertions.*;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.*;
 
-class CrsEvidencesServiceTest {
+@ExtendWith(MockitoExtension.class)
+class CustpmFeignErrorDecoderTest {
 
-    private final CrsEvidencesService service = new CrsEvidencesService();
-    private final SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd");
+    @Mock
+    private ObjectMapper objectMapper;
 
-    @Test
-    void testConvertStringToDate_validDate() throws Exception {
-        String dateStr = "2025-08-14";
-        Date date = service.convertStringToDate(dateStr);
-        assertNotNull(date);
-        assertEquals(dateStr, sdf.format(date));
+    @Mock
+    private Response response;
+
+    @Mock
+    private Response.Body responseBody;
+
+    private CustpmFeignErrorDecoder errorDecoder;
+
+    private static final String METHOD_KEY = "CustpmClient#getCustomer()";
+
+    @BeforeEach
+    void setUp() {
+        errorDecoder = new CustpmFeignErrorDecoder(objectMapper);
     }
 
     @Test
-    void testConvertStringToDate_invalidDate() {
-        assertNull(service.convertStringToDate("invalid-date"));
+    void shouldDecodeErrorSuccessfully() throws IOException {
+        // Given
+        String errorJson = "{\"timestamp\":\"2024-12-11T10:00:00\",\"status\":404,\"error\":\"Not Found\",\"path\":\"/api/customer\"}";
+        InputStream inputStream = new ByteArrayInputStream(errorJson.getBytes(StandardCharsets.UTF_8));
+        
+        CustpmApiError apiError = CustpmApiError.builder()
+                .timestamp("2024-12-11T10:00:00")
+                .status(404)
+                .error("Not Found")
+                .path("/api/customer")
+                .build();
+
+        when(response.body()).thenReturn(responseBody);
+        when(responseBody.asInputStream()).thenReturn(inputStream);
+        when(objectMapper.readValue(any(InputStream.class), eq(CustpmApiError.class)))
+                .thenReturn(apiError);
+
+        // When
+        Exception result = errorDecoder.decode(METHOD_KEY, response);
+
+        // Then
+        assertInstanceOf(CommonException.class, result);
+        CommonException commonException = (CommonException) result;
+        assertEquals(CommonExceptionCode.SERVER_ERROR, commonException.getCommonExceptionCode());
+        
+        verify(objectMapper).readValue(any(InputStream.class), eq(CustpmApiError.class));
+        verify(responseBody).asInputStream();
     }
 
     @Test
-    void testCheckEvidenceStartDate_setsDateIfNull() {
-        EvidenceElem evidence = mock(EvidenceElem.class);
+    void shouldThrowCommonExceptionWhenIOExceptionOccurs() throws IOException {
+        // Given
+        String errorMessage = "Failed to parse response";
+        IOException ioException = new IOException(errorMessage);
+        
+        when(response.body()).thenReturn(responseBody);
+        when(responseBody.asInputStream()).thenReturn(new ByteArrayInputStream(new byte[0]));
+        when(objectMapper.readValue(any(InputStream.class), eq(CustpmApiError.class)))
+                .thenThrow(ioException);
 
-        when(evidence.getEvidenceStartDate()).thenReturn(null);
+        // When
+        CommonException result = assertThrows(CommonException.class, 
+                () -> errorDecoder.decode(METHOD_KEY, response));
 
-        service.checkEvidenceStartDate(evidence);
-
-        verify(evidence).setEvidenceStartDate(anyString());
+        // Then
+        assertEquals(CommonExceptionCode.SERVER_ERROR, result.getCommonExceptionCode());
+        assertNotNull(result.getDetails());
+        assertEquals(1, result.getDetails().size());
+        assertEquals(errorMessage, result.getDetails().get(0));
+        
+        verify(objectMapper).readValue(any(InputStream.class), eq(CustpmApiError.class));
     }
 
     @Test
-    void testCheckEvidenceStartDate_doesNothingIfDatePresent() {
-        EvidenceElem evidence = mock(EvidenceElem.class);
+    void shouldHandleNullResponseBody() throws IOException {
+        // Given
+        when(response.body()).thenReturn(null);
 
-        when(evidence.getEvidenceStartDate()).thenReturn("2025-08-14");
-
-        service.checkEvidenceStartDate(evidence);
-
-        verify(evidence, never()).setEvidenceStartDate(anyString());
+        // When & Then
+        assertThrows(NullPointerException.class, 
+                () -> errorDecoder.decode(METHOD_KEY, response));
     }
 
     @Test
-    void testIsOldEvidenceAffected_sameTypeAndOverlap() {
-        EvidenceElem newEvidence = mock(EvidenceElem.class);
-        EvidenceElem oldEvidence = mock(EvidenceElem.class);
+    void shouldHandleEmptyResponseBody() throws IOException {
+        // Given
+        InputStream emptyStream = new ByteArrayInputStream(new byte[0]);
+        when(response.body()).thenReturn(responseBody);
+        when(responseBody.asInputStream()).thenReturn(emptyStream);
+        when(objectMapper.readValue(any(InputStream.class), eq(CustpmApiError.class)))
+                .thenThrow(new IOException("No content to map"));
 
-        when(newEvidence.getEvidenceStartDate()).thenReturn("2025-08-10");
-        when(newEvidence.getEvidenceEndDate()).thenReturn("2025-08-20");
-        when(oldEvidence.getEvidenceStartDate()).thenReturn("2025-08-15");
-        when(oldEvidence.getEvidenceEndDate()).thenReturn("2025-08-25");
+        // When
+        CommonException result = assertThrows(CommonException.class,
+                () -> errorDecoder.decode(METHOD_KEY, response));
 
-        when(newEvidence.getEvidenceType()).thenReturn("TypeA");
-        when(newEvidence.getEvidenceSubType()).thenReturn("Sub1");
-        when(oldEvidence.getEvidenceType()).thenReturn("TypeA");
-        when(oldEvidence.getEvidenceSubType()).thenReturn("Sub1");
-
-        boolean result = service.isOldEvidenceAffected(newEvidence, oldEvidence);
-
-        assertTrue(result);
+        // Then
+        assertEquals(CommonExceptionCode.SERVER_ERROR, result.getCommonExceptionCode());
+        verify(objectMapper).readValue(any(InputStream.class), eq(CustpmApiError.class));
     }
 
     @Test
-    void testIsOldEvidenceAffected_differentType() {
-        EvidenceElem newEvidence = mock(EvidenceElem.class);
-        EvidenceElem oldEvidence = mock(EvidenceElem.class);
+    void shouldHandleMalformedJson() throws IOException {
+        // Given
+        String malformedJson = "{invalid json}";
+        InputStream inputStream = new ByteArrayInputStream(malformedJson.getBytes(StandardCharsets.UTF_8));
+        
+        when(response.body()).thenReturn(responseBody);
+        when(responseBody.asInputStream()).thenReturn(inputStream);
+        when(objectMapper.readValue(any(InputStream.class), eq(CustpmApiError.class)))
+                .thenThrow(new IOException("Malformed JSON"));
 
-        when(newEvidence.getEvidenceStartDate()).thenReturn("2025-08-10");
-        when(newEvidence.getEvidenceEndDate()).thenReturn("2025-08-20");
-        when(oldEvidence.getEvidenceStartDate()).thenReturn("2025-08-15");
-        when(oldEvidence.getEvidenceEndDate()).thenReturn("2025-08-25");
+        // When
+        CommonException result = assertThrows(CommonException.class,
+                () -> errorDecoder.decode(METHOD_KEY, response));
 
-        when(newEvidence.getEvidenceType()).thenReturn("TypeA");
-        when(newEvidence.getEvidenceSubType()).thenReturn("Sub1");
-        when(oldEvidence.getEvidenceType()).thenReturn("TypeB");
-        when(oldEvidence.getEvidenceSubType()).thenReturn("Sub1");
+        // Then
+        assertEquals(CommonExceptionCode.SERVER_ERROR, result.getCommonExceptionCode());
+        assertTrue(result.getDetails().get(0).contains("Malformed JSON"));
+    }
 
-        boolean result = service.isOldEvidenceAffected(newEvidence, oldEvidence);
+    @Test
+    void shouldDecodeMultipleDifferentErrors() throws IOException {
+        // Given - First error (404)
+        String error404Json = "{\"timestamp\":\"2024-12-11T10:00:00\",\"status\":404,\"error\":\"Not Found\",\"path\":\"/api/customer\"}";
+        InputStream inputStream404 = new ByteArrayInputStream(error404Json.getBytes(StandardCharsets.UTF_8));
+        
+        CustpmApiError apiError404 = CustpmApiError.builder()
+                .timestamp("2024-12-11T10:00:00")
+                .status(404)
+                .error("Not Found")
+                .path("/api/customer")
+                .build();
 
-        assertFalse(result);
+        Response response404 = mock(Response.class);
+        Response.Body body404 = mock(Response.Body.class);
+        
+        when(response404.body()).thenReturn(body404);
+        when(body404.asInputStream()).thenReturn(inputStream404);
+        when(objectMapper.readValue(any(InputStream.class), eq(CustpmApiError.class)))
+                .thenReturn(apiError404);
+
+        // When - First decode
+        Exception result404 = errorDecoder.decode(METHOD_KEY, response404);
+
+        // Then
+        assertInstanceOf(CommonException.class, result404);
+        
+        // Given - Second error (500)
+        String error500Json = "{\"timestamp\":\"2024-12-11T10:01:00\",\"status\":500,\"error\":\"Internal Server Error\",\"path\":\"/api/account\"}";
+        InputStream inputStream500 = new ByteArrayInputStream(error500Json.getBytes(StandardCharsets.UTF_8));
+        
+        CustpmApiError apiError500 = CustpmApiError.builder()
+                .timestamp("2024-12-11T10:01:00")
+                .status(500)
+                .error("Internal Server Error")
+                .path("/api/account")
+                .build();
+
+        Response response500 = mock(Response.class);
+        Response.Body body500 = mock(Response.Body.class);
+        
+        when(response500.body()).thenReturn(body500);
+        when(body500.asInputStream()).thenReturn(inputStream500);
+        when(objectMapper.readValue(any(InputStream.class), eq(CustpmApiError.class)))
+                .thenReturn(apiError500);
+
+        // When - Second decode
+        Exception result500 = errorDecoder.decode(METHOD_KEY, response500);
+
+        // Then
+        assertInstanceOf(CommonException.class, result500);
+        verify(objectMapper, times(2)).readValue(any(InputStream.class), eq(CustpmApiError.class));
+    }
+
+    @Test
+    void shouldVerifyObjectMapperIsCalledWithCorrectParameters() throws IOException {
+        // Given
+        String errorJson = "{\"timestamp\":\"2024-12-11T10:00:00\",\"status\":400,\"error\":\"Bad Request\",\"path\":\"/api/validate\"}";
+        InputStream inputStream = new ByteArrayInputStream(errorJson.getBytes(StandardCharsets.UTF_8));
+        
+        CustpmApiError apiError = CustpmApiError.builder()
+                .timestamp("2024-12-11T10:00:00")
+                .status(400)
+                .error("Bad Request")
+                .path("/api/validate")
+                .build();
+
+        when(response.body()).thenReturn(responseBody);
+        when(responseBody.asInputStream()).thenReturn(inputStream);
+        when(objectMapper.readValue(any(InputStream.class), eq(CustpmApiError.class)))
+                .thenReturn(apiError);
+
+        // When
+        errorDecoder.decode(METHOD_KEY, response);
+
+        // Then
+        verify(objectMapper, times(1)).readValue(any(InputStream.class), eq(CustpmApiError.class));
+        verify(response, times(1)).body();
+        verify(responseBody, times(1)).asInputStream();
+        verifyNoMoreInteractions(objectMapper);
     }
 }
-da
-import org.junit.jupiter.api.Test;
-import java.text.SimpleDateFormat;
-import java.util.Date;
-
-import static org.junit.jupiter.api.Assertions.*;
-import static org.mockito.Mockito.*;
-
-class CrsEvidencesServiceTest {
-
-    private final CrsEvidencesService service = new CrsEvidencesService();
-    private final SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd");
-
-    @Test
-    void testConvertStringToDate_validDate() throws Exception {
-        String dateStr = "2025-08-14";
-        Date date = service.convertStringToDate(dateStr);
-        assertNotNull(date);
-        assertEquals(dateStr, sdf.format(date));
-    }
-
-    @Test
-    void testConvertStringToDate_invalidDate() {
-        assertNull(service.convertStringToDate("invalid-date"));
-    }
-
-    @Test
-    void testConvertStringToDate_nullDate() {
-        assertNull(service.convertStringToDate(null));
-    }
-
-    @Test
-    void testCheckEvidenceStartDate_setsDateIfNull() {
-        EvidenceElem evidence = mock(EvidenceElem.class);
-        when(evidence.getEvidenceStartDate()).thenReturn(null);
-        service.checkEvidenceStartDate(evidence);
-        verify(evidence).setEvidenceStartDate(anyString());
-    }
-
-    @Test
-    void testCheckEvidenceStartDate_doesNothingIfDatePresent() {
-        EvidenceElem evidence = mock(EvidenceElem.class);
-        when(evidence.getEvidenceStartDate()).thenReturn("2025-08-14");
-        service.checkEvidenceStartDate(evidence);
-        verify(evidence, never()).setEvidenceStartDate(anyString());
-    }
-
-    @Test
-    void testIsOldEvidenceAffected_sameTypeAndOverlap() {
-        EvidenceElem newEvidence = mockEvidence("TypeA", "Sub1", "2025-08-10", "2025-08-20");
-        EvidenceElem oldEvidence = mockEvidence("TypeA", "Sub1", "2025-08-15", "2025-08-25");
-        assertTrue(service.isOldEvidenceAffected(newEvidence, oldEvidence));
-    }
-
-    @Test
-    void testIsOldEvidenceAffected_differentType() {
-        EvidenceElem newEvidence = mockEvidence("TypeA", "Sub1", "2025-08-10", "2025-08-20");
-        EvidenceElem oldEvidence = mockEvidence("TypeB", "Sub1", "2025-08-15", "2025-08-25");
-        assertFalse(service.isOldEvidenceAffected(newEvidence, oldEvidence));
-    }
-
-    @Test
-    void testIsOldEvidenceAffected_nullDates() {
-        EvidenceElem newEvidence = mockEvidence("TypeA", "Sub1", null, "2025-08-20");
-        EvidenceElem oldEvidence = mockEvidence("TypeA", "Sub1", "2025-08-15", "2025-08-25");
-        assertFalse(service.isOldEvidenceAffected(newEvidence, oldEvidence));
-    }
-
-    @Test
-    void testIsOldEvidenceAffected_noOverlap() {
-        EvidenceElem newEvidence = mockEvidence("TypeA", "Sub1", "2025-09-01", "2025-09-10");
-        EvidenceElem oldEvidence = mockEvidence("TypeA", "Sub1", "2025-08-01", "2025-08-05");
-        assertFalse(service.isOldEvidenceAffected(newEvidence, oldEvidence));
-    }
-
-    private EvidenceElem mockEvidence(String type, String subType, String startDate, String endDate) {
-        EvidenceElem evidence = mock(EvidenceElem.class);
-        when(evidence.getEvidenceType()).thenReturn(type);
-        when(evidence.getEvidenceSubType()).thenReturn(subType);
-        when(evidence.getEvidenceStartDate()).thenReturn(startDate);
-        when(evidence.getEvidenceEndDate()).thenReturn(endDate);
-        return evidence;
-    }
-}
-
-package de.consorsbank.trading.brkprcsc.brokerageprocessor.config;
-
-import com.atomikos.jms.AtomikosConnectionFactoryBean;
-import de.consorsbank.trading.brkprcsc.brokerageprocessor.config.properties.ActiveMqProperties;
-import jakarta.jms.ConnectionFactory;
-import org.apache.activemq.artemis.jms.client.ActiveMQXAConnectionFactory;
-import org.apache.activemq.artemis.jms.client.RedeliveryPolicy;
-import org.springframework.beans.factory.annotation.Qualifier;
-import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
-import org.springframework.context.annotation.Bean;
-import org.springframework.context.annotation.Configuration;
-import org.springframework.jms.annotation.EnableJms;
-import org.springframework.jms.config.DefaultJmsListenerContainerFactory;
-import org.springframework.jms.core.JmsTemplate;
-import org.springframework.transaction.annotation.EnableTransactionManagement;
-
-import java.util.List;
-
-@Configuration
-@EnableJms
-@EnableTransactionManagement
-@ConditionalOnProperty(name = "public-message-connector.activemq.enabled", havingValue = "true")
-public class ActiveMqConfig {
-
-    private static final String TRUSTED_PACKAGE =
-            "de.consorsbank.trading.brkprcsc.brokerageprocessor";
-
-    // -----------------------------------------------
-    //  Redelivery Policy
-    // -----------------------------------------------
-    @Bean("jmsRedeliveryPolicy")
-    public RedeliveryPolicy jmsRedeliveryPolicy() {
-        var policy = new RedeliveryPolicy();
-        policy.setMaxRedeliveryDelay(5000);
-        policy.setInitialRedeliveryDelay(1000);
-        policy.setMultiplier(2.0);
-        return policy;
-    }
-
-    // -----------------------------------------------
-    //  XA Connection Factory (Atomikos + Artemis)
-    // -----------------------------------------------
-    @Bean("jmsConnectionFactory")
-    public AtomikosConnectionFactoryBean jmsConnectionFactory(
-            @Qualifier("jmsRedeliveryPolicy") RedeliveryPolicy redeliveryPolicy,
-            ActiveMqProperties props
-    ) {
-        // Artemis XA factory (Jakarta compatible)
-        ActiveMQXAConnectionFactory xaFactory =
-                new ActiveMQXAConnectionFactory(props.getBrokerUrl());
-
-        xaFactory.setDeserializationWhiteList(List.of(TRUSTED_PACKAGE));
-        xaFactory.setRedeliveryPolicy(redeliveryPolicy);
-
-        // Atomikos wrapper
-        AtomikosConnectionFactoryBean atomikos = new AtomikosConnectionFactoryBean();
-        atomikos.setUniqueResourceName(props.getUniqueResourceName());
-        atomikos.setXaConnectionFactory(xaFactory);
-
-        atomikos.setMinPoolSize(props.getConnectionFactoryMinPoolSize());
-        atomikos.setMaxPoolSize(props.getConnectionFactoryMaxPoolSize());
-        atomikos.setMaxIdleTime(props.getMaxIdleTime());
-        atomikos.setMaxLifetime(props.getMaxLifeTime());
-        atomikos.setMaintenanceInterval(props.getMaintenanceInterval());
-        atomikos.setBorrowConnectionTimeout(props.getBorrowConnectionTimeout());
-
-        return atomikos;
-    }
-
-    // -----------------------------------------------
-    //  JMS Listener Factory
-    // -----------------------------------------------
-    @Bean
-    public DefaultJmsListenerContainerFactory jmsListenerContainerFactory(
-            @Qualifier("jmsConnectionFactory") ConnectionFactory connectionFactory
-    ) {
-        var factory = new DefaultJmsListenerContainerFactory();
-        factory.setConnectionFactory(connectionFactory);
-        factory.setSessionTransacted(true);
-        return factory;
-    }
-
-    // -----------------------------------------------
-    //  JMS Template
-    // -----------------------------------------------
-    @Bean("jmsTemplate")
-    public JmsTemplate jmsTemplate(
-            @Qualifier("jmsConnectionFactory") ConnectionFactory connectionFactory
-    ) {
-        return new JmsTemplate(connectionFactory);
-    }
-}
-
