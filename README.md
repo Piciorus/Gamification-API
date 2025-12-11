@@ -46,8 +46,8 @@ class CustpmFeignErrorDecoderTest {
     }
 
     @Test
-    void shouldDecodeErrorSuccessfully() throws IOException {
-        // Given
+    void shouldSuccessfullyParseCustpmApiErrorInTryBlock() throws IOException {
+        // Given - Valid JSON that will be successfully parsed
         String errorJson = "{\"timestamp\":\"2024-12-11T10:00:00\",\"status\":404,\"error\":\"Not Found\",\"path\":\"/api/customer\"}";
         InputStream inputStream = new ByteArrayInputStream(errorJson.getBytes(StandardCharsets.UTF_8));
         
@@ -63,16 +63,20 @@ class CustpmFeignErrorDecoderTest {
         when(objectMapper.readValue(any(InputStream.class), eq(CustpmApiError.class)))
                 .thenReturn(apiError);
 
-        // When
-        Exception result = errorDecoder.decode(METHOD_KEY, response);
+        // When - The try block executes successfully, no IOException thrown
+        CommonException result = assertThrows(CommonException.class, 
+                () -> errorDecoder.decode(METHOD_KEY, response));
 
-        // Then
-        assertInstanceOf(CommonException.class, result);
-        CommonException commonException = (CommonException) result;
-        assertEquals(CommonExceptionCode.SERVER_ERROR, commonException.getCommonExceptionCode());
+        // Then - Verify the try block was executed (ObjectMapper was called)
+        verify(objectMapper, times(1)).readValue(any(InputStream.class), eq(CustpmApiError.class));
+        verify(responseBody, times(1)).asInputStream();
         
-        verify(objectMapper).readValue(any(InputStream.class), eq(CustpmApiError.class));
-        verify(responseBody).asInputStream();
+        // Verify that CommonException is thrown with SERVER_ERROR (after successful parsing)
+        assertEquals(CommonExceptionCode.SERVER_ERROR, result.getCommonExceptionCode());
+        
+        // Verify that details list is null or empty (not from catch block)
+        assertTrue(result.getDetails() == null || result.getDetails().isEmpty(), 
+                "Details should be empty when try block succeeds");
     }
 
     @Test
@@ -169,10 +173,11 @@ class CustpmFeignErrorDecoderTest {
                 .thenReturn(apiError404);
 
         // When - First decode
-        Exception result404 = errorDecoder.decode(METHOD_KEY, response404);
+        CommonException result404 = assertThrows(CommonException.class,
+                () -> errorDecoder.decode(METHOD_KEY, response404));
 
         // Then
-        assertInstanceOf(CommonException.class, result404);
+        assertEquals(CommonExceptionCode.SERVER_ERROR, result404.getCommonExceptionCode());
         
         // Given - Second error (500)
         String error500Json = "{\"timestamp\":\"2024-12-11T10:01:00\",\"status\":500,\"error\":\"Internal Server Error\",\"path\":\"/api/account\"}";
@@ -194,10 +199,11 @@ class CustpmFeignErrorDecoderTest {
                 .thenReturn(apiError500);
 
         // When - Second decode
-        Exception result500 = errorDecoder.decode(METHOD_KEY, response500);
+        CommonException result500 = assertThrows(CommonException.class,
+                () -> errorDecoder.decode(METHOD_KEY, response500));
 
         // Then
-        assertInstanceOf(CommonException.class, result500);
+        assertEquals(CommonExceptionCode.SERVER_ERROR, result500.getCommonExceptionCode());
         verify(objectMapper, times(2)).readValue(any(InputStream.class), eq(CustpmApiError.class));
     }
 
@@ -220,7 +226,7 @@ class CustpmFeignErrorDecoderTest {
                 .thenReturn(apiError);
 
         // When
-        errorDecoder.decode(METHOD_KEY, response);
+        assertThrows(CommonException.class, () -> errorDecoder.decode(METHOD_KEY, response));
 
         // Then
         verify(objectMapper, times(1)).readValue(any(InputStream.class), eq(CustpmApiError.class));
