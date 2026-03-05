@@ -1,237 +1,108 @@
-package de.consorsbank.trading.brkprcsc.custpm.rest.adapter.feign;
+#include <cstring>
+#include <iostream>
+using namespace std;
 
-import com.consorsbank.common.error.handling.exception.CommonException;
-import com.consorsbank.common.error.handling.exception.authorization.CommonExceptionCode;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import de.consorsbank.trading.brkprcsc.custpm.rest.adapter.dtos.CustpmApiError;
-import feign.Request;
-import feign.Response;
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.Mock;
-import org.mockito.junit.jupiter.MockitoExtension;
+class Carte {
+private:
+    char *titlu;
+    char *autor;
+    int anPublicare;
 
-import java.io.ByteArrayInputStream;
-import java.io.IOException;
-import java.io.InputStream;
-import java.nio.charset.StandardCharsets;
-import java.util.Collections;
-import java.util.HashMap;
-
-import static org.junit.jupiter.api.Assertions.*;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.eq;
-import static org.mockito.Mockito.*;
-
-@ExtendWith(MockitoExtension.class)
-class CustpmFeignErrorDecoderTest {
-
-    @Mock
-    private ObjectMapper objectMapper;
-
-    @Mock
-    private Response response;
-
-    @Mock
-    private Response.Body responseBody;
-
-    private CustpmFeignErrorDecoder errorDecoder;
-
-    private static final String METHOD_KEY = "CustpmClient#getCustomer()";
-
-    @BeforeEach
-    void setUp() {
-        errorDecoder = new CustpmFeignErrorDecoder(objectMapper);
+public:
+    Carte(const char *t = "Anonim", const char *a = "Anonimus", int an = 0) : anPublicare(an) {
+        titlu = new char[strlen(t) + 1];
+        autor = new char[strlen(a) + 1];
+        strcpy(this->titlu, t);
+        strcpy(autor, a);
     }
 
-    @Test
-    void shouldSuccessfullyParseCustpmApiErrorInTryBlock() throws IOException {
-        // Given - Valid JSON that will be successfully parsed
-        String errorJson = "{\"timestamp\":\"2024-12-11T10:00:00\",\"status\":404,\"error\":\"Not Found\",\"path\":\"/api/customer\"}";
-        InputStream inputStream = new ByteArrayInputStream(errorJson.getBytes(StandardCharsets.UTF_8));
-        
-        CustpmApiError apiError = CustpmApiError.builder()
-                .timestamp("2024-12-11T10:00:00")
-                .status(404)
-                .error("Not Found")
-                .path("/api/customer")
-                .build();
-
-        when(response.body()).thenReturn(responseBody);
-        when(responseBody.asInputStream()).thenReturn(inputStream);
-        when(objectMapper.readValue(any(InputStream.class), eq(CustpmApiError.class)))
-                .thenReturn(apiError);
-
-        // When - The try block executes successfully, no IOException thrown
-        CommonException result = assertThrows(CommonException.class, 
-                () -> errorDecoder.decode(METHOD_KEY, response));
-
-        // Then - Verify the try block was executed (ObjectMapper was called)
-        verify(objectMapper, times(1)).readValue(any(InputStream.class), eq(CustpmApiError.class));
-        verify(responseBody, times(1)).asInputStream();
-        
-        // Verify that CommonException is thrown with SERVER_ERROR (after successful parsing)
-        assertEquals(CommonExceptionCode.SERVER_ERROR, result.getCommonExceptionCode());
-        
-        // Verify that details list is null or empty (not from catch block)
-        assertTrue(result.getDetails() == null || result.getDetails().isEmpty(), 
-                "Details should be empty when try block succeeds");
+    Carte(const Carte &alt) : anPublicare(alt.anPublicare) {
+        titlu = new char[strlen(alt.titlu) + 1];
+        autor = new char[strlen(alt.autor) + 1];
+        strcpy(this->titlu, alt.titlu);
+        strcpy(autor, alt.autor);
+        cout << "[Copy ctor]   \"" << titlu << "\" copiat din \""
+                << alt.titlu << "\"\n";
     }
 
-    @Test
-    void shouldThrowCommonExceptionWhenIOExceptionOccurs() throws IOException {
-        // Given
-        String errorMessage = "Failed to parse response";
-        IOException ioException = new IOException(errorMessage);
-        
-        when(response.body()).thenReturn(responseBody);
-        when(responseBody.asInputStream()).thenReturn(new ByteArrayInputStream(new byte[0]));
-        when(objectMapper.readValue(any(InputStream.class), eq(CustpmApiError.class)))
-                .thenThrow(ioException);
-
-        // When
-        CommonException result = assertThrows(CommonException.class, 
-                () -> errorDecoder.decode(METHOD_KEY, response));
-
-        // Then
-        assertEquals(CommonExceptionCode.SERVER_ERROR, result.getCommonExceptionCode());
-        assertNotNull(result.getDetails());
-        assertEquals(1, result.getDetails().size());
-        assertEquals(errorMessage, result.getDetails().get(0));
-        
-        verify(objectMapper).readValue(any(InputStream.class), eq(CustpmApiError.class));
+    ~Carte() {
+        cout << "[Destructor] \"" << titlu << "\" distrus\n";
+        delete[] titlu;
+        titlu = nullptr;
+        delete[] autor;
+        autor = nullptr;
     }
 
-    @Test
-    void shouldHandleNullResponseBody() throws IOException {
-        // Given
-        when(response.body()).thenReturn(null);
+    Carte &operator=(const Carte &alt) {
+        if (this == &alt) {
+            cout << "[operator=]   Auto-atribuire detectata, ignorata!\n";
+            return *this;
+        }
 
-        // When & Then
-        assertThrows(NullPointerException.class, 
-                () -> errorDecoder.decode(METHOD_KEY, response));
+        delete[] titlu;
+        delete[] autor;
+
+        titlu = new char[strlen(alt.titlu) + 1];
+        strcpy(titlu, alt.titlu);
+
+        autor = new char[strlen(alt.autor) + 1];
+        strcpy(autor, alt.autor);
+
+        anPublicare = alt.anPublicare;
+
+        cout << "[operator=]   \"" << titlu << "\" atribuit\n";
+        return *this;
     }
 
-    @Test
-    void shouldHandleEmptyResponseBody() throws IOException {
-        // Given
-        InputStream emptyStream = new ByteArrayInputStream(new byte[0]);
-        when(response.body()).thenReturn(responseBody);
-        when(responseBody.asInputStream()).thenReturn(emptyStream);
-        when(objectMapper.readValue(any(InputStream.class), eq(CustpmApiError.class)))
-                .thenThrow(new IOException("No content to map"));
-
-        // When
-        CommonException result = assertThrows(CommonException.class,
-                () -> errorDecoder.decode(METHOD_KEY, response));
-
-        // Then
-        assertEquals(CommonExceptionCode.SERVER_ERROR, result.getCommonExceptionCode());
-        verify(objectMapper).readValue(any(InputStream.class), eq(CustpmApiError.class));
+    friend ostream &operator<<(ostream &os, const Carte &c) {
+        os << "\"" << c.titlu << "\" de " << c.autor
+                << " (" << c.anPublicare << ")";
+        return os;
     }
 
-    @Test
-    void shouldHandleMalformedJson() throws IOException {
-        // Given
-        String malformedJson = "{invalid json}";
-        InputStream inputStream = new ByteArrayInputStream(malformedJson.getBytes(StandardCharsets.UTF_8));
-        
-        when(response.body()).thenReturn(responseBody);
-        when(responseBody.asInputStream()).thenReturn(inputStream);
-        when(objectMapper.readValue(any(InputStream.class), eq(CustpmApiError.class)))
-                .thenThrow(new IOException("Malformed JSON"));
+    friend istream &operator>>(istream &is, Carte &c) {
+        char buf[256];
 
-        // When
-        CommonException result = assertThrows(CommonException.class,
-                () -> errorDecoder.decode(METHOD_KEY, response));
+        cout << "  Titlu : ";
+        is >> buf;
+        delete[] c.titlu;
+        c.titlu = new char[strlen(buf) + 1];
+        strcpy(c.titlu, buf);
 
-        // Then
-        assertEquals(CommonExceptionCode.SERVER_ERROR, result.getCommonExceptionCode());
-        assertTrue(result.getDetails().get(0).contains("Malformed JSON"));
+        cout << "  Autor : ";
+        is >> buf;
+        delete[] c.autor;
+        c.autor = new char[strlen(buf) + 1];
+        strcpy(c.autor, buf);
+
+        cout << "  An    : ";
+        is >> c.anPublicare;
+
+        return is;
     }
+};
 
-    @Test
-    void shouldDecodeMultipleDifferentErrors() throws IOException {
-        // Given - First error (404)
-        String error404Json = "{\"timestamp\":\"2024-12-11T10:00:00\",\"status\":404,\"error\":\"Not Found\",\"path\":\"/api/customer\"}";
-        InputStream inputStream404 = new ByteArrayInputStream(error404Json.getBytes(StandardCharsets.UTF_8));
-        
-        CustpmApiError apiError404 = CustpmApiError.builder()
-                .timestamp("2024-12-11T10:00:00")
-                .status(404)
-                .error("Not Found")
-                .path("/api/customer")
-                .build();
+int main() {
+    // In main: creati 3 carti, copiati una in alta, testati auto-atribuirea, verificati ca
+    // destructorii se apeleaza.
+    Carte c1("Micul Print", "Antoine de Saint", 1943);
+    Carte c2("Povestea slujitoarei", "Margaret Atwood", 1985);
+    Carte c3("1984", "George Orwell", 1949);
+    cout << "--- Copiere carte ---" << endl;
+    Carte c4 = c1; // copy ctor
+    cout << "--- Atribuire carte ---" << endl;
+    c2 = c3; // operator=
+    cout << "--- Auto-atribuire carte ---" << endl;
+    c3 = c3; // auto-atribuire
+    cout << "======= Afisare cu << =======" << endl;
+    cout << c1 << endl;
+    cout << c2 << endl;
+    cout << c3 << endl;
+    cout << "======= Citire carte noua cu >> =======" << endl;
+    Carte c10;
+    cout << "Introduceti datele (fara spatii in titlu/autor):" << endl;
+    cin >> c4;
+    cout << "Cartea citita: " << c4 << endl;
 
-        Response response404 = mock(Response.class);
-        Response.Body body404 = mock(Response.Body.class);
-        
-        when(response404.body()).thenReturn(body404);
-        when(body404.asInputStream()).thenReturn(inputStream404);
-        when(objectMapper.readValue(any(InputStream.class), eq(CustpmApiError.class)))
-                .thenReturn(apiError404);
-
-        // When - First decode
-        CommonException result404 = assertThrows(CommonException.class,
-                () -> errorDecoder.decode(METHOD_KEY, response404));
-
-        // Then
-        assertEquals(CommonExceptionCode.SERVER_ERROR, result404.getCommonExceptionCode());
-        
-        // Given - Second error (500)
-        String error500Json = "{\"timestamp\":\"2024-12-11T10:01:00\",\"status\":500,\"error\":\"Internal Server Error\",\"path\":\"/api/account\"}";
-        InputStream inputStream500 = new ByteArrayInputStream(error500Json.getBytes(StandardCharsets.UTF_8));
-        
-        CustpmApiError apiError500 = CustpmApiError.builder()
-                .timestamp("2024-12-11T10:01:00")
-                .status(500)
-                .error("Internal Server Error")
-                .path("/api/account")
-                .build();
-
-        Response response500 = mock(Response.class);
-        Response.Body body500 = mock(Response.Body.class);
-        
-        when(response500.body()).thenReturn(body500);
-        when(body500.asInputStream()).thenReturn(inputStream500);
-        when(objectMapper.readValue(any(InputStream.class), eq(CustpmApiError.class)))
-                .thenReturn(apiError500);
-
-        // When - Second decode
-        CommonException result500 = assertThrows(CommonException.class,
-                () -> errorDecoder.decode(METHOD_KEY, response500));
-
-        // Then
-        assertEquals(CommonExceptionCode.SERVER_ERROR, result500.getCommonExceptionCode());
-        verify(objectMapper, times(2)).readValue(any(InputStream.class), eq(CustpmApiError.class));
-    }
-
-    @Test
-    void shouldVerifyObjectMapperIsCalledWithCorrectParameters() throws IOException {
-        // Given
-        String errorJson = "{\"timestamp\":\"2024-12-11T10:00:00\",\"status\":400,\"error\":\"Bad Request\",\"path\":\"/api/validate\"}";
-        InputStream inputStream = new ByteArrayInputStream(errorJson.getBytes(StandardCharsets.UTF_8));
-        
-        CustpmApiError apiError = CustpmApiError.builder()
-                .timestamp("2024-12-11T10:00:00")
-                .status(400)
-                .error("Bad Request")
-                .path("/api/validate")
-                .build();
-
-        when(response.body()).thenReturn(responseBody);
-        when(responseBody.asInputStream()).thenReturn(inputStream);
-        when(objectMapper.readValue(any(InputStream.class), eq(CustpmApiError.class)))
-                .thenReturn(apiError);
-
-        // When
-        assertThrows(CommonException.class, () -> errorDecoder.decode(METHOD_KEY, response));
-
-        // Then
-        verify(objectMapper, times(1)).readValue(any(InputStream.class), eq(CustpmApiError.class));
-        verify(response, times(1)).body();
-        verify(responseBody, times(1)).asInputStream();
-        verifyNoMoreInteractions(objectMapper);
-    }
+    return 0;
 }
