@@ -1,4 +1,4 @@
-
+```
     // --------------------------------------------------------
     // PUNCTUL 1 — const auto& intr-un tablou
     //
@@ -99,3 +99,4 @@
     cout << "  => double are NaN (Not a Number): NaN <=> NaN nu e nici <, >, sau ==\n";
     cout << "  => partial_ordering permite valori incomparabile\n";
     cout << "  => int ar folosi strong_ordering (toti intregii sunt comparabili)\n";
+```
