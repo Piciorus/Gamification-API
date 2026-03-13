@@ -1,23 +1,24 @@
 ```
+
 #include <iostream>
 #include <compare>
 
 class Student {
 private:
-    char* nume;      // alocat dinamic
+    char* nume;
     int varsta;
-    double nota;     // 1.0 .. 10.0
+    double nota;
 
-    // Utilitare interne (fara STL)
+    // Utilitare interne
     static int strLen(const char* s) {
         int i = 0;
         while (s && s[i]) i++;
         return i;
     }
 
-    static void strCpy(char* destination, const char* source) {
+    static void strCpy(char* dst, const char* src) {
         int i = 0;
-        while ((destination[i] = source[i]) != '\0') i++;
+        while ((dst[i] = src[i]) != '\0') i++;
     }
 
 public:
@@ -53,45 +54,54 @@ public:
         return *this;
     }
 
-    // Operator << si >>
-    friend std::ostream& operator<<(std::ostream& out, const Student& s) {
-        out << s.nume << " (" << s.varsta << " ani) - nota: " << s.nota;
-        return out;
-    }
-
-    friend std::istream& operator>>(std::istream& in, Student& s) {
-        char buffer[100];
-        std::cout << "Nume: ";
-        in >> buffer;
-        delete[] s.nume;
-        s.nume = new char[strLen(buffer) + 1];
-        strCpy(s.nume, buffer);
-        std::cout << "Varsta: ";
-        in >> s.varsta;
-        std::cout << "Nota: ";
-        in >> s.nota;
-        return in;
-    }
-
-    // Operator ++ / -- prefix/postfix
+    // ++ / -- prefix/postfix
     Student& operator++() { ++nota; return *this; }
     Student operator++(int) { Student temp = *this; ++nota; return temp; }
     Student& operator--() { --nota; return *this; }
     Student operator--(int) { Student temp = *this; --nota; return temp; }
 
-    // Operator <=> si ==
+    // <=> si ==
     auto operator<=>(const Student& other) const { return nota <=> other.nota; }
     bool operator==(const Student& other) const { return nota == other.nota; }
 
-    // Operator + (bonus la nota)
-    friend Student operator+(const Student& s, double bonus) { return Student(s.nume, s.varsta, s.nota + bonus); }
-    friend Student operator+(double bonus, const Student& s) { return s + bonus; }
-
     // Getter nota
     double getNota() const { return nota; }
+
+    // Declarare friend
+    friend std::ostream& operator<<(std::ostream& out, const Student& s);
+    friend std::istream& operator>>(std::istream& in, Student& s);
+    friend Student operator+(const Student& s, double bonus);
+    friend Student operator+(double bonus, const Student& s);
 };
 
-// Functie cu auto care calculeaza media notelor
+// Definire operatorii friend în afara clasei
+std::ostream& operator<<(std::ostream& out, const Student& s) {
+    out << s.nume << " (" << s.varsta << " ani) - nota: " << s.nota;
+    return out;
+}
+
+std::istream& operator>>(std::istream& in, Student& s) {
+    char buffer[100];
+    std::cout << "Nume: ";
+    in >> buffer;
+    delete[] s.nume;
+    s.nume = new char[Student::strLen(buffer) + 1];
+    Student::strCpy(s.nume, buffer);
+    std::cout << "Varsta: ";
+    in >> s.varsta;
+    std::cout << "Nota: ";
+    in >> s.nota;
+    return in;
+}
+
+Student operator+(const Student& s, double bonus) {
+    return Student(s.nume, s.varsta, s.nota + bonus);
+}
+
+Student operator+(double bonus, const Student& s) {
+    return s + bonus;
+}
+
 auto calculeazaMedia(const Student studenti[], int n) {
     double suma = 0;
     for (int i = 0; i < n; i++)
@@ -146,5 +156,6 @@ int main() {
 
     return 0;
 }
+
 
 ```
