@@ -1,4 +1,39 @@
-```
+`
+body(
+    [
+        "person1LastName"          : $(consumer(regex('[A-Za-z]+')), producer('PeterXXX')),
+        "person1FirstName"         : $(consumer(regex('[A-Za-z]+')), producer('Addy')),
+        "primaryAddressStatus"     : $(consumer(regex('.+')), producer('Anschrift aktuell und gueltig')),
+        "primaryCoAddress"         : $(consumer(regex('.*')), producer('Test c/o-Adresse')),
+        "primaryStreet"            : $(consumer(regex('[A-Za-z]+')), producer('Fasanenweg')),
+        "primaryHouseNumber"       : $(consumer(regex('[0-9]+')), producer('2')),
+        "primaryStreet2"           : $(consumer(regex('.*')), producer('')),
+        "primaryZipcode"           : $(consumer(regex('[0-9]{5}')), producer('90552')),
+        "primaryCity"              : $(consumer(regex('[A-Za-z]+')), producer('Rothenbach')),
+        "primaryCountry"           : $(consumer(regex('[0-9]{5}')), producer('00000')),
+        "customerNumber"           : $(consumer(regex('[0-9]+')), producer('1003266431')),
+        "salutation"               : $(consumer(regex('[MF]')), producer('M')),
+        "nationality"              : $(consumer(regex('[0-9]+')), producer('64400')),
+        "customerClassification"   : $(consumer(regex('[0-9]+')), producer('2000')),
+        "communicationNumbers"     : [
+            [
+                "number" : $(consumer(regex('.*')), producer('')),
+                "type"   : $(consumer(regex('PHONE_PRIVATE|PHONE_MOBILE')), producer('PHONE_PRIVATE'))
+            ],
+            [
+                "number" : $(consumer(regex('\\+[0-9]+')), producer('+4915115589864')),
+                "type"   : $(consumer(regex('PHONE_PRIVATE|PHONE_MOBILE')), producer('PHONE_MOBILE'))
+            ]
+        ],
+        "legitimationType"         : $(consumer(regex('[0-9]+')), producer('9901')),
+        "legitimationData"         : $(consumer(regex('[A-Z0-9]+')), producer('M5295781')),
+        "legitimationValidFrom"    : $(consumer(regex('[0-9]{4}-[0-9]{2}-[0-9]{2}')), producer('2017-12-30')),
+        "legitimationValidUntil"   : $(consumer(regex('[0-9]{4}-[0-9]{2}-[0-9]{2}')), producer('2099-12-31')),
+        "knowledgeAndExperience"   : $(consumer(regex('[0-9]+')), producer('02'))
+    ]
+)
+
+``
 
 import org.apache.commons.lang3.StringUtils;
 import org.slf4j.Logger;
