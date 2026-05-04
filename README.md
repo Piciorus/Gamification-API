@@ -1,5 +1,4 @@
-```
-package de.consorsbank.core.trauthsc.transactionprocessor.listener;
+```package de.consorsbank.core.trauthsc.transactionprocessor.listener;
 
 import de.consorsbank.core.trauthsc.transactionprocessor.model.DummyEntity;
 import de.consorsbank.core.trauthsc.transactionprocessor.repository.DummyRepository;
@@ -14,6 +13,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.mock.mockito.SpyBean;
+import org.springframework.jms.config.JmsListenerEndpointRegistry;
 import org.springframework.jms.core.JmsTemplate;
 import org.springframework.test.annotation.DirtiesContext;
 import org.springframework.test.context.ActiveProfiles;
@@ -29,19 +29,23 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.*;
 
 /**
- * Integration tests verifying @Transactional behaviour.
+ * ROOT CAUSE OF "expected: 0L but was: 3L":
  *
- * ROOT CAUSE OF FAILURES:
- * 1. H2 in-memory DB uses a fixed URL → same DB instance shared across
- *    all contexts even after @DirtiesContext restarts Spring.
- *    Fix: explicit TRUNCATE in @BeforeEach inside a real TX.
+ * The JMS listener runs ASYNCHRONOUSLY in a background thread.
+ * When @BeforeEach fires for test N, the listener from test N-1
+ * is STILL processing messages and inserting rows into H2.
+ * So the deleteAll() completes, but the listener immediately inserts again.
  *
- * 2. Wrong field accessors in assertions:
- *    getDescription() / getName() → corrected to getPayload() / getStatus()
+ * FIX STRATEGY:
+ * 1. @AfterEach: STOP the JmsListenerEndpointRegistry (pauses all listeners)
+ *    → no more async inserts can happen
+ * 2. @BeforeEach: clean DB while listeners are stopped (safe, no racing)
+ *    → then START the registry again for the next test
+ *
+ * This guarantees: deleteAll() runs in silence, count() check passes.
  */
 @SpringBootTest
 @ActiveProfiles("test")
-// Keep DirtiesContext to also reset JMS listener state & Atomikos pool
 @DirtiesContext(classMode = DirtiesContext.ClassMode.AFTER_EACH_TEST_METHOD)
 class ExternalEventMessageListenerTransactionTest {
 
@@ -54,31 +58,50 @@ class ExternalEventMessageListenerTransactionTest {
     @Autowired
     private PlatformTransactionManager transactionManager;
 
+    @PersistenceContext
+    private EntityManager entityManager;
+
+    /**
+     * JmsListenerEndpointRegistry controls ALL @JmsListener containers.
+     * Stopping it prevents the async listener from inserting during cleanup.
+     */
+    @Autowired
+    private JmsListenerEndpointRegistry jmsListenerEndpointRegistry;
+
     @Value("${public-message-connector.activemq.queue}")
     private String queue;
 
-    /**
-     * CRITICAL FIX: Truncate the table inside an explicit TX before each test.
-     * This is necessary because H2 in-memory with a fixed URL survives
-     * Spring context restarts — @DirtiesContext alone is NOT enough.
-     */
     @BeforeEach
-    void cleanDatabase() {
+    void setUp() {
+        // 1. Stop all JMS listeners → no more async inserts can race with cleanup
+        jmsListenerEndpointRegistry.stop();
+
+        // 2. Wait briefly for any in-flight listener execution to finish
+        try { Thread.sleep(300); } catch (InterruptedException ignored) {}
+
+        // 3. Clean DB while listeners are stopped — guaranteed no racing
         new TransactionTemplate(transactionManager).execute(status -> {
-            dummyRepository.deleteAll();
-            dummyRepository.flush(); // force immediate DELETE, not deferred
+            entityManager.createNativeQuery("DELETE FROM dummy_entity").executeUpdate();
             return null;
         });
-        reset(dummyRepository); // reset spy counters after deleteAll()
 
-        // Verify the cleanup actually worked before proceeding
+        // 4. Reset spy counters AFTER cleanup
+        reset(dummyRepository);
+
+        // 5. Verify DB is clean before starting the test
         assertThat(dummyRepository.count())
                 .as("DB must be empty before test starts")
                 .isZero();
+
+        // 6. Restart listeners — ready for the next test
+        jmsListenerEndpointRegistry.start();
     }
 
     @AfterEach
-    void resetSpy() {
+    void tearDown() {
+        // Stop listeners after each test so @BeforeEach of the next test
+        // can safely clean without racing against async processing
+        jmsListenerEndpointRegistry.stop();
         reset(dummyRepository);
     }
 
@@ -88,17 +111,14 @@ class ExternalEventMessageListenerTransactionTest {
     @Test
     @DisplayName("Cu @Transactional, fara exceptie → entity committed to DB")
     void withTransactional_noException_entityIsCommitted() {
-        // when
         jmsTemplate.convertAndSend(queue, "ok-payload");
 
-        // then — exactly 1 entity committed with correct fields
         await()
                 .atMost(10, TimeUnit.SECONDS)
                 .pollInterval(200, TimeUnit.MILLISECONDS)
                 .untilAsserted(() -> {
                     var all = dummyRepository.findAll();
                     assertThat(all).hasSize(1);
-                    // FIX: was getDescription()/getName() → correct fields:
                     assertThat(all.get(0).getPayload()).isEqualTo("ok-payload");
                     assertThat(all.get(0).getStatus()).isEqualTo("PROCESSED");
                 });
@@ -110,54 +130,47 @@ class ExternalEventMessageListenerTransactionTest {
     @Test
     @DisplayName("Cu @Transactional, cu exceptie → rollback, entity NOT in DB")
     void withTransactional_withException_entityIsRolledBack() {
-        // given — force save() to always throw → @Transactional rolls back
         AtomicInteger callCount = new AtomicInteger(0);
         doAnswer(inv -> {
             callCount.incrementAndGet();
             throw new RuntimeException("Simulated DB error – rollback expected");
         }).when(dummyRepository).save(any(DummyEntity.class));
 
-        // when
         jmsTemplate.convertAndSend(queue, "fail-payload");
 
-        // Wait for all redeliveries to exhaust:
         // maxRedeliveries=2 → 3 total attempts (initial + 2 redeliveries)
         await()
                 .atMost(30, TimeUnit.SECONDS)
                 .pollInterval(500, TimeUnit.MILLISECONDS)
                 .until(() -> callCount.get() >= 3);
 
-        // then — DB must be empty: every TX was rolled back
-        // Restore real findAll() to bypass the save() stub
         doCallRealMethod().when(dummyRepository).findAll();
         assertThat(dummyRepository.findAll())
-                .as("All transactions should have been rolled back")
+                .as("All transactions should have been rolled back — DB must be empty")
                 .isEmpty();
     }
 
     // -----------------------------------------------------------------------
-    // FARA proxy Spring — instantiere directa, fara TX
+    // FARA proxy Spring → instantiere directa, fara TX boundary
     // -----------------------------------------------------------------------
     @Test
     @DisplayName("Fara proxy Spring → metoda se executa, dar fara TX boundary")
     void withoutTransactionalProxy_methodExecutesDirectly() throws Exception {
-        // Direct instantiation → no Spring AOP proxy → no @Transactional
+        // Direct instantiation bypasses Spring AOP → no @Transactional
         ExternalEventMessageListener rawListener =
                 new ExternalEventMessageListener(dummyRepository, jmsTemplate);
 
         TextMessage textMessage = mock(TextMessage.class);
         when(textMessage.getText()).thenReturn("direct-call-payload");
 
-        // when
         rawListener.onMessage(textMessage);
 
-        // then — save was called; entity persisted (no TX to rollback since no proxy)
         verify(dummyRepository, times(1)).save(any());
 
         new TransactionTemplate(transactionManager).execute(status -> {
-            assertThat(dummyRepository.findAll()).hasSize(1);
-            assertThat(dummyRepository.findAll().get(0).getPayload())
-                    .isEqualTo("direct-call-payload");
+            var all = dummyRepository.findAll();
+            assertThat(all).hasSize(1);
+            assertThat(all.get(0).getPayload()).isEqualTo("direct-call-payload");
             return null;
         });
     }
@@ -168,15 +181,13 @@ class ExternalEventMessageListenerTransactionTest {
     @Test
     @DisplayName("Via Spring proxy → save called exactly once within transaction")
     void viaSpringProxy_saveIsCalledExactlyOnce() {
-        // when
         jmsTemplate.convertAndSend(queue, "tx-verify-payload");
 
-        // then
         await()
                 .atMost(10, TimeUnit.SECONDS)
                 .untilAsserted(() -> assertThat(dummyRepository.count()).isEqualTo(1L));
 
-        // Extra wait to confirm no duplicate processing
+        // Extra wait to rule out duplicate processing
         try { Thread.sleep(500); } catch (InterruptedException ignored) {}
 
         assertThat(dummyRepository.count())
@@ -186,5 +197,7 @@ class ExternalEventMessageListenerTransactionTest {
         verify(dummyRepository, times(1)).save(any());
     }
 }
+
+
 
 ```
