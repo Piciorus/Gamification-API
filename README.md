@@ -1,44 +1,6 @@
 ```
 package de.consorsbank.core.trauthsc.transactionprocessor.listener;
 
-import jakarta.persistence.EntityManager;
-import jakarta.persistence.PersistenceContext;
-import org.springframework.boot.test.context.TestComponent;
-import org.springframework.transaction.annotation.Transactional;
-
-/**
- * Test-only helper that cleans the DB inside a proper @Transactional boundary.
- *
- * WHY THIS EXISTS:
- * Atomikos XA transaction manager requires that the EntityManager is enlisted
- * via Spring's @Transactional proxy — not via TransactionTemplate + native query.
- * Using TransactionTemplate directly causes:
- *   "No active transaction for update or delete query"
- * because Atomikos doesn't see the EntityManager as part of its XA transaction.
- *
- * @TestComponent makes it available only in test context (not production).
- */
-@TestComponent
-public class DatabaseCleaner {
-
-    @PersistenceContext
-    private EntityManager entityManager;
-
-    @Transactional
-    public void cleanDummyTable() {
-        entityManager.createNativeQuery("DELETE FROM dummy_entity").executeUpdate();
-        entityManager.flush();
-        entityManager.clear();
-    }
-}
-
-
-```
-
-
-```
-package de.consorsbank.core.trauthsc.transactionprocessor.listener;
-
 import de.consorsbank.core.trauthsc.transactionprocessor.model.DummyEntity;
 import de.consorsbank.core.trauthsc.transactionprocessor.repository.DummyRepository;
 import jakarta.jms.TextMessage;
@@ -66,18 +28,10 @@ import static org.awaitility.Awaitility.await;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.*;
 
-/**
- * Fix history:
- * 1. "Expected 0 but was 3"     → JMS listener racing with @BeforeEach → fixed with registry stop/start
- * 2. "No active transaction"     → flush() via SpyBean proxy → fixed with EntityManager direct
- * 3. "No active tx for delete"   → TransactionTemplate + native query + Atomikos XA → fixed with
- *                                   @TestComponent DatabaseCleaner that uses @Transactional proxy,
- *                                   which Atomikos correctly enlists in the XA transaction.
- */
 @SpringBootTest
 @ActiveProfiles("test")
 @DirtiesContext(classMode = DirtiesContext.ClassMode.AFTER_EACH_TEST_METHOD)
-@Import(DatabaseCleaner.class)  // bring in the @TestComponent cleaner
+@Import(DatabaseCleaner.class)
 class ExternalEventMessageListenerTransactionTest {
 
     @Autowired
@@ -92,11 +46,6 @@ class ExternalEventMessageListenerTransactionTest {
     @Autowired
     private JmsListenerEndpointRegistry jmsListenerEndpointRegistry;
 
-    /**
-     * Injected @TestComponent — uses @Transactional so Atomikos XA
-     * properly enlists the EntityManager. This is the ONLY safe way
-     * to run native DELETE with Atomikos.
-     */
     @Autowired
     private DatabaseCleaner databaseCleaner;
 
@@ -104,25 +53,28 @@ class ExternalEventMessageListenerTransactionTest {
     private String queue;
 
     @BeforeEach
-    void setUp() {
+    void setUp() throws Exception {
         // 1. Stop JMS listeners — prevent async inserts racing with cleanup
         jmsListenerEndpointRegistry.stop();
 
         // 2. Drain any in-flight listener execution
         try { Thread.sleep(300); } catch (InterruptedException ignored) {}
 
-        // 3. Clean DB via @Transactional proxy — Atomikos XA safe
-        databaseCleaner.cleanDummyTable();
-
-        // 4. Reset spy counters AFTER cleanup
+        // 3. Reset spy BEFORE clean so deleteAll() calls aren't counted
         reset(dummyRepository);
 
-        // 5. Verify DB is truly empty before test starts
+        // 4. Clean DB via JTA UserTransaction directly (Atomikos-safe)
+        databaseCleaner.cleanDummyTable();
+
+        // 5. Reset spy again AFTER clean so test starts with zero interactions
+        reset(dummyRepository);
+
+        // 6. Verify DB is truly empty
         assertThat(dummyRepository.count())
                 .as("DB must be empty before test starts")
                 .isZero();
 
-        // 6. Restart listeners for the test
+        // 7. Restart listeners for the test
         jmsListenerEndpointRegistry.start();
     }
 
@@ -173,7 +125,7 @@ class ExternalEventMessageListenerTransactionTest {
 
         doCallRealMethod().when(dummyRepository).findAll();
         assertThat(dummyRepository.findAll())
-                .as("All transactions should have been rolled back — DB must be empty")
+                .as("All transactions rolled back — DB must be empty")
                 .isEmpty();
     }
 
@@ -222,5 +174,47 @@ class ExternalEventMessageListenerTransactionTest {
         verify(dummyRepository, times(1)).save(any());
     }
 }
+```
+```
 
+package de.consorsbank.core.trauthsc.transactionprocessor.listener;
+
+import com.atomikos.icatch.jta.UserTransactionImp;
+import de.consorsbank.core.trauthsc.transactionprocessor.repository.DummyRepository;
+import jakarta.transaction.UserTransaction;
+import org.springframework.boot.test.context.TestComponent;
+
+/**
+ * Cleans the DB using JTA UserTransaction directly.
+ *
+ * WHY DIRECT JTA:
+ * - @Transactional("transactionManager") fails if the bean name doesn't match
+ * - TransactionTemplate + native query: Atomikos doesn't enlist EntityManager
+ * - deleteAllInBatch() uses a bulk JPQL query which also needs TX enlistment
+ *
+ * Using UserTransaction directly (Atomikos UserTransactionImp) is the most
+ * reliable way to open an XA transaction in a test without relying on
+ * Spring's AOP proxy or bean name resolution.
+ */
+@TestComponent
+public class DatabaseCleaner {
+
+    private final DummyRepository dummyRepository;
+
+    public DatabaseCleaner(DummyRepository dummyRepository) {
+        this.dummyRepository = dummyRepository;
+    }
+
+    public void cleanDummyTable() throws Exception {
+        UserTransaction utx = new UserTransactionImp();
+        utx.begin();
+        try {
+            dummyRepository.deleteAll();
+            utx.commit();
+        } catch (Exception e) {
+            utx.rollback();
+            throw e;
+        }
+    }
+}
 ```
