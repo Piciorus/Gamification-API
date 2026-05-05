@@ -1,3 +1,16 @@
+# Remove the old container first
+docker rm oracle-local-trauth
+
+# Run with ARM64 platform flag
+docker run -d \
+  --name oracle-local-trauth \
+  --platform linux/arm64 \
+  -p 1521:1521 \
+  -e ORACLE_PASSWORD=12345 \
+  gvenzl/oracle-xe
+
+
+
 docker run -d \
   --name oracle-xe \
   -p 1521:1521 \
