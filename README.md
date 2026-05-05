@@ -1,4 +1,70 @@
 ```
+management:
+  show-details:
+    always
+
+spring:
+  datasource:
+    trauth:
+      url: jdbc:h2:mem:trauth;DB_CLOSE_DELAY=-1;DB_CLOSE_ON_EXIT=FALSE
+      username: sa
+      password: password
+      driverClassName: org.h2.Driver
+      xa-data-source-class-name: org.h2.jdbcx.JdbcDataSource
+      configuration:
+        uniqueResourceName: trauth-${random.uuid}
+        minPoolSize: 5
+        maxPoolSize: 30
+        readonly: false
+        idle-timeout: 240
+        borrowConnectionTimeout: 5
+
+    tam:
+      url: jdbc:h2:mem:tam;DB_CLOSE_DELAY=-1;DB_CLOSE_ON_EXIT=FALSE
+      username: sa
+      password: password
+      driverClassName: org.h2.Driver
+      xa-data-source-class-name: org.h2.jdbcx.JdbcDataSource
+      configuration:
+        uniqueResourceName: tam-${random.uuid}
+        minPoolSize: 5
+        maxPoolSize: 30
+        readonly: false
+        idle-timeout: 240
+        borrowConnectionTimeout: 5
+
+    pvm:
+      url: jdbc:h2:mem:pvm;DB_CLOSE_DELAY=-1;DB_CLOSE_ON_EXIT=FALSE
+      username: sa
+      password: password
+      driverClassName: org.h2.Driver
+      xa-data-source-class-name: org.h2.jdbcx.JdbcDataSource
+      configuration:
+        uniqueResourceName: pvm-${random.uuid}
+        minPoolSize: 5
+        maxPoolSize: 30
+        readonly: false
+        idle-timeout: 240
+        borrowConnectionTimeout: 5
+
+  jpa:
+    database-platform: org.hibernate.dialect.H2Dialect
+    hibernate:
+      ddl-auto: none
+
+  liquibase:
+    change-log: classpath:/tests/changelog/changelog-master.yaml
+    enabled: true
+    drop-first: true
+
+  h2:
+    console:
+      enabled: true
+      path: /h2-console
+
+```
+
+```
 spring:
   datasource:
     tam:
