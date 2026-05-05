@@ -1,3 +1,7 @@
+docker pull container-registry.oracle.com/database/express:21.3.0-xe
+
+
+
 ```
 package de.consorsbank.core.trauthsc.transactionprocessor.listener;
 
