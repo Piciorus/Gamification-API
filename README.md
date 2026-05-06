@@ -1,212 +1,80 @@
 ```
-src/test/resources/
-  tests/
-    changelog/
-      changelog-master.yaml          ← trauth (already exists)
-      changelog-master-tam.yaml      ← new
-      changelog-master-pvm.yaml      ← new
-      migrations.v1.0/
-        001-create-table-dummy.sql   ← already exists (trauth)
-        002-insert-into-dummy.sql    ← already exists (trauth)
-      tam/
-        migrations.v1.0/
-          001-create-tam-tables.sql  ← new
-      pvm/
-        migrations.v1.0/
-          001-create-pvm-tables.sql  ← new
+package de.consorsbank.core.trauthsc.pvm.config;
 
-```
-
-```
-databaseChangeLog:
-  - includeAll:
-      path: classpath:/tests/changelog/migrations.v1.0/
-      relativeToChangelogFile: false
-```
-
-
-```
-databaseChangeLog:
-  - includeAll:
-      path: classpath:/tests/changelog/tam/migrations.v1.0/
-      relativeToChangelogFile: false
-```
-
-```
-databaseChangeLog:
-  - includeAll:
-      path: classpath:/tests/changelog/pvm/migrations.v1.0/
-      relativeToChangelogFile: false
-```
-
-```
-spring:
-  datasource:
-    trauth:
-      url: jdbc:h2:mem:trauth;DB_CLOSE_DELAY=-1;DB_CLOSE_ON_EXIT=FALSE
-      username: sa
-      password: password
-      driverClassName: org.h2.Driver
-      xa-data-source-class-name: org.h2.jdbcx.JdbcDataSource
-      configuration:
-        uniqueResourceName: trauth-${random.uuid}
-        minPoolSize: 5
-        maxPoolSize: 30
-        readonly: false
-        idle-timeout: 240
-        borrowConnectionTimeout: 5
-
-    tam:
-      url: jdbc:h2:mem:tam;DB_CLOSE_DELAY=-1;DB_CLOSE_ON_EXIT=FALSE
-      username: sa
-      password: password
-      driverClassName: org.h2.Driver
-      xa-data-source-class-name: org.h2.jdbcx.JdbcDataSource
-      configuration:
-        uniqueResourceName: tam-${random.uuid}
-        minPoolSize: 5
-        maxPoolSize: 30
-        readonly: false
-        idle-timeout: 240
-        borrowConnectionTimeout: 5
-
-    pvm:
-      url: jdbc:h2:mem:pvm;DB_CLOSE_DELAY=-1;DB_CLOSE_ON_EXIT=FALSE
-      username: sa
-      password: password
-      driverClassName: org.h2.Driver
-      xa-data-source-class-name: org.h2.jdbcx.JdbcDataSource
-      configuration:
-        uniqueResourceName: pvm-${random.uuid}
-        minPoolSize: 5
-        maxPoolSize: 30
-        readonly: false
-        idle-timeout: 240
-        borrowConnectionTimeout: 5
-
-  jpa:
-    database-platform: org.hibernate.dialect.H2Dialect
-    hibernate:
-      ddl-auto: none
-
-  liquibase:
-    change-log: classpath:/tests/changelog/changelog-master.yaml
-    enabled: true
-    drop-first: true
-
-# Per-datasource Liquibase config
-tam:
-  liquibase:
-    change-log: classpath:/tests/changelog/changelog-master-tam.yaml
-    enabled: true
-    drop-first: true
-
-pvm:
-  liquibase:
-    change-log: classpath:/tests/changelog/changelog-master-pvm.yaml
-    enabled: true
-    drop-first: true
-
-```
-```
-package de.consorsbank.core.trauthsc.persistence.config;
-
-import liquibase.integration.spring.SpringLiquibase;
-import org.springframework.beans.factory.annotation.Qualifier;
-import org.springframework.beans.factory.annotation.Value;
+import com.atomikos.jdbc.AtomikosDataSourceBean;
+import org.springframework.boot.orm.jpa.EntityManagerFactoryBuilder;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Primary;
+import org.springframework.data.jpa.repository.config.EnableJpaRepositories;
+import org.springframework.orm.jpa.LocalContainerEntityManagerFactoryBean;
+import lombok.RequiredArgsConstructor;
 
 import javax.sql.DataSource;
+import java.util.Properties;
 
 @Configuration
-public class LiquibaseConfig {
+@RequiredArgsConstructor
+@EnableJpaRepositories(
+        entityManagerFactoryRef = "pvmEntityManagerFactory",
+        transactionManagerRef = "jtaTransactionManager",
+        basePackages = "de.consorsbank.core.trauthsc.pvm.repository"
+)
+public class PvmDataSourceConfig {
 
-    // ── TRAUTH (primary, already handled by Spring Boot auto-config) ──
+    private final PvmDataSourceProperties pvmDataSourceProperties;
 
-    @Bean("tamLiquibase")
-    public SpringLiquibase tamLiquibase(
-            @Qualifier("tamDataSource") DataSource tamDataSource,
-            @Value("${tam.liquibase.change-log}") String changeLog,
-            @Value("${tam.liquibase.enabled:true}") boolean enabled,
-            @Value("${tam.liquibase.drop-first:false}") boolean dropFirst) {
-
-        SpringLiquibase liquibase = new SpringLiquibase();
-        liquibase.setDataSource(tamDataSource);
-        liquibase.setChangeLog(changeLog);
-        liquibase.setShouldRun(enabled);
-        liquibase.setDropFirst(dropFirst);
-        return liquibase;
+    @Bean("pvmDataSource")
+    @Primary
+    public DataSource createPvmDataSource() {
+        validateProperties();
+        var xaProperties = createXaProperties();
+        var dataSource = new AtomikosDataSourceBean();
+        configureDataSource(dataSource, xaProperties);
+        return dataSource;
     }
 
-    @Bean("pvmLiquibase")
-    public SpringLiquibase pvmLiquibase(
-            @Qualifier("pvmDataSource") DataSource pvmDataSource,
-            @Value("${pvm.liquibase.change-log}") String changeLog,
-            @Value("${pvm.liquibase.enabled:true}") boolean enabled,
-            @Value("${pvm.liquibase.drop-first:false}") boolean dropFirst) {
+    @Bean("pvmEntityManagerFactory")
+    @Primary
+    public LocalContainerEntityManagerFactoryBean pvmEntityManagerFactory(
+            EntityManagerFactoryBuilder builder) {
+        return builder
+                .dataSource(createPvmDataSource())
+                .packages("de.consorsbank.core.trauthsc.pvm.persistence.entity")
+                .persistenceUnit("pvm")
+                .build();
+    }
 
-        SpringLiquibase liquibase = new SpringLiquibase();
-        liquibase.setDataSource(pvmDataSource);
-        liquibase.setChangeLog(changeLog);
-        liquibase.setShouldRun(enabled);
-        liquibase.setDropFirst(dropFirst);
-        return liquibase;
+    private void validateProperties() {
+        if (pvmDataSourceProperties == null) {
+            throw new IllegalStateException("pvmDataSourceProperties cannot be null");
+        }
+        if (pvmDataSourceProperties.getUsername() == null) {
+            throw new IllegalStateException("Username is required");
+        }
+    }
+
+    private Properties createXaProperties() {
+        var properties = new Properties();
+        properties.setProperty("user", pvmDataSourceProperties.getUsername());
+        properties.setProperty("password", pvmDataSourceProperties.getPassword());
+        properties.setProperty("URL", pvmDataSourceProperties.getUrl());
+        return properties;
+    }
+
+    private void configureDataSource(AtomikosDataSourceBean dataSource,
+                                      Properties xaProperties) {
+        dataSource.setUniqueResourceName(
+                pvmDataSourceProperties.getConfiguration().getUniqueResourceName());
+        dataSource.setXaDataSourceClassName(
+                pvmDataSourceProperties.getXaDataSourceClassName());
+        dataSource.setXaProperties(xaProperties);
+
+        int minPoolSize = pvmDataSourceProperties.getConfiguration().getMinPoolSize();
+        int maxPoolSize = pvmDataSourceProperties.getConfiguration().getMaxPoolSize();
+        dataSource.setPoolSize(minPoolSize);
+        dataSource.setMaxPoolSize(maxPoolSize);
     }
 }
 
 ```
-
-
-
-```
-src/main/resources/
-  db/
-    changelog/
-      changelog-master.yaml          ← trauth (already exists)
-      changelog-master-tam.yaml      ← new
-      changelog-master-pvm.yaml      ← new
-      migrations.v1.0/
-        001-create-trauth-tables.sql ← already exists
-        002-insert-into-trauth.sql   ← already exists
-      tam/
-        migrations.v1.0/
-          001-create-tam-tables.sql  ← new
-      pvm/
-        migrations.v1.0/
-          001-create-pvm-tables.sql  ← new
-```
-
-
-```
-spring:
-  liquibase:
-    change-log: classpath:/db/changelog/changelog-master.yaml
-    enabled: true
-    drop-first: true
-
-tam:
-  liquibase:
-    change-log: classpath:/db/changelog/changelog-master-tam.yaml
-    enabled: true
-    drop-first: true
-
-pvm:
-  liquibase:
-    change-log: classpath:/db/changelog/changelog-master-pvm.yaml
-    enabled: true
-    drop-first: true
-
-
-databaseChangeLog:
-  - includeAll:
-      path: classpath:/db/changelog/tam/migrations.v1.0/
-      relativeToChangelogFile: false
-
-databaseChangeLog:
-  - includeAll:
-      path: classpath:/db/changelog/pvm/migrations.v1.0/
-      relativeToChangelogFile: false
-```
-
