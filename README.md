@@ -1,110 +1,83 @@
 ```
-
-2:46 PM
-Claude responded: Based on the documentation, let me first explain the concepts simply, then give you the API design.
-Based on the documentation, let me first explain the concepts simply, then give you the API design.
-
-Simple Explanation
-What is this system? A user wants to authorize a transaction (like a bank payment). The system needs to verify it's really them.
-
-Two flows:
-
-INLINE — credential sent immediately (e.g. PIN/password) → instant AUTHORIZED/FAILED
-CHALLENGE_RESPONSE — system sends a challenge first (e.g. SMS code) → user responds later
-Key components:
-
-Business/Domain MS — the main microservice that orchestrates everything
-TAM (Transaction Authorization Manager) — your microservice, handles authorization logic
-PVM (Payload Vault Manager) — stores sensitive payload securely
-TAM Schema tables (Image 7):
-
-TRANSACTIONS_AUTHORIZATION — one per transaction
-AUTHORIZATION_ATTEMPTS — multiple attempts per transaction
-SERVICE_AUTHORIZATION_METHOD — available methods
-PVM Schema tables:
-
-PAYLOAD_VAULT — stores encrypted payloads
-API Design — Submit Authorization Method
-POST /api/v1/authorization/submit-method
-Request
-json
-{
-  "transactionalIntentId": "uuid",
+1. INITIATE TRANSACTION AUTHORIZATION
+POST /authorizations
+Request:
+json{
   "transactionId": "uuid",
-  "method": "SMS_OTP | PUSH | PIN | BIOMETRIC",
-  "methodFlowType": "INLINE | CHALLENGE_RESPONSE",
-  "credential": "123456",
-  "payloadVaultRef": "uuid"
+  "transactionType": "string",
+  "transactionPayload": "object",
+  "authorizationMethod": "SMS_OTP | PUSH | PIN | BIOMETRIC",
+  "authorizationCredential": "string (optional)"
 }
-Response — INLINE AUTHORIZED
-json
-{
-  "transactionId": "uuid",
-  "authorizationAttemptId": "uuid",
-  "status": "AUTHORIZED",
-  "methodFlowType": "INLINE"
-}
-Response — INLINE FAILED
-json
-{
-  "transactionId": "uuid",
-  "authorizationAttemptId": "uuid",
-  "status": "FAILED",
-  "methodFlowType": "INLINE",
-  "errorCode": "INVALID_CREDENTIAL"
-}
-Response — CHALLENGE_RESPONSE
-json
-{
-  "transactionId": "uuid",
-  "authorizationAttemptId": "uuid",
-  "status": "WAITING_FOR_CREDENTIAL",
-  "methodFlowType": "CHALLENGE_RESPONSE",
-  "challengeSentAsync": true
-}
-HTTP Status Codes
-Status	Scenario
-200	AUTHORIZED or FAILED (both valid outcomes)
-202	CHALLENGE_RESPONSE initiated async
-400	Invalid request / missing credential for INLINE
-409	Transaction already finalized
-422	Invalid transactionIntentId / Invalid method
-TAM Internal Flow (what happens inside TAM)
-1. Receive request
-2. Validate:
-   - transactionIntentId exists
-   - transaction not finalized
-   - method is valid
-   - credential present if INLINE
-3. Create AuthorizationAttempt (status = PENDING)
-4. Store payload in PVM (payloadVaultRef)
-5. if INLINE:
-   - Validate credential
-   - Update AuthorizationAttempt (AUTHORIZED | FAILED)
-   - Return result synchronously
-6. if CHALLENGE_RESPONSE:
-   - Generate challenge
-   - Send challenge to user (ASYNC)
-   - Update AuthorizationAttempt (WAITING_FOR_CREDENTIAL)
-   - Return 202 immediately
-Failure Scenarios & Error Codes
-json
-{
-  "errorCode": "INVALID_TRANSACTION_INTENT_ID",
-  "message": "TransactionIntentId not found"
-}
-{
-  "errorCode": "TRANSACTION_ALREADY_FINALIZED", 
-  "message": "Transaction is already in final state"
-}
-{
-  "errorCode": "MISSING_CREDENTIAL",
-  "message": "Credential is required for INLINE flow"
-}
-{
-  "errorCode": "INVALID_METHOD",
-  "message": "Method not supported or not available"
+Response:
+json{
+  "transactionAuthorizationUuid": "uuid",
+  "authorizationAttemptUuid": "uuid"
 }
 
+2. SUBMIT AUTHORIZATION CREDENTIAL
+PATCH /authorizations/{transaction_authorization_uuid}
+Request:
+json{
+  "attemptId": "uuid",
+  "authorizationMethod": "SMS_OTP | PUSH | PIN | BIOMETRIC",
+  "authorizationCredential": "string (mandatory)"
+}
+Response:
+json{
+  "status": "AUTHORIZED | FAILED"
+}
+
+3. GET TRANSACTION AUTHORIZATION STATUS (simple)
+GET /authorizations/{authorization_uuid}/status
+Response:
+json{
+  "status": "PENDING | AUTHORIZED | FAILED | WAITING_FOR_CREDENTIAL"
+}
+
+4. GET TRANSACTION AUTHORIZATION STATUS (detailed)
+GET /authorizations/{authorization_uuid}/status?detailed=true
+Response:
+json{
+  "transactionAuthorizationUuid": "uuid",
+  "status": "PENDING | AUTHORIZED | FAILED | WAITING_FOR_CREDENTIAL",
+  "attempts": [
+    {
+      "authorizationAttemptUuid": "uuid",
+      "status": "AUTHORIZED | FAILED | PENDING"
+    }
+  ]
+}
+
+5. CANCEL TRANSACTION AUTHORIZATION
+DELETE /authorizations/{transaction_authorization_id}
+(or POST if preferred)
+Response:
+json{
+  "status": "CANCELLED"
+}
+
+Full Flow Summary
+Business/Domain MS → TAM:
+  1. POST /authorizations          → Initiate
+  2. PATCH /authorizations/{uuid}  → Submit credential
+  3. GET /authorizations/{uuid}/status → Check status
+  4. GET /authorizations/{uuid}/status?detailed=true → Full details
+
+TAM → PVM:
+  - STORE payload on initiate
+  - RETRIEVE payload when needed
+
+TAM internally:
+  - Creates TRANSACTIONS_AUTHORIZATION
+  - Creates AUTHORIZATION_ATTEMPTS
+  - Updates status on each attempt
+
+Key Notes from diagram
+
+TRANSACTIONS_AUTHORIZATION has 1→N AUTHORIZATION_ATTEMPTS — one transaction can have multiple attempts
+PAYLOAD_VAULT has logical relation (no FK) to AUTHORIZATION_ATTEMPTS — stored separately in PVM schema
+SERVICE_AUTHORIZATION_METHOD is TBD — needs check with Yomy DB vs Config
+For PUSH notifications — check in DRAAS what happens with multiple attempts with same method
 
 ```
