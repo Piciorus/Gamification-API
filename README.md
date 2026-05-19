@@ -1,20 +1,17 @@
 ```
-# Un singur fisier care adauga audit columns la TOATE tabelele
 databaseChangeLog:
   - changeSet:
-      id: audit-001-add-audit-columns-to-all-tables
+      id: add-audit-columns-${audit.table}
       author: vlad.pop@externe.bnpparibas.com
       changes:
-
-        # ========== authorization_methods ==========
         - addColumn:
-            tableName: authorization_methods
-            schemaName: tam
+            tableName: ${audit.table}
+            schemaName: ${audit.schema}
             columns:
               - column:
                   name: is_deleted
                   type: NUMBER(1)
-                  defaultValue: 0
+                  defaultValueNumeric: 0
                   constraints:
                     nullable: false
               - column:
@@ -33,13 +30,13 @@ databaseChangeLog:
               - column:
                   name: created_at
                   type: TIMESTAMP WITH TIME ZONE
-                  defaultValue: CURRENT_TIMESTAMP
+                  defaultValueComputed: CURRENT_TIMESTAMP
                   constraints:
                     nullable: false
               - column:
                   name: updated_at
                   type: TIMESTAMP WITH TIME ZONE
-                  defaultValue: CURRENT_TIMESTAMP
+                  defaultValueComputed: CURRENT_TIMESTAMP
                   constraints:
                     nullable: false
               - column:
@@ -48,101 +45,32 @@ databaseChangeLog:
               - column:
                   name: version
                   type: NUMBER(19)
-                  defaultValue: 1
-                  constraints:
-                    nullable: false
-
-        # ========== services ==========
-        - addColumn:
-            tableName: services
-            schemaName: tam
-            columns:
-              - column:
-                  name: is_deleted
-                  type: NUMBER(1)
-                  defaultValue: 0
-                  constraints:
-                    nullable: false
-              - column:
-                  name: created_by
-                  type: VARCHAR2(25)
-                  constraints:
-                    nullable: false
-              - column:
-                  name: updated_by
-                  type: VARCHAR2(25)
-                  constraints:
-                    nullable: false
-              - column:
-                  name: deleted_by
-                  type: VARCHAR2(25)
-              - column:
-                  name: created_at
-                  type: TIMESTAMP WITH TIME ZONE
-                  defaultValue: CURRENT_TIMESTAMP
-                  constraints:
-                    nullable: false
-              - column:
-                  name: updated_at
-                  type: TIMESTAMP WITH TIME ZONE
-                  defaultValue: CURRENT_TIMESTAMP
-                  constraints:
-                    nullable: false
-              - column:
-                  name: deleted_at
-                  type: TIMESTAMP WITH TIME ZONE
-              - column:
-                  name: version
-                  type: NUMBER(19)
-                  defaultValue: 1
-                  constraints:
-                    nullable: false
-
-        # ========== authorization_attempts ==========
-        - addColumn:
-            tableName: authorization_attempts
-            schemaName: tam
-            columns:
-              - column:
-                  name: is_deleted
-                  type: NUMBER(1)
-                  defaultValue: 0
-                  constraints:
-                    nullable: false
-              - column:
-                  name: created_by
-                  type: VARCHAR2(25)
-                  constraints:
-                    nullable: false
-              - column:
-                  name: updated_by
-                  type: VARCHAR2(25)
-                  constraints:
-                    nullable: false
-              - column:
-                  name: deleted_by
-                  type: VARCHAR2(25)
-              - column:
-                  name: created_at
-                  type: TIMESTAMP WITH TIME ZONE
-                  defaultValue: CURRENT_TIMESTAMP
-                  constraints:
-                    nullable: false
-              - column:
-                  name: updated_at
-                  type: TIMESTAMP WITH TIME ZONE
-                  defaultValue: CURRENT_TIMESTAMP
-                  constraints:
-                    nullable: false
-              - column:
-                  name: deleted_at
-                  type: TIMESTAMP WITH TIME ZONE
-              - column:
-                  name: version
-                  type: NUMBER(19)
-                  defaultValue: 1
+                  defaultValueNumeric: 1
                   constraints:
                     nullable: false
 
 ```
+```
+databaseChangeLog:
 
+  - include:
+      file: classpath:/db/tam/migrations/v1.0/001-create-authorization-methods-table.yaml
+  - property:
+      name: audit.table
+      value: authorization_methods
+  - property:
+      name: audit.schema
+      value: tam
+  - include:
+      file: classpath:/db/tam/migrations/v1.0/common/000-inject-audit-columns.yaml
+
+  - include:
+      file: classpath:/db/tam/migrations/v1.0/002-create-services-table.yaml
+  - property:
+      name: audit.table
+      value: services
+  - include:
+      file: classpath:/db/tam/migrations/v1.0/common/000-inject-audit-columns.yaml
+
+  # ... restul la fel
+```
