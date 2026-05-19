@@ -1,59 +1,148 @@
 ```
-package de.consorsbank.core.trauthsc.tam.client.draas;
+# Un singur fisier care adauga audit columns la TOATE tabelele
+databaseChangeLog:
+  - changeSet:
+      id: audit-001-add-audit-columns-to-all-tables
+      author: vlad.pop@externe.bnpparibas.com
+      changes:
 
-import com.fasterxml.jackson.databind.ObjectMapper;
-import de.consorsbank.core.trauthsc.tam.client.draas.exception.DraasClientException;
-import de.consorsbank.core.trauthsc.tam.client.dto.ClientErrorResponse;
-import feign.Response;
-import feign.codec.ErrorDecoder;
-import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
-import org.springframework.http.HttpStatus;
+        # ========== authorization_methods ==========
+        - addColumn:
+            tableName: authorization_methods
+            schemaName: tam
+            columns:
+              - column:
+                  name: is_deleted
+                  type: NUMBER(1)
+                  defaultValue: 0
+                  constraints:
+                    nullable: false
+              - column:
+                  name: created_by
+                  type: VARCHAR2(25)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: updated_by
+                  type: VARCHAR2(25)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: deleted_by
+                  type: VARCHAR2(25)
+              - column:
+                  name: created_at
+                  type: TIMESTAMP WITH TIME ZONE
+                  defaultValue: CURRENT_TIMESTAMP
+                  constraints:
+                    nullable: false
+              - column:
+                  name: updated_at
+                  type: TIMESTAMP WITH TIME ZONE
+                  defaultValue: CURRENT_TIMESTAMP
+                  constraints:
+                    nullable: false
+              - column:
+                  name: deleted_at
+                  type: TIMESTAMP WITH TIME ZONE
+              - column:
+                  name: version
+                  type: NUMBER(19)
+                  defaultValue: 1
+                  constraints:
+                    nullable: false
 
-import java.io.IOException;
-import java.io.InputStream;
+        # ========== services ==========
+        - addColumn:
+            tableName: services
+            schemaName: tam
+            columns:
+              - column:
+                  name: is_deleted
+                  type: NUMBER(1)
+                  defaultValue: 0
+                  constraints:
+                    nullable: false
+              - column:
+                  name: created_by
+                  type: VARCHAR2(25)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: updated_by
+                  type: VARCHAR2(25)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: deleted_by
+                  type: VARCHAR2(25)
+              - column:
+                  name: created_at
+                  type: TIMESTAMP WITH TIME ZONE
+                  defaultValue: CURRENT_TIMESTAMP
+                  constraints:
+                    nullable: false
+              - column:
+                  name: updated_at
+                  type: TIMESTAMP WITH TIME ZONE
+                  defaultValue: CURRENT_TIMESTAMP
+                  constraints:
+                    nullable: false
+              - column:
+                  name: deleted_at
+                  type: TIMESTAMP WITH TIME ZONE
+              - column:
+                  name: version
+                  type: NUMBER(19)
+                  defaultValue: 1
+                  constraints:
+                    nullable: false
 
-@Slf4j
-@RequiredArgsConstructor
-public class DraasErrorDecoder implements ErrorDecoder {
+        # ========== authorization_attempts ==========
+        - addColumn:
+            tableName: authorization_attempts
+            schemaName: tam
+            columns:
+              - column:
+                  name: is_deleted
+                  type: NUMBER(1)
+                  defaultValue: 0
+                  constraints:
+                    nullable: false
+              - column:
+                  name: created_by
+                  type: VARCHAR2(25)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: updated_by
+                  type: VARCHAR2(25)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: deleted_by
+                  type: VARCHAR2(25)
+              - column:
+                  name: created_at
+                  type: TIMESTAMP WITH TIME ZONE
+                  defaultValue: CURRENT_TIMESTAMP
+                  constraints:
+                    nullable: false
+              - column:
+                  name: updated_at
+                  type: TIMESTAMP WITH TIME ZONE
+                  defaultValue: CURRENT_TIMESTAMP
+                  constraints:
+                    nullable: false
+              - column:
+                  name: deleted_at
+                  type: TIMESTAMP WITH TIME ZONE
+              - column:
+                  name: version
+                  type: NUMBER(19)
+                  defaultValue: 1
+                  constraints:
+                    nullable: false
 
-    private final ObjectMapper objectMapper;
-    private final ErrorDecoder defaultDecoder = new Default();
-
-    @Override
-    public Exception decode(String methodKey, Response response) {
-        int status = response.status();
-        log.error("DRAAS client error - method: {}, status: {}", methodKey, status);
-
-        ClientErrorResponse errorResponse = parseErrorResponse(response);
-
-        return switch (HttpStatus.valueOf(status)) {
-            case BAD_REQUEST -> new DraasClientException(
-                status,
-                errorResponse.getCode(),
-                "DRAAS validation failed: " + errorResponse.getReason()
-            );
-            case NOT_FOUND -> new DraasClientException(
-                status,
-                errorResponse.getCode(),
-                "DRAAS resource not found: " + errorResponse.getReason()
-            );
-            case INTERNAL_SERVER_ERROR -> new DraasClientException(
-                status,
-                errorResponse.getCode(),
-                "DRAAS internal server error: " + errorResponse.getReason()
-            );
-            default -> defaultDecoder.decode(methodKey, response);
-        };
-    }
-
-    private ClientErrorResponse parseErrorResponse(Response response) {
-        try (InputStream body = response.body().asInputStream()) {
-            return objectMapper.readValue(body, ClientErrorResponse.class);
-        } catch (IOException e) {
-            log.error("Failed to parse DRAAS error response", e);
-            return new ClientErrorResponse();
-        }
-    }
-}
 ```
+
