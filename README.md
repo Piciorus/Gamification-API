@@ -1,4 +1,62 @@
 ```
+components:
+  schemas:
+    FetchAuthorizationStatusResponse:
+      oneOf:
+        - $ref: '#/components/schemas/SimpleAuthorizationStatusResponse'
+        - $ref: '#/components/schemas/DetailedAuthorizationStatusResponse'
+      discriminator:
+        propertyName: responseType
+        mapping:
+          simple: '#/components/schemas/SimpleAuthorizationStatusResponse'
+          detailed: '#/components/schemas/DetailedAuthorizationStatusResponse'
+
+    SimpleAuthorizationStatusResponse:
+      type: object
+      required:
+        - responseType
+        - status
+      properties:
+        responseType:
+          type: string
+        status:
+          $ref: '../common/schemas.yaml#/components/schemas/AuthorizationStatus'
+        authorizationId:
+          type: string
+          format: uuid
+          description: ID of the authorization
+
+    DetailedAuthorizationStatusResponse:
+      type: object
+      required:
+        - responseType
+        - status
+      properties:
+        responseType:
+          type: string
+        status:
+          $ref: '../common/schemas.yaml#/components/schemas/AuthorizationStatus'
+        authorizationId:
+          type: string
+          format: uuid
+          description: ID of the authorization
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/AttemptsDetail'
+
+    AttemptsDetail:
+      type: object
+      properties:
+        attemptId:
+          type: string
+          format: uuid
+        statusAttempt:
+          $ref: '../common/schemas.yaml#/components/schemas/AuthorizationAttemptStatus'
+        authorizationMethod:
+          $ref: '../common/schemas.yaml#/components/schemas/AuthorizationMethod'
+
+
 @Slf4j
 @RequiredArgsConstructor
 public class DraasErrorDecoder implements ErrorDecoder {
