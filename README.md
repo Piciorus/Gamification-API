@@ -5,6 +5,42 @@ components:
       oneOf:
         - $ref: '#/components/schemas/SimpleAuthorizationStatusResponse'
         - $ref: '#/components/schemas/DetailedAuthorizationStatusResponse'
+
+    SimpleAuthorizationStatusResponse:
+      type: object
+      required:
+        - status
+      properties:
+        status:
+          $ref: '../common/schemas.yaml#/components/schemas/AuthorizationStatus'
+        authorizationId:
+          type: string
+          format: uuid
+          description: ID of the authorization
+
+    DetailedAuthorizationStatusResponse:
+      type: object
+      required:
+        - status
+      properties:
+        status:
+          $ref: '../common/schemas.yaml#/components/schemas/AuthorizationStatus'
+        authorizationId:
+          type: string
+          format: uuid
+          description: ID of the authorization
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/AttemptsDetail'
+
+
+components:
+  schemas:
+    FetchAuthorizationStatusResponse:
+      oneOf:
+        - $ref: '#/components/schemas/SimpleAuthorizationStatusResponse'
+        - $ref: '#/components/schemas/DetailedAuthorizationStatusResponse'
       discriminator:
         propertyName: responseType
         mapping:
