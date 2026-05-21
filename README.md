@@ -1,95 +1,236 @@
 ```
-@Mapper(componentModel = "spring")
-public interface AuthorizationMapper {
+package de.consorsbank.core.trauthsc.tam.core.initiatetransaction.mapper;
 
-    @Mapping(target = "id", expression = "java(java.util.UUID.randomUUID())")
-    @Mapping(target = "transactionId", source = "transactionId")
-    @Mapping(target = "service", source = "transactionService")
-    @Mapping(target = "serviceVersion", source = "transactionTypeVersion")
+import de.consorsbank.core.trauthsc.rest.api.tam.initiate.transaction.authorization.model.InitiateTransactionAuthorizationRequest;
+import de.consorsbank.core.trauthsc.rest.api.tam.initiate.transaction.authorization.model.InitiateTransactionAuthorizationResponse;
+import de.consorsbank.core.trauthsc.tam.entity.AuthorizationEntity;
+import org.mapstruct.Mapper;
+import org.mapstruct.Mapping;
+
+@Mapper(componentModel = "spring")
+public interface InitiateTransactionAuthorizationMapper {
+
+    @Mapping(target = "id", 
+             expression = "java(java.util.UUID.randomUUID())")
+    @Mapping(target = "externalId", 
+             expression = "java(java.util.UUID.randomUUID())")
+    @Mapping(target = "transactionId", 
+             source = "transactionId")
+    @Mapping(target = "service", 
+             source = "transactionService")
+    @Mapping(target = "serviceVersion", 
+             source = "transactionTypeVersion")
     @Mapping(target = "status", 
-             expression = "java(AuthorizationStatus.WAITING_FOR_METHOD)")
-    @Mapping(target = "isDeleted", constant = "0")
-    @Mapping(target = "createdAt", 
-             expression = "java(java.time.OffsetDateTime.now())")
-    @Mapping(target = "updatedAt", 
-             expression = "java(java.time.OffsetDateTime.now())")
-    @Mapping(target = "version", constant = "0L")
-    Authorization toEntity(
+             expression = "java(de.consorsbank.core.trauthsc.tam.entity.enums.AuthorizationStatusEnum.WAITING_FOR_METHOD)")
+    @Mapping(target = "tenant",
+             source = "tenant")
+    @Mapping(target = "crmCustomerNumber",
+             source = "crmCustomerNumber")
+    @Mapping(target = "expiresAt",
+             source = "expiresAt")
+    @Mapping(target = "transactionPayloadId",
+             expression = "java(java.util.UUID.randomUUID())")
+    @Mapping(target = "isDeleted",
+             constant = "0")
+    @Mapping(target = "serviceEntity",
+             ignore = true)
+    AuthorizationEntity toEntity(
         InitiateTransactionAuthorizationRequest request);
 
-    @Mapping(target = "authorizationId", source = "id")
+    @Mapping(target = "authorizationId", 
+             source = "id")
     InitiateTransactionAuthorizationResponse toResponse(
-        Authorization authorization);
+        AuthorizationEntity authorization);
 }
+
 ```
 ```
+package de.consorsbank.core.trauthsc.tam.core.initiatetransaction.service;
+
+import de.consorsbank.core.trauthsc.rest.api.tam.initiate.transaction.authorization.model.InitiateTransactionAuthorizationRequest;
+import de.consorsbank.core.trauthsc.rest.api.tam.initiate.transaction.authorization.model.InitiateTransactionAuthorizationResponse;
+import de.consorsbank.core.trauthsc.tam.core.initiatetransaction.mapper.InitiateTransactionAuthorizationMapper;
+import de.consorsbank.core.trauthsc.tam.entity.AuthorizationEntity;
+import de.consorsbank.core.trauthsc.tam.repository.AuthorizationRepository;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+import java.util.List;
+import java.util.UUID;
+
 @Service
 @RequiredArgsConstructor
 @Slf4j
-public class AuthorizationService {
+public class InitiateTransactionAuthorizationService {
 
     private final AuthorizationRepository authorizationRepository;
-    private final AuthorizationMapper authorizationMapper;
+    private final InitiateTransactionAuthorizationMapper mapper;
 
     @Transactional
     public InitiateTransactionAuthorizationResponse initiateAuthorization(
             InitiateTransactionAuthorizationRequest request) {
 
-        log.info("Initiating authorization for transactionId: {}", 
-                 request.getTransactionId());
+        log.info("Initiating authorization for transactionId {}.",
+                request.getTransactionId());
 
-        // Check if authorization already exists for this transaction
-        Optional<Authorization> existing = authorizationRepository
-                .findByTransactionId(request.getTransactionId());
+        // Validare - daca exista deja o autorizare pentru acest transaction
+        validateAlreadyExistingTransaction(request.getTransactionId());
 
-        if (existing.isPresent()) {
-            log.info("Authorization already exists for transactionId: {}", 
-                     request.getTransactionId());
-            return authorizationMapper.toResponse(existing.get());
+        // Creare entitate
+        AuthorizationEntity authorizationEntity = 
+                mapper.toEntity(request);
+
+        // Salvare
+        AuthorizationEntity saved = 
+                authorizationRepository.save(authorizationEntity);
+
+        log.info("Authorization having transactionId {} was initiated.",
+                request.getTransactionId());
+
+        return mapper.toResponse(saved);
+    }
+
+    /**
+     * Validates if the provided transaction id already exists.
+     * If it does, then an exception is raised.
+     *
+     * @param transactionId -- the transaction id to validate
+     * @throws InitiateTransactionAuthorizationException -- thrown in case 
+     *         there is already an existing authorization for the given tx id
+     */
+    private void validateAlreadyExistingTransaction(UUID transactionId) {
+        List<AuthorizationEntity> existingAuthorizations =
+                authorizationRepository
+                        .findByTransactionId(transactionId);
+
+        if (!existingAuthorizations.isEmpty()) {
+            log.error(
+                "An exception was raised while initiating " +
+                "authorization for transactionId {}. " +
+                "Authorization already exists.",
+                transactionId);
+
+            throw new InitiateTransactionAuthorizationException(
+                    InitiateTransactionAuthorizationErrorType
+                            .AUTHORIZATION_ALREADY_EXISTS,
+                    List.of(transactionId.toString()));
         }
-
-        // Create new authorization
-        Authorization authorization = authorizationMapper.toEntity(request);
-        Authorization saved = authorizationRepository.save(authorization);
-
-        log.info("Created authorization with id: {}", saved.getId());
-
-        return authorizationMapper.toResponse(saved);
     }
 }
+
+```
+
+```
+package de.consorsbank.core.trauthsc.tam.core.initiatetransaction.exception;
+
+public enum InitiateTransactionAuthorizationErrorType {
+    AUTHORIZATION_ALREADY_EXISTS,
+    INVALID_REQUEST,
+    SERVICE_NOT_FOUND
+}
+
+```
+
+```
+package de.consorsbank.core.trauthsc.tam.core.initiatetransaction.exception;
+
+import java.util.List;
+
+public class InitiateTransactionAuthorizationException 
+        extends RuntimeException {
+
+    private final InitiateTransactionAuthorizationErrorType errorType;
+    private final List<String> arguments;
+
+    public InitiateTransactionAuthorizationException(
+            InitiateTransactionAuthorizationErrorType errorType,
+            List<String> arguments) {
+        super(errorType.name());
+        this.errorType = errorType;
+        this.arguments = arguments;
+    }
+
+    public InitiateTransactionAuthorizationErrorType getErrorType() {
+        return errorType;
+    }
+
+    public String getLogMessage() {
+        return errorType.name() + " - arguments: " + arguments;
+    }
+}
+
 ```
 
 
 ```
+package de.consorsbank.core.trauthsc.tam.repository;
+
+import de.consorsbank.core.trauthsc.tam.entity.AuthorizationEntity;
+import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.stereotype.Repository;
+
+import java.util.List;
+import java.util.UUID;
+
+@Repository
+public interface AuthorizationRepository 
+        extends JpaRepository<AuthorizationEntity, UUID> {
+
+    List<AuthorizationEntity> findByTransactionId(UUID transactionId);
+}
+
+```
+
+```
+package de.consorsbank.core.trauthsc.tam.core.initiatetransaction.controller;
+
+import de.consorsbank.core.trauthsc.rest.api.tam.initiate.transaction.authorization.model.InitiateTransactionAuthorizationRequest;
+import de.consorsbank.core.trauthsc.rest.api.tam.initiate.transaction.authorization.model.InitiateTransactionAuthorizationResponse;
+import de.consorsbank.core.trauthsc.tam.core.initiatetransaction.service.InitiateTransactionAuthorizationService;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.*;
+
+import java.net.URI;
+
 @RestController
 @RequestMapping("/v1/authorizations")
 @RequiredArgsConstructor
 @Slf4j
-@Tag(name = "Initiate Transaction Authorization")
-public class AuthorizationController {
+public class InitiateTransactionAuthorizationController {
 
-    private final AuthorizationService authorizationService;
+    private final InitiateTransactionAuthorizationService service;
 
     @PostMapping
-    @ResponseStatus(HttpStatus.CREATED)
-    public ResponseEntity<InitiateTransactionAuthorizationResponse> 
+    public ResponseEntity<InitiateTransactionAuthorizationResponse>
             initiateAuthorization(
-                @RequestBody @Valid 
-                InitiateTransactionAuthorizationRequest request,
-                @RequestHeader("x-correlation-id") 
-                String correlationId) {
+                @RequestBody 
+                InitiateTransactionAuthorizationRequest request) {
 
-        log.info("Received initiate authorization request, " +
-                 "correlationId: {}", correlationId);
+        log.info("Received initiate authorization request " +
+                 "for transactionId {}.",
+                 request.getTransactionId());
 
         InitiateTransactionAuthorizationResponse response =
-                authorizationService.initiateAuthorization(request);
+                service.initiateAuthorization(request);
 
         return ResponseEntity
                 .created(URI.create(
-                    "/v1/authorizations/" + response.getAuthorizationId()))
+                    "/v1/authorizations/" + 
+                    response.getAuthorizationId()))
                 .body(response);
     }
 }
 
 ```
+
+```
+
+
+
+```
+
