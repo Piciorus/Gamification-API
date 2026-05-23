@@ -1,99 +1,12 @@
-@Component
-@RequiredArgsConstructor
-@Slf4j
-@ConditionalOnProperty(name = "spring-artemis.activemq.enableMQ", havingValue = "true")
-public class ExternalEventMessageListener {
+package de.consorsbank.core.trauthsc.tam.core.initiatetransaction.service;
 
-    private final AuthorizationRepository authorizationRepository;
-    private final ObjectMapper objectMapper;
-
-    @JmsListener(
-        destination = "${spring-artemis.activemq.queue}",
-        containerFactory = "jmsListenerContainerFactory"
-    )
-    @Transactional(rollbackFor = CommonException.class)
-    public void onMessage(Message message) throws Exception {
-        log.debug("Received JMS message: {}", message);
-
-        try {
-            if (!(message instanceof TextMessage textMessage)) {
-                log.warn("Received non-text message, skipping: {}",
-                    message.getClass().getName());
-                return;
-            }
-
-            var payload = textMessage.getText();
-            log.debug("Message payload: {}", payload);
-
-            // Deserialize incoming event
-            var authzResult = objectMapper.readValue(payload, TxAuthzResult.class);
-
-            log.info("Received authorization result for authorizationId {} with status {}",
-                authzResult.getTxId(), authzResult.getAuthzStatus());
-
-            // Find existing PENDING authorization and update its status
-            updateAuthorizationStatus(authzResult);
-
-        } catch (CommonException exception) {
-            log.error("Error processing JMS message, transaction will rollback: {}",
-                exception.getMessage(), exception);
-            throw exception;
-        } catch (Exception exception) {
-            log.error("Error processing JMS message, transaction will rollback: {}",
-                exception.getMessage(), exception);
-            throw exception;
-        }
-    }
-
-    private void updateAuthorizationStatus(TxAuthzResult authzResult) {
-        var authorizationId = UUID.fromString(authzResult.getTxId());
-
-        var entity = authorizationRepository.findById(authorizationId)
-            .orElseThrow(() -> {
-                log.error("No authorization found for authorizationId {}.",
-                    authorizationId);
-                return new CommonException(
-                    CommonExceptionCode.SERVER_ERROR,
-                    List.of(authorizationId.toString()));
-            });
-
-        // Guard — only PENDING can be updated
-        if (!entity.getStatus().equals(AuthorizationStatusEnum.PENDING)) {
-            log.error("Authorization {} is already in terminal state {}, cannot update.",
-                authorizationId, entity.getStatus());
-            throw new CommonException(
-                CommonExceptionCode.SERVER_ERROR,
-                List.of(authorizationId.toString()));
-        }
-
-        var newStatus = mapStatus(authzResult.getAuthzStatus());
-        entity.setStatus(newStatus);
-        authorizationRepository.save(entity);
-
-        log.info("Authorization {} status updated to {}.", authorizationId, newStatus);
-    }
-
-    private AuthorizationStatusEnum mapStatus(AuthzStatus authzStatus) {
-        return switch (authzStatus) {
-            case AUTHORIZED -> AuthorizationStatusEnum.AUTHORIZED;
-            case FAILED     -> AuthorizationStatusEnum.FAILED;
-            case EXPIRED    -> AuthorizationStatusEnum.EXPIRED;
-            default -> throw new CommonException(
-                CommonExceptionCode.SERVER_ERROR,
-                List.of("Unknown authz status: " + authzStatus));
-        };
-    }
-}
-package de.consorsbank.core.trauthsc.tam.core.initiatetransaction;
-
+import com.consorsbank.common.error.handling.exception.CommonException;
+import com.consorsbank.common.error.handling.exception.CommonExceptionCode;
 import de.consorsbank.core.trauthsc.tam.core.initiatetransaction.mapper.InitiateTransactionAuthorizationMapper;
+import de.consorsbank.core.trauthsc.tam.core.initiatetransaction.messaging.InitiateTransactionEventSender;
 import de.consorsbank.core.trauthsc.tam.entity.AuthorizationEntity;
-import de.consorsbank.core.trauthsc.tam.entity.ServiceEntity;
-import de.consorsbank.core.trauthsc.tam.entity.ServiceId;
 import de.consorsbank.core.trauthsc.tam.entity.enums.AuthorizationStatusEnum;
-import de.consorsbank.core.trauthsc.tam.messaging.TransactionEventSender;
 import de.consorsbank.core.trauthsc.tam.repository.AuthorizationRepository;
-import de.consorsbank.core.trauthsc.tam.repository.ServiceRepository;
 import de.consorsbank.core.trauthsc.rest.api.tam.initiate.transaction.authorization.model.InitiateTransactionAuthorizationRequest;
 import de.consorsbank.core.trauthsc.rest.api.tam.initiate.transaction.authorization.model.InitiateTransactionAuthorizationResponse;
 import lombok.RequiredArgsConstructor;
@@ -101,7 +14,6 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.util.Date;
 import java.util.List;
 import java.util.UUID;
 
@@ -111,9 +23,8 @@ import java.util.UUID;
 public class InitiateTransactionAuthorizationService implements InitiateTransactionAuthorization {
 
     private final AuthorizationRepository authorizationRepository;
-    private final ServiceRepository serviceRepository;
     private final InitiateTransactionAuthorizationMapper initiateTransactionAuthorizationMapper;
-    private final TransactionEventSender transactionEventSender;
+    private final InitiateTransactionEventSender initiateTransactionEventSender;
 
     @Override
     @Transactional(rollbackFor = CommonException.class)
@@ -122,55 +33,47 @@ public class InitiateTransactionAuthorizationService implements InitiateTransact
 
         log.info("Initiating authorization for transactionId {}.", request.getTransactionId());
 
-        // 1. Get existing PENDING or create a new AuthorizationEntity
+        // 1. Get existing or create — handles duplicate detection
         var authorizationEntity = getOrCreateAuthorizationEntity(request);
 
         // 2. Persist
         var saved = authorizationRepository.save(authorizationEntity);
 
+        log.info("Authorization having transactionId {} was initiated.", request.getTransactionId());
+
         // 3. Map to response
         var response = initiateTransactionAuthorizationMapper.toResponse(saved);
 
-        // 4. Send PENDING event to the tx-queue using the authorizationId from the response
-        sendPendingTransactionEvent(response.getAuthorizationId().toString());
-
-        log.info("Authorization having transactionId {} was initiated.", request.getTransactionId());
+        // 4. Send PENDING event with transactionId + status
+        initiateTransactionEventSender.sendMessage(saved.getTransactionId(), AuthorizationStatusEnum.PENDING);
 
         return response;
     }
 
     /**
-     * Send a pending transaction event on the tx-queue.
-     * Uses the authorizationId (TAM's own ID) as the txId in the event,
-     * so downstream consumers can correlate by TAM's authorization identifier.
-     *
-     * @param authorizationId - the TAM authorization id from the response
-     */
-    private void sendPendingTransactionEvent(String authorizationId) {
-        var authzResult = new TxAuthzResult();
-        authzResult.setTxId(authorizationId);
-        authzResult.setAuthzStatus(AuthzStatus.PENDING);
-        authzResult.setOccurenceTimestamp(new Date());
-        transactionEventSender.sendMessage(authzResult);
-    }
-
-    /**
      * Get AuthorizationEntity by transactionId or create a new one if it does not exist.
      *
-     * - PENDING exists → reuse it (idempotent)
-     * - AUTHORIZED / FAILED / EXPIRED exists → throw (terminal state, cannot re-initiate)
-     * - None exists → create fresh PENDING entity
+     * Requirement 1: if called twice with the same transactionId → throw with clear message.
+     * Terminal states (AUTHORIZED, FAILED, EXPIRED) → also throw.
+     * No existing entity → create fresh one via mapper (id + externalId generated in mapper).
      */
     private AuthorizationEntity getOrCreateAuthorizationEntity(
             InitiateTransactionAuthorizationRequest request) {
 
         UUID transactionId = request.getTransactionId();
-        AuthorizationEntity authorizationEntity = null;
 
         if (transactionId != null) {
             for (AuthorizationEntity entity : authorizationRepository.findAllByTransactionId(transactionId)) {
 
-                // Terminal states — cannot re-initiate
+                // Requirement 1: already initiated (PENDING) → inform caller
+                if (entity.getStatus().equals(AuthorizationStatusEnum.PENDING)) {
+                    log.error("Authorization for transactionId {} was already initiated.", transactionId);
+                    throw new CommonException(
+                            CommonExceptionCode.SERVER_ERROR,
+                            List.of("Transaction " + transactionId + " was already initiated."));
+                }
+
+                // Terminal states → cannot re-initiate
                 if (entity.getStatus().equals(AuthorizationStatusEnum.AUTHORIZED)
                         || entity.getStatus().equals(AuthorizationStatusEnum.FAILED)
                         || entity.getStatus().equals(AuthorizationStatusEnum.EXPIRED)) {
@@ -180,79 +83,96 @@ public class InitiateTransactionAuthorizationService implements InitiateTransact
                             CommonExceptionCode.SERVER_ERROR,
                             List.of(transactionId.toString()));
                 }
-
-                // Reuse existing PENDING (idempotency)
-                if (entity.getStatus().equals(AuthorizationStatusEnum.PENDING)) {
-                    authorizationEntity = entity;
-                }
             }
         }
 
-        if (authorizationEntity == null) {
-            authorizationEntity = createPendingAuthorizationEntity(request);
-        }
-
-        return authorizationEntity;
-    }
-
-    /**
-     * Creates a brand-new PENDING AuthorizationEntity from the request.
-     * Resolves the ServiceEntity (OWNER + SERVICE composite FK) from the DB.
-     */
-    private AuthorizationEntity createPendingAuthorizationEntity(
-            InitiateTransactionAuthorizationRequest request) {
-
-        AuthorizationEntity entity = initiateTransactionAuthorizationMapper.toEntity(request);
-
-        ServiceId serviceId = new ServiceId(request.getTransactionService());
-        ServiceEntity serviceEntity = serviceRepository.findById(serviceId)
-                .orElseThrow(() -> {
-                    log.error("No service found for transactionService {} while initiating transactionId {}.",
-                            request.getTransactionService(), request.getTransactionId());
-                    return new CommonException(
-                            CommonExceptionCode.SERVER_ERROR,
-                            List.of(request.getTransactionService()));
-                });
-
-        entity.setServiceEntity(serviceEntity);
-        return entity;
-    }
-
-    /**
-     * Validates if the provided transaction id already exists.
-     * Kept for direct use if needed outside getOrCreateAuthorizationEntity.
-     *
-     * @param transactionId -- the transaction id to validate
-     */
-    private void validateAlreadyExistingTransaction(UUID transactionId) {
-        if (authorizationRepository.existsByTransactionId(transactionId)) {
-            log.error("Authorization already exists for transactionId {}.", transactionId);
-            throw new CommonException(
-                    CommonExceptionCode.SERVER_ERROR,
-                    List.of(transactionId.toString()));
-        }
+        // No existing entity — create via mapper (id + externalId generated there)
+        return initiateTransactionAuthorizationMapper.toEntity(request);
     }
 }
-package de.consorsbank.core.trauthsc.tam.messaging;
 
+package de.consorsbank.core.trauthsc.tam.core.initiatetransaction.mapper;
+
+import de.consorsbank.core.trauthsc.tam.entity.AuthorizationEntity;
+import de.consorsbank.core.trauthsc.rest.api.tam.initiate.transaction.authorization.model.InitiateTransactionAuthorizationRequest;
+import de.consorsbank.core.trauthsc.rest.api.tam.initiate.transaction.authorization.model.InitiateTransactionAuthorizationResponse;
+import org.mapstruct.Mapper;
+import org.mapstruct.Mapping;
+
+@Mapper(componentModel = "spring")
+public interface InitiateTransactionAuthorizationMapper {
+
+    /**
+     * Requirement 2: id and externalId are generated here at mapper level.
+     */
+    @Mapping(target = "id",            expression = "java(java.util.UUID.randomUUID())")
+    @Mapping(target = "externalId",    expression = "java(java.util.UUID.randomUUID())")
+    @Mapping(target = "transactionId", source = "transactionId")
+    @Mapping(target = "expiresAt",     source = "expiresAt")
+    @Mapping(target = "status",
+             expression = "java(de.consorsbank.core.trauthsc.tam.entity.enums.AuthorizationStatusEnum.PENDING)")
+    @Mapping(target = "serviceEntity", ignore = true)
+    @Mapping(target = "isDeleted",     ignore = true)
+    @Mapping(target = "createdBy",     ignore = true)
+    @Mapping(target = "updatedBy",     ignore = true)
+    @Mapping(target = "deletedBy",     ignore = true)
+    @Mapping(target = "createdAt",     ignore = true)
+    @Mapping(target = "updatedAt",     ignore = true)
+    @Mapping(target = "deletedAt",     ignore = true)
+    @Mapping(target = "version",       ignore = true)
+    AuthorizationEntity toEntity(InitiateTransactionAuthorizationRequest request);
+
+    @Mapping(target = "authorizationId", source = "id")
+    InitiateTransactionAuthorizationResponse toResponse(AuthorizationEntity authorization);
+}
+
+package de.consorsbank.core.trauthsc.tam.core.initiatetransaction.messaging;
+
+import de.consorsbank.core.trauthsc.tam.entity.enums.AuthorizationStatusEnum;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.jms.core.JmsTemplate;
 import org.springframework.stereotype.Component;
 
+import java.util.UUID;
+
+/**
+ * Requirement 3: sends messages with transactionId + status to the queue.
+ */
 @Component
 @Slf4j
 @RequiredArgsConstructor
-public class TamTransactionEventSender {
+public class InitiateTransactionEventSender {
 
     private final JmsTemplate jmsTemplate;
 
     @Value("${spring-artemis.activemq.queue}")
     private String queue;
 
-    public void sendPendingEvent(String authorizationId) {
-        log.debug("Sending PENDING event for authorizationId {} to queue.", authorizationId);
-        jmsTemplate.convertAndSend(queue, authorizationId);
+    public void sendMessage(UUID transactionId, AuthorizationStatusEnum status) {
+        log.debug("Sending event for transactionId {} with status {} to queue.", transactionId, status);
+        jmsTemplate.convertAndSend(queue, new TransactionAuthorizationEvent(transactionId, status));
     }
 }
+package de.consorsbank.core.trauthsc.tam.core.initiatetransaction.messaging;
+
+import de.consorsbank.core.trauthsc.tam.entity.enums.AuthorizationStatusEnum;
+import lombok.AllArgsConstructor;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
+
+import java.util.UUID;
+
+/**
+ * Event payload sent to the queue containing transactionId and status.
+ */
+@Getter
+@NoArgsConstructor
+@AllArgsConstructor
+public class TransactionAuthorizationEvent {
+
+    private UUID transactionId;
+    private AuthorizationStatusEnum status;
+}
+
