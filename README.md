@@ -627,3 +627,17 @@ public class InitiateTransactionAuthorizationService implements InitiateTransact
     }
 }
 ```
+
+
+```
+{
+    "transactionId": "550e8400-e29b-41d4-a716-446655440000",
+    "transactionService": "compensation-pot-change",
+    "transactionServicePayload": "{\"transactionIntentId\":\"intent-001\",\"transactionPayload\":{\"compensationPotYear\":2026,\"compensationPotIdAddEnd\":\"POT-123\",\"clearingAccountNumber\":\"ACC-456\"}}",
+    "transactionServiceVersion": "v1",
+    "crmCustomerNumber": "1",
+    "tenant": "B2B",
+    "expiresAt": "2026-05-21T07:58:52.203Z"
+}
+
+```
