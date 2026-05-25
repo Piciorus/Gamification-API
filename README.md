@@ -1,3 +1,11 @@
+@ValueMappings({
+    @ValueMapping(source = "B2B", target = "B2B"),
+    @ValueMapping(source = "B2C", target = "B2C"),
+    @ValueMapping(source = MappingConstants.ANY_REMAINING, target = MappingConstants.THROW_EXCEPTION)
+})
+TenantEnum mapTenant(de.consorsbank.core.trauthsc.rest.api.tam.initiate.transaction.authorization.model.TenantEnum tenantEnum);
+
+
 ```
 package de.consorsbank.core.trauthsc.integration.service;
 
