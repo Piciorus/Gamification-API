@@ -1,4 +1,11 @@
-```
+`- column:
+    name: business_slug
+    type: VARCHAR2(90)
+    valueComputed: >-
+      owner || '-' || service || '-' || service_version
+    constraints:
+      nullable: false
+``
 - changeSet:
     id: 003-add-business-slug-to-services-table
     author: alexandru.piciorus
