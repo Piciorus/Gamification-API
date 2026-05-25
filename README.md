@@ -1,173 +1,99 @@
-@ValueMappings({
-    @ValueMapping(source = "B2B", target = "B2B"),
-    @ValueMapping(source = "B2C", target = "B2C"),
-    @ValueMapping(source = MappingConstants.ANY_REMAINING, target = MappingConstants.THROW_EXCEPTION)
-})
-TenantEnum mapTenant(de.consorsbank.core.trauthsc.rest.api.tam.initiate.transaction.authorization.model.TenantEnum tenantEnum);
+```
+- changeSet:
+    id: 003-add-business-slug-to-services-table
+    author: alexandru.piciorus
+    changes:
+      - addColumn:
+          tableName: services
+          schemaName: tam
+          columns:
+            - column:
+                name: business_slug
+                type: VARCHAR2(90)
+                constraints:
+                  nullable: false
+
+      - addCheckConstraint:
+          tableName: services
+          schemaName: tam
+          constraintName: chk_business_slug_format
+          constraintBody: "business_slug = owner || '-' || service || '-' || service_version"
+
+      - createProcedure:
+          procedureName: trg_services_business_slug
+          schemaName: tam
+
+      - sql:
+          sql: |
+            CREATE OR REPLACE TRIGGER tam.trg_services_business_slug
+            BEFORE INSERT OR UPDATE ON tam.services
+            FOR EACH ROW
+            BEGIN
+              :NEW.business_slug := :NEW.owner || '-' || :NEW.service || '-' || :NEW.service_version;
+            END;
+
+```
+
+```
+- changeSet:
+    id: 003-add-business-slug-to-services-table
+    author: alexandru.piciorus
+    changes:
+      - sql:
+          sql: >
+            ALTER TABLE tam.services 
+            ADD business_slug VARCHAR2(90) 
+            GENERATED ALWAYS AS (owner || '-' || service || '-' || service_version) VIRTUAL;
+```
 
 
 ```
-package de.consorsbank.core.trauthsc.integration.service;
+databaseChangeLog:
+  - changeSet:
+      id: 002-create-services-table
+      author: vlad.pop@externe.bnpparibas.com
+      changes:
+        - createTable:
+            tableName: services
+            schemaName: tam
+            columns:
+              - column:
+                  name: owner
+                  type: VARCHAR2(30)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: service
+                  type: VARCHAR2(50)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: service_version
+                  type: VARCHAR2(5)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: is_deleted
+                  type: NUMBER(1)
+                  defaultValue: 0
+                  constraints:
+                    nullable: false
+              - column:                          # ← adaugă direct aici
+                  name: business_slug
+                  type: VARCHAR2(90)
+                  constraints:
+                    nullable: false
 
-import org.junit.jupiter.api.Test;
-import org.springframework.http.HttpEntity;
-import org.springframework.http.HttpMethod;
-import org.springframework.http.HttpStatus;
-
-import static org.assertj.core.api.Assertions.assertThat;
-
-public class InitiateTransactionAuthorizationIntegrationTest extends IntegrationBaseTest {
-
-    private static final String PATH = "/svc/trauth/v1/transaction-authorizations";
-
-    @Override
-    protected String path() { return PATH; }
-
-    // ── 403 - no auth headers ──────────────────────────────────────────────
-
-    @Test
-    void should_return403_when_requestIsValid_butNoAuthHeaders() {
-        // when
-        var response = testRestTemplate.exchange(
-                url(),
-                HttpMethod.POST,
-                new HttpEntity<>(TestUtils.buildInitiateTransactionAuthorizationRequest()),
-                Object.class
-        );
-
-        // then
-        assertThat(response.getBody())
-                .as("Expected the received response is not blank")
-                .isNotNull();
-        assertThat(response.getStatusCode().value())
-                .as("Expected the received response to be 403 Forbidden")
-                .isEqualTo(HttpStatus.FORBIDDEN.value());
-    }
-
-    // ── 200 - happy path ───────────────────────────────────────────────────
-
-    @Test
-    void should_return200_when_requestIsValid() {
-        // when
-        var response = testRestTemplate.exchange(
-                url(),
-                HttpMethod.POST,
-                new HttpEntity<>(
-                        TestUtils.buildInitiateTransactionAuthorizationRequest(),
-                        TestUtils.getTestHttpHeaders()
-                ),
-                InitiateTransactionAuthorizationResponse.class
-        );
-
-        // then
-        assertThat(response.getBody())
-                .as("Expected the received response is not blank")
-                .isNotNull();
-        assertThat(response.getStatusCode().value())
-                .as("Expected the received response to be 200 OK")
-                .isEqualTo(HttpStatus.OK.value());
-        assertThat(response.getBody().getAuthorizationId())
-                .as("Expected authorizationId to be present")
-                .isNotNull();
-        assertThat(response.getBody().getStatus())
-                .as("Expected status to be PENDING")
-                .isEqualTo("PENDING");
-    }
-
-    // ── 400 - invalid payload (bad JSON) ───────────────────────────────────
-
-    @Test
-    void should_return400_when_payloadJsonIsInvalid() {
-        // given
-        var invalidRequest = TestUtils.buildInitiateTransactionAuthorizationRequest();
-        invalidRequest.setTransactionServicePayload("not-valid-json");
-
-        // when
-        var response = testRestTemplate.exchange(
-                url(),
-                HttpMethod.POST,
-                new HttpEntity<>(invalidRequest, TestUtils.getTestHttpHeaders()),
-                Object.class
-        );
-
-        // then
-        assertThat(response.getStatusCode().value())
-                .as("Expected the received response to be 400 Bad Request")
-                .isEqualTo(HttpStatus.BAD_REQUEST.value());
-    }
-
-    // ── 409 - duplicate transactionId (already PENDING) ───────────────────
-
-    @Test
-    void should_return409_when_transactionIdAlreadyExists() {
-        // given — first call succeeds
-        var request = TestUtils.buildInitiateTransactionAuthorizationRequest();
-        request.setTransactionId("duplicate-txn-id");
-
-        testRestTemplate.exchange(
-                url(),
-                HttpMethod.POST,
-                new HttpEntity<>(request, TestUtils.getTestHttpHeaders()),
-                InitiateTransactionAuthorizationResponse.class
-        );
-
-        // when — second call with same transactionId
-        var response = testRestTemplate.exchange(
-                url(),
-                HttpMethod.POST,
-                new HttpEntity<>(request, TestUtils.getTestHttpHeaders()),
-                Object.class
-        );
-
-        // then
-        assertThat(response.getStatusCode().value())
-                .as("Expected the received response to be 409 Conflict")
-                .isEqualTo(HttpStatus.CONFLICT.value());
-    }
-
-    // ── 404 - service not found ────────────────────────────────────────────
-
-    @Test
-    void should_return404_when_serviceNotFound() {
-        // given
-        var request = TestUtils.buildInitiateTransactionAuthorizationRequest();
-        request.setTransactionService("non-existent-service");
-        request.setTransactionServiceVersion("v999");
-
-        // when
-        var response = testRestTemplate.exchange(
-                url(),
-                HttpMethod.POST,
-                new HttpEntity<>(request, TestUtils.getTestHttpHeaders()),
-                Object.class
-        );
-
-        // then
-        assertThat(response.getStatusCode().value())
-                .as("Expected the received response to be 404 Not Found")
-                .isEqualTo(HttpStatus.NOT_FOUND.value());
-    }
-
-    // ── 400 - missing required fields ─────────────────────────────────────
-
-    @Test
-    void should_return400_when_requiredFieldsAreMissing() {
-        // given — empty request body
-        var emptyRequest = new InitiateTransactionAuthorizationRequest();
-
-        // when
-        var response = testRestTemplate.exchange(
-                url(),
-                HttpMethod.POST,
-                new HttpEntity<>(emptyRequest, TestUtils.getTestHttpHeaders()),
-                Object.class
-        );
-
-        // then
-        assertThat(response.getStatusCode().value())
-                .as("Expected the received response to be 400 Bad Request")
-                .isEqualTo(HttpStatus.BAD_REQUEST.value());
-    }
-}
-
+  - changeSet:
+      id: 003-add-business-slug-trigger
+      author: alexandru.piciorus
+      changes:
+        - sql:
+            sql: >
+              CREATE OR REPLACE TRIGGER tam.trg_services_business_slug
+              BEFORE INSERT OR UPDATE ON tam.services
+              FOR EACH ROW
+              BEGIN
+                :NEW.business_slug := :NEW.owner || '-' || :NEW.service || '-' || :NEW.service_version;
+              END;
 ```
