@@ -1,3 +1,12 @@
+@PostConstruct
+public void logActiveMqProperties() {
+    log.info("=== ActiveMQ Config ===");
+    log.info("Broker URL: {}", activeMqProperties.getBrokerUrl());
+    log.info("Username: {}", activeMqProperties.getUsername());
+    log.info("Password: {}", activeMqProperties.getPassword());
+    log.info("EnableMQ: {}", activeMqProperties.isEnableMQ());
+    log.info("======================");
+}
 `- column:
     name: business_slug
     type: VARCHAR2(90)
