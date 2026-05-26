@@ -1,37 +1,30 @@
+```
+@Component
+@Slf4j
+@RequiredArgsConstructor
+public class InitiateTransactionEventSender {
+    private final JmsTemplate jmsTemplate;
+    private final ArtemisProperties artemisProperties;
+    private final ObjectMapper objectMapper;
 
-@Bean
-public MessageConverter jacksonJmsMessageConverter() {
-    MappingJackson2MessageConverter converter = new MappingJackson2MessageConverter();
-    converter.setTargetType(MessageType.TEXT);
-    converter.setObjectMapper(new ObjectMapper()
-            .findAndRegisterModules()
-            .disable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS));
-    return converter;
+    public void sendMessage(UUID transactionId, AuthorizationStatusEnum authorizationStatus) {
+        String queue = artemisProperties.getQueue();
+        TransactionAuthorizationEvent event = 
+            new TransactionAuthorizationEvent(transactionId, authorizationStatus);
+        try {
+            String json = objectMapper.writeValueAsString(event);
+            jmsTemplate.send(queue, session -> session.createTextMessage(json));
+        } catch (JsonProcessingException e) {
+            throw new RuntimeException("Failed to serialize event", e);
+        }
+    }
 }
 
 ```
-@Bean
-public MessageConverter jacksonJmsMessageConverter() {
-    MappingJackson2MessageConverter converter = new MappingJackson2MessageConverter();
-    converter.setTargetType(MessageType.TEXT); // sends as TextMessage with JSON body
-    converter.setTypeIdPropertyName("_type");
-    return converter;
-}
+
 
 ```
-
-```
-@Bean
-public JmsTemplate jmsTemplate(
-        @Qualifier("atomikosConnectionFactory") ConnectionFactory connectionFactory,
-        MessageConverter messageConverter) {
-    var jmsTemplate = new JmsTemplate();
-    jmsTemplate.setConnectionFactory(connectionFactory);
-    jmsTemplate.setSessionTransacted(true);
-    jmsTemplate.setMessageConverter(messageConverter); // ← add
-    return jmsTemplate;
-}
-
-// in jmsListenerContainerFactory bean:
-defaultJmsListenerContainerFactory.setMessageConverter(messageConverter); // ← add
+String json = textMessage.getText();
+TransactionAuthorizationEvent event = 
+    objectMapper.readValue(json, TransactionAuthorizationEvent.class);
 ```
