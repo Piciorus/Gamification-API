@@ -98,6 +98,157 @@ services:
   # All host references are overridden from 127.0.0.1 -> service names.
   # ---------------------------------------------------------------------------
   app:
+    image: ckdregistry.pro.be.xpi.net.intra/cb-gitlabimg/copenjdk8-jdk11-jdk17-jdk21-maven:latest
+    container_name: trauth-sc
+    working_dir: /app
+    # ${APP_JAR} is the path to the built jar on your machine (see .env).
+    volumes:
+      - ${APP_JAR}:/app/app.jar:ro
+    command: ["/usr/lib/jvm/java-21-openjdk/bin/java", "-jar", "/app/app.jar"]
+    ports:
+      - "8323:8323"   # server.port
+      - "9323:9323"   # management.server.port
+    depends_on:
+      oracle:
+        condition: service_healthy
+      artemis:
+        condition: service_healthy
+      vault:
+        condition: service_healthy
+      vault-init:
+        condition: service_completed_successfully
+    environment:
+      JAVA_HOME: "/usr/lib/jvm/java-21-openjdk"
+
+      # --- Vault (spring.cloud.vault.*) ---
+      SPRING_CLOUD_VAULT_HOST: "vault"
+      SPRING_CLOUD_VAULT_URI: "http://vault:8200"
+      SPRING_CLOUD_VAULT_TOKEN: "${VAULT_TOKEN}"
+      SPRING_CLOUD_VAULT_AUTHENTICATION: "TOKEN"
+
+      # --- H2 creds (the app pulls these via ${H2_LOCAL_USR}/${H2_LOCAL_PASS}) ---
+      H2_LOCAL_USR: "${H2_LOCAL_USR}"
+      H2_LOCAL_PASS: "${H2_LOCAL_PASS}"
+
+      # --- Oracle datasources (uncomment the Oracle block in your yaml to use) ---
+      # The app's yaml hardcodes localhost:1521 for Oracle; point it at the
+      # "oracle" service instead via a Spring property override:
+      SPRING_DATASOURCE_PVM_URL: "jdbc:oracle:thin:@oracle:1521/XEPDB1"
+      SPRING_DATASOURCE_TAM_URL: "jdbc:oracle:thin:@oracle:1521/XEPDB1"
+
+      # --- Artemis broker (override the local 127.0.0.1 brokerUrl) ---
+      SPRING_ARTEMIS_BROKER_URL: "tcp://artemis:61616"
+      SPRING_ARTEMIS_USER: "localUser"
+      SPRING_ARTEMIS_PASSWORD: "12345"
+
+      # Pick the spring profile your non-ssl yaml belongs to, if any:
+      SPRING_PROFILES_ACTIVE: "${SPRING_PROFILES_ACTIVE}"
+
+volumes:
+  oracle-data:
+```
+
+
+```
+services:
+  # ---------------------------------------------------------------------------
+  # Oracle XE  (gvenzl/oracle-xe) - confirmed working image from your terminal
+  # Exposes 1521. Service name "oracle" is the in-network hostname.
+  # The SQL in ./oracle-init runs once on first boot (creates PVM / TAM users).
+  # ---------------------------------------------------------------------------
+  oracle:
+    # Pulled via the Nexus Docker Hub proxy (dockerhub/...) — no direct docker.io.
+    image: dockerhub/gvenzl/oracle-xe:21-slim-faststart
+    container_name: oracle-local-trauth
+    ports:
+      - "1521:1521"
+    environment:
+      ORACLE_PASSWORD: "12345"          # password for SYS / SYSTEM
+    volumes:
+      - oracle-data:/opt/oracle/oradata
+      - ./oracle-init:/container-entrypoint-initdb.d:ro
+    healthcheck:
+      # gvenzl image ships this helper; "READY" once the DB + initdb scripts finish
+      test: ["CMD", "healthcheck.sh"]
+      interval: 10s
+      timeout: 10s
+      retries: 30
+      start_period: 90s
+
+  # ---------------------------------------------------------------------------
+  # ActiveMQ Artemis - apache/activemq-artemis (from the chat screenshot)
+  # 61616 = JMS/core, 8161 = web console (http://localhost:8161/console/login)
+  # ---------------------------------------------------------------------------
+  artemis:
+    # Pulled via the Nexus Docker Hub proxy (dockerhub/...) — no direct docker.io.
+    image: dockerhub/apache/activemq-artemis:latest
+    container_name: activemq-artemis
+    ports:
+      - "61616:61616"
+      - "8161:8161"
+    environment:
+      ARTEMIS_USER: "localUser"
+      ARTEMIS_PASSWORD: "12345"
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS http://localhost:8161 >/dev/null 2>&1 || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 20
+      start_period: 30s
+
+  # ---------------------------------------------------------------------------
+  # HashiCorp Vault (dev mode) - using the image that pulled successfully
+  # in your terminal. hashicorp/vault:1.19.5 failed with "unexpected EOF",
+  # so we use the approved-registry 1.16 that completed.
+  # Dev mode: in-memory, auto-unsealed, fixed root token.
+  # ---------------------------------------------------------------------------
+  vault:
+    image: i-ckdregistry.pro.be.xpi.net.intra/approved/hashicorp/vault:1.16
+    container_name: vault-dev
+    ports:
+      - "8200:8200"
+    environment:
+      VAULT_DEV_ROOT_TOKEN_ID: "${VAULT_TOKEN}"
+      VAULT_DEV_LISTEN_ADDRESS: "0.0.0.0:8200"
+      VAULT_ADDR: "http://127.0.0.1:8200"
+    cap_add:
+      - IPC_LOCK
+    command: ["server", "-dev"]
+    healthcheck:
+      test: ["CMD", "vault", "status", "-address=http://127.0.0.1:8200"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+      start_period: 10s
+
+  # ---------------------------------------------------------------------------
+  # One-shot init: enables transit + kv (steps 4 in your README) and writes the
+  # DB credentials the app reads from kv/local/trauth-sc/credentials.
+  # Exits 0 when done; the app waits for it to complete successfully.
+  # ---------------------------------------------------------------------------
+  vault-init:
+    image: i-ckdregistry.pro.be.xpi.net.intra/approved/hashicorp/vault:1.16
+    container_name: vault-init
+    depends_on:
+      vault:
+        condition: service_healthy
+    environment:
+      VAULT_ADDR: "http://vault:8200"
+      VAULT_TOKEN: "${VAULT_TOKEN}"
+      H2_LOCAL_USR: "${H2_LOCAL_USR}"
+      H2_LOCAL_PASS: "${H2_LOCAL_PASS}"
+    volumes:
+      - ./vault-init/init.sh:/init.sh:ro
+    entrypoint: ["/bin/sh", "/init.sh"]
+
+  # ---------------------------------------------------------------------------
+  # The Spring Boot application (trauth-sc) - NO Dockerfile.
+  # You build the jar yourself first:   ./gradlew clean bootJar -x test
+  # Compose then runs that jar on a stock Temurin JRE (pulled via Nexus proxy).
+  # The jar is mounted in read-only from your repo's build/libs.
+  # All host references are overridden from 127.0.0.1 -> service names.
+  # ---------------------------------------------------------------------------
+  app:
     image: dockerhub/eclipse-temurin:21-jre
     container_name: trauth-sc
     working_dir: /app
