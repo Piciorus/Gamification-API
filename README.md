@@ -1,3 +1,14 @@
+
+@Bean
+public MessageConverter jacksonJmsMessageConverter() {
+    MappingJackson2MessageConverter converter = new MappingJackson2MessageConverter();
+    converter.setTargetType(MessageType.TEXT);
+    converter.setObjectMapper(new ObjectMapper()
+            .findAndRegisterModules()
+            .disable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS));
+    return converter;
+}
+
 ```
 @Bean
 public MessageConverter jacksonJmsMessageConverter() {
