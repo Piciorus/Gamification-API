@@ -1,4 +1,63 @@
 ```
+# =============================================================================
+# Dockerfile for trauth-sc (Spring Boot — Gradle + Java 21)
+# Multi-stage: build the fat jar with Gradle, then run on a slim JRE.
+# =============================================================================
+
+# ---- Stage 1: build -------------------------------------------------------
+FROM gradle:8-jdk21 AS build
+WORKDIR /workspace
+
+# Cache dependencies first (only re-downloads when build files change)
+COPY build.gradle settings.gradle ./
+COPY gradle ./gradle
+RUN gradle dependencies --no-daemon || true
+
+# Build the application
+COPY src ./src
+RUN gradle clean bootJar --no-daemon -x test
+
+# ---- Stage 2: runtime -----------------------------------------------------
+FROM eclipse-temurin:21-jre
+WORKDIR /app
+
+# Run as a non-root user
+RUN groupadd --system spring && useradd --system --gid spring spring
+USER spring:spring
+
+# Copy the built jar
+COPY --from=build /workspace/build/libs/*.jar app.jar
+
+# server.port (8323) and management.server.port (9323)
+EXPOSE 8323 9323
+
+ENTRYPOINT ["java", "-jar", "/app/app.jar"]
+```
+
+
+```
+# Build output (rebuilt inside the image)
+target/
+build/
+*.jar
+!**/src/**
+
+# IDE / OS noise
+.idea/
+*.iml
+.vscode/
+.DS_Store
+
+# Git
+.git/
+.gitignore
+
+# Local env / secrets - never bake into the image
+.env
+*.log
+```
+
+```
 services:
   # ---------------------------------------------------------------------------
   # Oracle XE  (gvenzl/oracle-xe) - confirmed working image from your terminal
