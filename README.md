@@ -1,30 +1,26 @@
 ```
-@Component
-@Slf4j
-@RequiredArgsConstructor
-public class InitiateTransactionEventSender {
-    private final JmsTemplate jmsTemplate;
-    private final ArtemisProperties artemisProperties;
-    private final ObjectMapper objectMapper;
-
-    public void sendMessage(UUID transactionId, AuthorizationStatusEnum authorizationStatus) {
-        String queue = artemisProperties.getQueue();
-        TransactionAuthorizationEvent event = 
-            new TransactionAuthorizationEvent(transactionId, authorizationStatus);
-        try {
-            String json = objectMapper.writeValueAsString(event);
-            jmsTemplate.send(queue, session -> session.createTextMessage(json));
-        } catch (JsonProcessingException e) {
-            throw new RuntimeException("Failed to serialize event", e);
-        }
+public void sendMessage(UUID transactionId, AuthorizationStatusEnum authorizationStatus) {
+    try {
+        var event = new TransactionAuthorizationEvent(transactionId, authorizationStatus);
+        jmsTemplate.convertAndSend(
+            artemisProperties.getQueue(), 
+            objectMapper.writeValueAsString(event)
+        );
+    } catch (JsonProcessingException e) {
+        throw new CommonException(TamExceptionCode.SERIALIZE_EVENT_FAILED);
     }
 }
-
 ```
 
-
 ```
-String json = textMessage.getText();
-TransactionAuthorizationEvent event = 
-    objectMapper.readValue(json, TransactionAuthorizationEvent.class);
+public void onMessage(Message message) throws Exception {
+    try {
+        String json = ((TextMessage) message).getText();
+        var event = objectMapper.readValue(json, TransactionAuthorizationEvent.class);
+        log.info("Received JMS message: {}", event);
+    } catch (CommonException e) {
+        log.error("Error processing JMS message, transaction will rollback: {}", e.getMessage());
+        throw e;
+    }
+}
 ```
