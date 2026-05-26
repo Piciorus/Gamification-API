@@ -141,6 +141,7 @@ volumes:
 
 ```
 
+
 ```
 # trauth-sc — Local Stack (Docker Compose)
 
@@ -307,6 +308,7 @@ docker compose down -v            # stop and wipe Oracle data + re-run init SQL
   app's `localUser` / `12345`.
 - **Registry image unreachable** → your network may block it; check Docker's
   network/proxy settings or pull while on VPN.
+
 ```
 
 
@@ -332,7 +334,6 @@ SPRING_PROFILES_ACTIVE=local
 # Example: APP_CONTEXT=../trauth-sc
 APP_CONTEXT=./app
 APP_DOCKERFILE=Dockerfile
-
 ```
 
 
@@ -378,7 +379,6 @@ ALTER USER TAM QUOTA UNLIMITED ON USERS;
 ALTER SESSION SET TIME_ZONE = 'UTC';
 
 EXIT;
-
 ```
 
 
@@ -426,5 +426,4 @@ vault secrets list
 vault kv get kv/local/trauth-sc/credentials || true
 
 echo ">> Vault initialisation complete."
-
 ```
