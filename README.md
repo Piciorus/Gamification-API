@@ -1,16 +1,76 @@
 ```
+package de.consorsbank.core.trauthsc.tam.core.authorizationstatus.repository;
+
+import de.consorsbank.core.trauthsc.tam.entity.AuthorizationAttemptEntity;
+import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
+import org.springframework.stereotype.Repository;
+
+import java.util.List;
+import java.util.UUID;
+
+@Repository
+public interface AuthorizationAttemptRepository extends JpaRepository<AuthorizationAttemptEntity, UUID> {
+
+    @Query("SELECT a FROM AuthorizationAttemptEntity a " +
+           "LEFT JOIN FETCH a.authorizationMethodEntity " +
+           "WHERE a.authorizationEntity.id = :authorizationId")
+    List<AuthorizationAttemptEntity> findByAuthorizationIdWithMethod(@Param("authorizationId") UUID authorizationId);
+}
+```
+
+
+```
+package de.consorsbank.core.trauthsc.tam.core.authorizationstatus.mapper;
+
+import de.consorsbank.core.trauthsc.rest.api.tam.get.authorization.status.model.AttemptsDetail;
+import de.consorsbank.core.trauthsc.rest.api.tam.get.authorization.status.model.DetailedAuthorizationStatusResponse;
+import de.consorsbank.core.trauthsc.rest.api.tam.get.authorization.status.model.SimpleAuthorizationStatusResponse;
+import de.consorsbank.core.trauthsc.tam.entity.AuthorizationAttemptEntity;
+import de.consorsbank.core.trauthsc.tam.entity.AuthorizationEntity;
+import org.mapstruct.Mapper;
+import org.mapstruct.Mapping;
+
+import java.util.List;
+
+@Mapper(componentModel = "spring")
+public interface AuthorizationStatusMapper {
+
+    @Mapping(source = "externalId", target = "authorizationId")
+    SimpleAuthorizationStatusResponse toSimpleResponse(AuthorizationEntity entity);
+
+    @Mapping(source = "entity.externalId", target = "authorizationId")
+    @Mapping(source = "entity.status", target = "status")
+    @Mapping(source = "attempts", target = "items")
+    DetailedAuthorizationStatusResponse toDetailedResponse(AuthorizationEntity entity, List<AuthorizationAttemptEntity> attempts);
+
+    @Mapping(source = "externalId", target = "attemptId")
+    @Mapping(source = "status", target = "statusAttempt")
+    @Mapping(source = "authorizationMethodEntity.name", target = "authorizationMethod")
+    AttemptsDetail toAttemptsDetail(AuthorizationAttemptEntity attempt);
+
+    List<AttemptsDetail> toAttemptsDetailList(List<AuthorizationAttemptEntity> attempts);
+}
+
+```
+
+```
 package de.consorsbank.core.trauthsc.tam.core.authorizationstatus.service;
 
 import de.consorsbank.core.trauthsc.rest.api.tam.get.authorization.status.model.GetAuthorizationStatusResponse;
 import de.consorsbank.core.trauthsc.tam.controller.AuthorizationStatus;
 import de.consorsbank.core.trauthsc.tam.core.authorizationstatus.mapper.AuthorizationStatusMapper;
+import de.consorsbank.core.trauthsc.tam.core.authorizationstatus.repository.AuthorizationAttemptRepository;
 import de.consorsbank.core.trauthsc.tam.core.authorizationstatus.repository.AuthorizationRepository;
+import de.consorsbank.core.trauthsc.tam.entity.AuthorizationAttemptEntity;
 import de.consorsbank.core.trauthsc.tam.entity.AuthorizationEntity;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.List;
 import java.util.UUID;
 
 @Slf4j
@@ -19,6 +79,7 @@ import java.util.UUID;
 public class AuthorizationStatusServiceImpl implements AuthorizationStatus {
 
     private final AuthorizationRepository authorizationRepository;
+    private final AuthorizationAttemptRepository authorizationAttemptRepository;
     private final AuthorizationStatusMapper authorizationStatusMapper;
 
     @Override
@@ -26,23 +87,19 @@ public class AuthorizationStatusServiceImpl implements AuthorizationStatus {
     public GetAuthorizationStatusResponse getAuthorizationStatus(String authorizationId, boolean detailed) {
         UUID externalId = UUID.fromString(authorizationId);
 
-        if (detailed) {
-            AuthorizationEntity authorization = authorizationRepository
-                    .findByExternalIdWithAttempts(externalId)
-                    .orElseThrow(() -> new RuntimeException(
-                            "Authorization not found for id: " + authorizationId));
-
-            log.debug("Found authorization {} with {} attempts",
-                    authorizationId,
-                    authorization.getAttempts() != null ? authorization.getAttempts().size() : 0);
-
-            return authorizationStatusMapper.toDetailedResponse(authorization);
-        }
-
         AuthorizationEntity authorization = authorizationRepository
                 .findByExternalId(externalId)
                 .orElseThrow(() -> new RuntimeException(
                         "Authorization not found for id: " + authorizationId));
+
+        if (detailed) {
+            List<AuthorizationAttemptEntity> attempts = authorizationAttemptRepository
+                    .findByAuthorizationIdWithMethod(authorization.getId());
+
+            log.debug("Found authorization {} with {} attempts", authorizationId, attempts.size());
+
+            return authorizationStatusMapper.toDetailedResponse(authorization, attempts);
+        }
 
         log.debug("Found authorization {} with status {}", authorizationId, authorization.getStatus());
 
