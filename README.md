@@ -1,3 +1,160 @@
+package de.consorsbank.core.trauthsc.tam.core.authorizationstatus.service;
+
+import de.consorsbank.core.trauthsc.rest.api.tam.get.authorization.status.model.*;
+import de.consorsbank.core.trauthsc.tam.core.authorizationstatus.mapper.AuthorizationStatusMapper;
+import de.consorsbank.core.trauthsc.tam.core.authorizationstatus.repository.AuthorizationAttemptRepository;
+import de.consorsbank.core.trauthsc.tam.core.authorizationstatus.repository.AuthorizationRepository;
+import de.consorsbank.core.trauthsc.tam.entity.AuthorizationAttemptEntity;
+import de.consorsbank.core.trauthsc.tam.entity.AuthorizationEntity;
+import de.consorsbank.core.trauthsc.tam.exception.CommonException;
+import de.consorsbank.core.trauthsc.tam.exception.TamExceptionCode;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.InjectMocks;
+import org.mockito.Mock;
+import org.mockito.junit.jupiter.MockitoExtension;
+
+import java.util.List;
+import java.util.Optional;
+import java.util.UUID;
+
+import static org.junit.jupiter.api.Assertions.*;
+import static org.mockito.Mockito.*;
+
+@ExtendWith(MockitoExtension.class)
+class AuthorizationStatusServiceImplTest {
+
+    private static final UUID AUTHORIZATION_ID = UUID.randomUUID();
+    private static final String AUTHORIZATION_ID_STRING = AUTHORIZATION_ID.toString();
+
+    @Mock
+    private AuthorizationRepository authorizationRepository;
+
+    @Mock
+    private AuthorizationAttemptRepository authorizationAttemptRepository;
+
+    @Mock
+    private AuthorizationStatusMapper authorizationStatusMapper;
+
+    @InjectMocks
+    private AuthorizationStatusServiceImpl service;
+
+    @Test
+    void getAuthorizationStatus_simpleResponse_returnsSimpleResponse() {
+        // given
+        var authorizationEntity = mock(AuthorizationEntity.class);
+        var expectedResponse = mock(SimpleAuthorizationStatusResponse.class);
+
+        when(authorizationRepository.findById(AUTHORIZATION_ID))
+                .thenReturn(Optional.of(authorizationEntity));
+        when(authorizationStatusMapper.toSimpleResponse(authorizationEntity))
+                .thenReturn(expectedResponse);
+
+        // when
+        var result = service.getAuthorizationStatus(AUTHORIZATION_ID_STRING, false);
+
+        // then
+        assertEquals(expectedResponse, result);
+        verify(authorizationRepository).findById(AUTHORIZATION_ID);
+        verify(authorizationStatusMapper).toSimpleResponse(authorizationEntity);
+        verifyNoInteractions(authorizationAttemptRepository);
+    }
+
+    @Test
+    void getAuthorizationStatus_detailedResponse_returnsDetailedResponse() {
+        // given
+        var authorizationEntity = mock(AuthorizationEntity.class);
+        var attempt1 = mock(AuthorizationAttemptEntity.class);
+        var attempt2 = mock(AuthorizationAttemptEntity.class);
+        var attempts = List.of(attempt1, attempt2);
+        var expectedResponse = mock(DetailedAuthorizationStatusResponse.class);
+
+        when(authorizationEntity.getId()).thenReturn(AUTHORIZATION_ID);
+        when(authorizationRepository.findById(AUTHORIZATION_ID))
+                .thenReturn(Optional.of(authorizationEntity));
+        when(authorizationAttemptRepository.findByAuthorizationIdWithMethod(AUTHORIZATION_ID))
+                .thenReturn(attempts);
+        when(authorizationStatusMapper.toDetailedResponse(authorizationEntity, attempts))
+                .thenReturn(expectedResponse);
+
+        // when
+        var result = service.getAuthorizationStatus(AUTHORIZATION_ID_STRING, true);
+
+        // then
+        assertEquals(expectedResponse, result);
+        verify(authorizationRepository).findById(AUTHORIZATION_ID);
+        verify(authorizationAttemptRepository).findByAuthorizationIdWithMethod(AUTHORIZATION_ID);
+        verify(authorizationStatusMapper).toDetailedResponse(authorizationEntity, attempts);
+    }
+
+    @Test
+    void getAuthorizationStatus_detailedResponse_noAttempts_returnsEmptyItems() {
+        // given
+        var authorizationEntity = mock(AuthorizationEntity.class);
+        List<AuthorizationAttemptEntity> emptyAttempts = List.of();
+        var expectedResponse = mock(DetailedAuthorizationStatusResponse.class);
+
+        when(authorizationEntity.getId()).thenReturn(AUTHORIZATION_ID);
+        when(authorizationRepository.findById(AUTHORIZATION_ID))
+                .thenReturn(Optional.of(authorizationEntity));
+        when(authorizationAttemptRepository.findByAuthorizationIdWithMethod(AUTHORIZATION_ID))
+                .thenReturn(emptyAttempts);
+        when(authorizationStatusMapper.toDetailedResponse(authorizationEntity, emptyAttempts))
+                .thenReturn(expectedResponse);
+
+        // when
+        var result = service.getAuthorizationStatus(AUTHORIZATION_ID_STRING, true);
+
+        // then
+        assertEquals(expectedResponse, result);
+        verify(authorizationAttemptRepository).findByAuthorizationIdWithMethod(AUTHORIZATION_ID);
+        verify(authorizationStatusMapper).toDetailedResponse(authorizationEntity, emptyAttempts);
+    }
+
+    @Test
+    void getAuthorizationStatus_notFound_throwsCommonException() {
+        // given
+        when(authorizationRepository.findById(AUTHORIZATION_ID))
+                .thenReturn(Optional.empty());
+
+        // when & then
+        var exception = assertThrows(CommonException.class,
+                () -> service.getAuthorizationStatus(AUTHORIZATION_ID_STRING, false));
+
+        assertEquals(TamExceptionCode.AUTHORIZATION_NOT_FOUND, exception.getExceptionCode());
+        verifyNoInteractions(authorizationAttemptRepository);
+        verifyNoInteractions(authorizationStatusMapper);
+    }
+
+    @Test
+    void getAuthorizationStatus_notFound_detailed_throwsCommonException() {
+        // given
+        when(authorizationRepository.findById(AUTHORIZATION_ID))
+                .thenReturn(Optional.empty());
+
+        // when & then
+        var exception = assertThrows(CommonException.class,
+                () -> service.getAuthorizationStatus(AUTHORIZATION_ID_STRING, true));
+
+        assertEquals(TamExceptionCode.AUTHORIZATION_NOT_FOUND, exception.getExceptionCode());
+        verifyNoInteractions(authorizationAttemptRepository);
+        verifyNoInteractions(authorizationStatusMapper);
+    }
+
+    @Test
+    void getAuthorizationStatus_invalidUuid_throwsIllegalArgumentException() {
+        // when & then
+        assertThrows(IllegalArgumentException.class,
+                () -> service.getAuthorizationStatus("not-a-valid-uuid", false));
+
+        verifyNoInteractions(authorizationRepository);
+        verifyNoInteractions(authorizationAttemptRepository);
+        verifyNoInteractions(authorizationStatusMapper);
+    }
+}
+
+
+
 ```
 
 databaseChangeLog:
