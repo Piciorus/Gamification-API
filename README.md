@@ -1,53 +1,451 @@
 ```
-#!/bin/sh
-# -----------------------------------------------------------------------------
-# Combined Vault startup + init script.
-# 1) Starts vault server in dev mode (background) with root token = "root"
-# 2) Waits for it to be ready
-# 3) Enables transit, writes KV credentials
-# 4) Keeps vault in foreground (so docker doesn't exit)
-# -----------------------------------------------------------------------------
+databaseChangeLog:
+  - changeSet:
+      id: 006-insert-authorizations-data
+      author: vlad.pop@externe.bnpparibas.com
+      changes:
+        - insert:
+            schemaName: tam
+            tableName: authorizations
+            columns:
+              - column:
+                  name: id
+                  valueComputed: HEXTORAW('A1B2C3D4E5F6A7B8C9D0E1F2A3B4C5D6')
+              - column:
+                  name: external_id
+                  valueComputed: HEXTORAW('11223344556677889900AABBCCDDEEFF')
+              - column:
+                  name: transaction_id
+                  valueComputed: HEXTORAW('FFEEDDCCBBAA00998877665544332211')
+              - column:
+                  name: owner
+                  value: 'consorsbank'
+              - column:
+                  name: service
+                  value: 'payment-service'
+              - column:
+                  name: service_version
+                  value: 'v1'
+              - column:
+                  name: expires_at
+                  valueComputed: "CURRENT_TIMESTAMP + INTERVAL '5' MINUTE"
+              - column:
+                  name: status
+                  value: 'PENDING'
+              - column:
+                  name: tenant
+                  value: 'B2C'
+              - column:
+                  name: crm_customer_number
+                  value: '1234567890'
+              - column:
+                  name: transaction_payload_id
+                  valueComputed: HEXTORAW('AABBCCDD11223344AABBCCDD11223344')
+              - column:
+                  name: is_deleted
+                  valueNumeric: 0
+              - column:
+                  name: created_by
+                  value: 'system'
+              - column:
+                  name: updated_by
+                  value: 'system'
+        - insert:
+            schemaName: tam
+            tableName: authorizations
+            columns:
+              - column:
+                  name: id
+                  valueComputed: HEXTORAW('B2C3D4E5F6A7B8C9D0E1F2A3B4C5D6A7')
+              - column:
+                  name: external_id
+                  valueComputed: HEXTORAW('22334455667788990011AABBCCDDEEFF')
+              - column:
+                  name: transaction_id
+                  valueComputed: HEXTORAW('EEDDCCBBAA009988776655443322110F')
+              - column:
+                  name: owner
+                  value: 'consorsbank'
+              - column:
+                  name: service
+                  value: 'transfer-service'
+              - column:
+                  name: service_version
+                  value: 'v1'
+              - column:
+                  name: expires_at
+                  valueComputed: "CURRENT_TIMESTAMP + INTERVAL '10' MINUTE"
+              - column:
+                  name: status
+                  value: 'AUTHORIZED'
+              - column:
+                  name: tenant
+                  value: 'B2B'
+              - column:
+                  name: crm_customer_number
+                  value: '9876543210'
+              - column:
+                  name: transaction_payload_id
+                  valueComputed: HEXTORAW('BBCCDDEE22334455BBCCDDEE22334455')
+              - column:
+                  name: is_deleted
+                  valueNumeric: 0
+              - column:
+                  name: created_by
+                  value: 'system'
+              - column:
+                  name: updated_by
+                  value: 'system'
+```
 
-# Unset proxy for localhost — prevents proxy from intercepting vault calls
-export NO_PROXY="127.0.0.1,localhost"
-export no_proxy="127.0.0.1,localhost"
-unset HTTP_PROXY http_proxy HTTPS_PROXY https_proxy
 
-# Start vault dev server in background with FIXED root token "root"
-vault server -dev -dev-root-token-id="root" \
-  -dev-listen-address="0.0.0.0:8200" &
-VAULT_PID=$!
 
-# Wait for vault to be ready
-export VAULT_ADDR="http://127.0.0.1:8200"
-export VAULT_TOKEN="root"
+```
 
-echo ">> Waiting for Vault to be ready..."
-until vault status >/dev/null 2>&1; do
-  sleep 1
-done
-echo ">> Vault is up. Root Token: root"
+databaseChangeLog:
+  - changeSet:
+      id: 007-insert-authorization-attempts-data
+      author: vlad.pop@externe.bnpparibas.com
+      changes:
+        - insert:
+            schemaName: tam
+            tableName: authorization_attempts
+            columns:
+              - column:
+                  name: id
+                  valueComputed: HEXTORAW('C3D4E5F6A7B8C9D0E1F2A3B4C5D6A7B8')
+              - column:
+                  name: external_id
+                  valueComputed: HEXTORAW('33445566778899001122AABBCCDDEEFF')
+              - column:
+                  name: authorization_id
+                  valueComputed: HEXTORAW('A1B2C3D4E5F6A7B8C9D0E1F2A3B4C5D6')
+              - column:
+                  name: authorization_method
+                  value: 'TAN_FROM_GENERATOR'
+              - column:
+                  name: authorization_credential
+                  value: '123456'
+              - column:
+                  name: status
+                  value: 'PENDING'
+              - column:
+                  name: is_deleted
+                  valueNumeric: 0
+              - column:
+                  name: created_by
+                  value: 'system'
+              - column:
+                  name: updated_by
+                  value: 'system'
+        - insert:
+            schemaName: tam
+            tableName: authorization_attempts
+            columns:
+              - column:
+                  name: id
+                  valueComputed: HEXTORAW('D4E5F6A7B8C9D0E1F2A3B4C5D6A7B8C9')
+              - column:
+                  name: external_id
+                  valueComputed: HEXTORAW('44556677889900112233AABBCCDDEEFF')
+              - column:
+                  name: authorization_id
+                  valueComputed: HEXTORAW('A1B2C3D4E5F6A7B8C9D0E1F2A3B4C5D6')
+              - column:
+                  name: authorization_method
+                  value: 'PUSH_NOTIFICATION_FORM_NEO_APP'
+              - column:
+                  name: status
+                  value: 'FAILED'
+              - column:
+                  name: is_deleted
+                  valueNumeric: 0
+              - column:
+                  name: created_by
+                  value: 'system'
+              - column:
+                  name: updated_by
+                  value: 'system'
+        - insert:
+            schemaName: tam
+            tableName: authorization_attempts
+            columns:
+              - column:
+                  name: id
+                  valueComputed: HEXTORAW('E5F6A7B8C9D0E1F2A3B4C5D6A7B8C9D0')
+              - column:
+                  name: external_id
+                  valueComputed: HEXTORAW('55667788990011223344AABBCCDDEEFF')
+              - column:
+                  name: authorization_id
+                  valueComputed: HEXTORAW('B2C3D4E5F6A7B8C9D0E1F2A3B4C5D6A7')
+              - column:
+                  name: authorization_method
+                  value: 'NEO_SECURE_SIGNATURE_BOUND'
+              - column:
+                  name: authorization_credential
+                  value: 'sig-credential'
+              - column:
+                  name: status
+                  value: 'AUTHORIZED'
+              - column:
+                  name: is_deleted
+                  valueNumeric: 0
+              - column:
+                  name: created_by
+                  value: 'system'
+              - column:
+                  name: updated_by
+                  value: 'system'
 
-# --- Enable transit engine ---
-echo ">> Enabling transit engine"
-vault secrets enable transit 2>/dev/null || echo "   transit already enabled"
+```
 
-# --- Transit key ---
-echo ">> Creating transit key 'abc'"
-vault write -f transit/keys/abc >/dev/null
 
-# --- Write credentials to the default "secret/" KV v2 engine ---
-echo ">> Writing secret/local/trauth-sc/credentials"
-vault kv put secret/local/trauth-sc/credentials \
-  H2_LOCAL_USR="${H2_LOCAL_USR:-sa}" \
-  H2_LOCAL_PASS="${H2_LOCAL_PASS:-password}"
+```
+package de.consorsbank.core.trauthsc.rest.api.tam.get.authorization.status.model;
 
-echo ">> Verifying"
-vault kv get secret/local/trauth-sc/credentials
+public enum AuthorizationMethod {
+    TAN_FROM_GENERATOR,
+    TAN_FROM_NEOAPP,
+    QRCODE_FROM_GENERATOR,
+    PUSH_NOTIFICATION_FORM_NEO_APP,
+    NEO_SECURE_SIGNATURE_UNBOUND,
+    NEO_SECURE_SIGNATURE_BOUND,
+    MTAN
+}
 
-echo ">> Vault initialisation complete. Server running on PID ${VAULT_PID}."
+```
 
-# Keep vault in foreground so the container stays alive
-wait ${VAULT_PID}
 
+```
+package de.consorsbank.core.trauthsc.rest.api.tam.get.authorization.status.model;
+
+public enum AuthorizationAttemptStatus {
+    INITIATED,
+    PENDING,
+    AUTHORIZED,
+    FAILED,
+    REJECTED,
+    EXPIRED
+}
+
+```
+
+
+
+```
+package de.consorsbank.core.trauthsc.rest.api.tam.get.authorization.status.model;
+
+public enum AuthorizationStatus {
+    INITIATED,
+    PENDING,
+    AUTHORIZED,
+    EXPIRED,
+    CANCELED
+}
+
+```
+
+
+```
+package de.consorsbank.core.trauthsc.rest.api.tam.get.authorization.status.model;
+
+import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.Data;
+import lombok.NoArgsConstructor;
+
+@Data
+@Builder
+@NoArgsConstructor
+@AllArgsConstructor
+public class AttemptsDetail {
+
+    private String attemptId;
+    private AuthorizationAttemptStatus statusAttempt;
+    private AuthorizationMethod authorizationMethod;
+}
+
+```
+
+
+
+```
+package de.consorsbank.core.trauthsc.rest.api.tam.get.authorization.status.model;
+
+import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.Data;
+import lombok.NoArgsConstructor;
+
+import java.util.List;
+
+@Data
+@Builder
+@NoArgsConstructor
+@AllArgsConstructor
+public class DetailedAuthorizationStatusResponse implements GetAuthorizationStatusResponse {
+
+    private AuthorizationStatus status;
+    private String authorizationId;
+    private List<AttemptsDetail> items;
+}
+
+```
+
+
+```
+package de.consorsbank.core.trauthsc.rest.api.tam.get.authorization.status.model;
+
+import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.Data;
+import lombok.NoArgsConstructor;
+
+@Data
+@Builder
+@NoArgsConstructor
+@AllArgsConstructor
+public class SimpleAuthorizationStatusResponse implements GetAuthorizationStatusResponse {
+
+    private AuthorizationStatus status;
+    private String authorizationId;
+}
+
+```
+
+
+```
+package de.consorsbank.core.trauthsc.rest.api.tam.get.authorization.status.model;
+
+import com.fasterxml.jackson.annotation.JsonInclude;
+import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.Data;
+import lombok.NoArgsConstructor;
+
+import java.util.List;
+
+/**
+ * Response for GET /v1/authorizations/{authorizationId}/status
+ * This is a oneOf: SimpleAuthorizationStatusResponse | DetailedAuthorizationStatusResponse
+ */
+@JsonInclude(JsonInclude.Include.NON_NULL)
+public interface GetAuthorizationStatusResponse {
+}
+
+```
+
+
+```
+package de.consorsbank.core.trauthsc.tam.core.authorizationstatus.service;
+
+import de.consorsbank.core.trauthsc.rest.api.tam.get.authorization.status.model.GetAuthorizationStatusResponse;
+import de.consorsbank.core.trauthsc.tam.controller.AuthorizationStatus;
+import de.consorsbank.core.trauthsc.tam.core.authorizationstatus.entity.AuthorizationEntity;
+import de.consorsbank.core.trauthsc.tam.core.authorizationstatus.mapper.AuthorizationStatusMapper;
+import de.consorsbank.core.trauthsc.tam.core.authorizationstatus.repository.AuthorizationRepository;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+import java.util.UUID;
+
+@Slf4j
+@Service
+@RequiredArgsConstructor
+public class AuthorizationStatusServiceImpl implements AuthorizationStatus {
+
+    private final AuthorizationRepository authorizationRepository;
+    private final AuthorizationStatusMapper authorizationStatusMapper;
+
+    @Override
+    @Transactional(readOnly = true)
+    public GetAuthorizationStatusResponse getAuthorizationStatus(String authorizationId, boolean detailed) {
+        UUID externalId = UUID.fromString(authorizationId);
+
+        if (detailed) {
+            AuthorizationEntity authorization = authorizationRepository
+                    .findByExternalIdWithAttempts(externalId)
+                    .orElseThrow(() -> new RuntimeException(
+                            "Authorization not found for id: " + authorizationId));
+
+            log.debug("Found authorization {} with {} attempts",
+                    authorizationId,
+                    authorization.getAttempts() != null ? authorization.getAttempts().size() : 0);
+
+            return authorizationStatusMapper.toDetailedResponse(authorization);
+        }
+
+        AuthorizationEntity authorization = authorizationRepository
+                .findByExternalId(externalId)
+                .orElseThrow(() -> new RuntimeException(
+                        "Authorization not found for id: " + authorizationId));
+
+        log.debug("Found authorization {} with status {}", authorizationId, authorization.getStatus());
+
+        return authorizationStatusMapper.toSimpleResponse(authorization);
+    }
+}
+
+```
+
+
+
+```
+package de.consorsbank.core.trauthsc.tam.core.authorizationstatus.repository;
+
+import de.consorsbank.core.trauthsc.tam.core.authorizationstatus.entity.AuthorizationEntity;
+import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
+import org.springframework.stereotype.Repository;
+
+import java.util.Optional;
+import java.util.UUID;
+
+@Repository
+public interface AuthorizationRepository extends JpaRepository<AuthorizationEntity, UUID> {
+
+    @Query("SELECT a FROM AuthorizationEntity a LEFT JOIN FETCH a.attempts WHERE a.externalId = :externalId")
+    Optional<AuthorizationEntity> findByExternalIdWithAttempts(@Param("externalId") UUID externalId);
+
+    Optional<AuthorizationEntity> findByExternalId(UUID externalId);
+}
+
+```
+
+
+
+```
+
+package de.consorsbank.core.trauthsc.tam.core.authorizationstatus.mapper;
+
+import de.consorsbank.core.trauthsc.rest.api.tam.get.authorization.status.model.AttemptsDetail;
+import de.consorsbank.core.trauthsc.rest.api.tam.get.authorization.status.model.DetailedAuthorizationStatusResponse;
+import de.consorsbank.core.trauthsc.rest.api.tam.get.authorization.status.model.SimpleAuthorizationStatusResponse;
+import de.consorsbank.core.trauthsc.tam.core.authorizationstatus.entity.AuthorizationAttemptEntity;
+import de.consorsbank.core.trauthsc.tam.core.authorizationstatus.entity.AuthorizationEntity;
+import org.mapstruct.Mapper;
+import org.mapstruct.Mapping;
+
+import java.util.List;
+
+@Mapper(componentModel = "spring")
+public interface AuthorizationStatusMapper {
+
+    @Mapping(source = "externalId", target = "authorizationId")
+    SimpleAuthorizationStatusResponse toSimpleResponse(AuthorizationEntity entity);
+
+    @Mapping(source = "externalId", target = "authorizationId")
+    @Mapping(source = "attempts", target = "items")
+    DetailedAuthorizationStatusResponse toDetailedResponse(AuthorizationEntity entity);
+
+    @Mapping(source = "externalId", target = "attemptId")
+    @Mapping(source = "status", target = "statusAttempt")
+    AttemptsDetail toAttemptsDetail(AuthorizationAttemptEntity attempt);
+
+    List<AttemptsDetail> toAttemptsDetailList(List<AuthorizationAttemptEntity> attempts);
+}
 ```
