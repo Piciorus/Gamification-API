@@ -1,4 +1,206 @@
 ```
+
+databaseChangeLog:
+  - changeSet:
+      id: 007-insert-authorization-attempts-data
+      author: vlad.pop@externe.bnpparibas.com
+      changes:
+        - insert:
+            schemaName: tam
+            tableName: authorization_attempts
+            columns:
+              - column:
+                  name: id
+                  valueComputed: HEXTORAW(REPLACE('c3d4e5f6-a7b8-c9d0-e1f2-a3b4c5d6a7b8', '-', ''))
+              - column:
+                  name: external_id
+                  valueComputed: HEXTORAW(REPLACE('33445566-7788-9900-1122-aabbccddeeff', '-', ''))
+              - column:
+                  name: authorization_id
+                  valueComputed: HEXTORAW(REPLACE('a1b2c3d4-e5f6-a7b8-c9d0-e1f2a3b4c5d6', '-', ''))
+              - column:
+                  name: authorization_method
+                  value: 'TAN_FROM_GENERATOR'
+              - column:
+                  name: authorization_credential
+                  value: '123456'
+              - column:
+                  name: status
+                  value: 'PENDING'
+              - column:
+                  name: is_deleted
+                  valueNumeric: 0
+              - column:
+                  name: created_by
+                  value: 'system'
+              - column:
+                  name: updated_by
+                  value: 'system'
+        - insert:
+            schemaName: tam
+            tableName: authorization_attempts
+            columns:
+              - column:
+                  name: id
+                  valueComputed: HEXTORAW(REPLACE('d4e5f6a7-b8c9-d0e1-f2a3-b4c5d6a7b8c9', '-', ''))
+              - column:
+                  name: external_id
+                  valueComputed: HEXTORAW(REPLACE('44556677-8899-0011-2233-aabbccddeeff', '-', ''))
+              - column:
+                  name: authorization_id
+                  valueComputed: HEXTORAW(REPLACE('a1b2c3d4-e5f6-a7b8-c9d0-e1f2a3b4c5d6', '-', ''))
+              - column:
+                  name: authorization_method
+                  value: 'PUSH_NOTIFICATION_FORM_NEO_APP'
+              - column:
+                  name: status
+                  value: 'FAILED'
+              - column:
+                  name: is_deleted
+                  valueNumeric: 0
+              - column:
+                  name: created_by
+                  value: 'system'
+              - column:
+                  name: updated_by
+                  value: 'system'
+        - insert:
+            schemaName: tam
+            tableName: authorization_attempts
+            columns:
+              - column:
+                  name: id
+                  valueComputed: HEXTORAW(REPLACE('e5f6a7b8-c9d0-e1f2-a3b4-c5d6a7b8c9d0', '-', ''))
+              - column:
+                  name: external_id
+                  valueComputed: HEXTORAW(REPLACE('55667788-9900-1122-3344-aabbccddeeff', '-', ''))
+              - column:
+                  name: authorization_id
+                  valueComputed: HEXTORAW(REPLACE('b2c3d4e5-f6a7-b8c9-d0e1-f2a3b4c5d6a7', '-', ''))
+              - column:
+                  name: authorization_method
+                  value: 'NEO_SECURE_SIGNATURE_BOUND'
+              - column:
+                  name: authorization_credential
+                  value: 'sig-credential'
+              - column:
+                  name: status
+                  value: 'AUTHORIZED'
+              - column:
+                  name: is_deleted
+                  valueNumeric: 0
+              - column:
+                  name: created_by
+                  value: 'system'
+              - column:
+                  name: updated_by
+                  value: 'system'
+
+```
+
+```
+databaseChangeLog:
+  - changeSet:
+      id: 006-insert-authorizations-data
+      author: vlad.pop@externe.bnpparibas.com
+      changes:
+        - insert:
+            schemaName: tam
+            tableName: authorizations
+            columns:
+              - column:
+                  name: id
+                  valueComputed: HEXTORAW(REPLACE('a1b2c3d4-e5f6-a7b8-c9d0-e1f2a3b4c5d6', '-', ''))
+              - column:
+                  name: external_id
+                  valueComputed: HEXTORAW(REPLACE('11223344-5566-7788-9900-aabbccddeeff', '-', ''))
+              - column:
+                  name: transaction_id
+                  valueComputed: HEXTORAW(REPLACE('ffeeddcc-bbaa-0099-8877-665544332211', '-', ''))
+              - column:
+                  name: owner
+                  value: 'consorsbank'
+              - column:
+                  name: service
+                  value: 'payment-service'
+              - column:
+                  name: service_version
+                  value: 'v1'
+              - column:
+                  name: expires_at
+                  valueComputed: "CURRENT_TIMESTAMP + INTERVAL '5' MINUTE"
+              - column:
+                  name: status
+                  value: 'PENDING'
+              - column:
+                  name: tenant
+                  value: 'B2C'
+              - column:
+                  name: crm_customer_number
+                  value: '1234567890'
+              - column:
+                  name: transaction_payload_id
+                  valueComputed: HEXTORAW(REPLACE('aabbccdd-1122-3344-aabb-ccdd11223344', '-', ''))
+              - column:
+                  name: is_deleted
+                  valueNumeric: 0
+              - column:
+                  name: created_by
+                  value: 'system'
+              - column:
+                  name: updated_by
+                  value: 'system'
+        - insert:
+            schemaName: tam
+            tableName: authorizations
+            columns:
+              - column:
+                  name: id
+                  valueComputed: HEXTORAW(REPLACE('b2c3d4e5-f6a7-b8c9-d0e1-f2a3b4c5d6a7', '-', ''))
+              - column:
+                  name: external_id
+                  valueComputed: HEXTORAW(REPLACE('22334455-6677-8899-0011-aabbccddeeff', '-', ''))
+              - column:
+                  name: transaction_id
+                  valueComputed: HEXTORAW(REPLACE('eeddccbb-aa00-9988-7766-5544332211ff', '-', ''))
+              - column:
+                  name: owner
+                  value: 'consorsbank'
+              - column:
+                  name: service
+                  value: 'transfer-service'
+              - column:
+                  name: service_version
+                  value: 'v1'
+              - column:
+                  name: expires_at
+                  valueComputed: "CURRENT_TIMESTAMP + INTERVAL '10' MINUTE"
+              - column:
+                  name: status
+                  value: 'AUTHORIZED'
+              - column:
+                  name: tenant
+                  value: 'B2B'
+              - column:
+                  name: crm_customer_number
+                  value: '9876543210'
+              - column:
+                  name: transaction_payload_id
+                  valueComputed: HEXTORAW(REPLACE('bbccddee-2233-4455-bbcc-ddee22334455', '-', ''))
+              - column:
+                  name: is_deleted
+                  valueNumeric: 0
+              - column:
+                  name: created_by
+                  value: 'system'
+              - column:
+                  name: updated_by
+                  value: 'system'
+
+```
+
+
+```
 package de.consorsbank.core.trauthsc.tam.core.authorizationstatus.repository;
 
 import de.consorsbank.core.trauthsc.tam.entity.AuthorizationAttemptEntity;
