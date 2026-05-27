@@ -1,4 +1,10 @@
 ```
+curl -s -H "X-Vault-Token: root" http://127.0.0.1:8200/v1/secret/data/local/trauth-sc/credentials | python3 -m json.tool
+
+```
+
+
+```
 #!/bin/sh
 # -----------------------------------------------------------------------------
 # Combined Vault startup + init script.
