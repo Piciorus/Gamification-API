@@ -1,0 +1,95 @@
+databaseChangeLog:
+  - changeSet:
+      id: 007-insert-authorization-attempts-data
+      author: vlad.pop@externe.bnpparibas.com
+      changes:
+        - insert:
+            schemaName: tam
+            tableName: authorization_attempts
+            columns:
+              - column:
+                  name: id
+                  valueComputed: "HEXTORAW(REPLACE('1a2b3c4d-5e6f-4a7b-8c9d-0e1f2a3b4c5d', '-', ''))"
+              - column:
+                  name: external_id
+                  valueComputed: "HEXTORAW(REPLACE('2b3c4d5e-6f7a-4b8c-9d0e-1f2a3b4c5d6e', '-', ''))"
+              - column:
+                  name: authorization_id
+                  valueComputed: "HEXTORAW(REPLACE('3432bb5f-d777-4dc9-8443-234ef6334718', '-', ''))"
+              - column:
+                  name: authorization_method
+                  value: 'TAN_FROM_GENERATOR'
+              - column:
+                  name: authorization_credential
+                  value: '123456'
+              - column:
+                  name: status
+                  value: 'PENDING'
+              - column:
+                  name: is_deleted
+                  valueNumeric: 0
+              - column:
+                  name: created_by
+                  value: 'system'
+              - column:
+                  name: updated_by
+                  value: 'system'
+        - insert:
+            schemaName: tam
+            tableName: authorization_attempts
+            columns:
+              - column:
+                  name: id
+                  valueComputed: "HEXTORAW(REPLACE('3c4d5e6f-7a8b-4c9d-0e1f-2a3b4c5d6e7f', '-', ''))"
+              - column:
+                  name: external_id
+                  valueComputed: "HEXTORAW(REPLACE('4d5e6f7a-8b9c-4d0e-1f2a-3b4c5d6e7f8a', '-', ''))"
+              - column:
+                  name: authorization_id
+                  valueComputed: "HEXTORAW(REPLACE('3432bb5f-d777-4dc9-8443-234ef6334718', '-', ''))"
+              - column:
+                  name: authorization_method
+                  value: 'PUSH_NOTIFICATION_FORM_NEO_APP'
+              - column:
+                  name: status
+                  value: 'FAILED'
+              - column:
+                  name: is_deleted
+                  valueNumeric: 0
+              - column:
+                  name: created_by
+                  value: 'system'
+              - column:
+                  name: updated_by
+                  value: 'system'
+        - insert:
+            schemaName: tam
+            tableName: authorization_attempts
+            columns:
+              - column:
+                  name: id
+                  valueComputed: "HEXTORAW(REPLACE('5e6f7a8b-9c0d-4e1f-2a3b-4c5d6e7f8a9b', '-', ''))"
+              - column:
+                  name: external_id
+                  valueComputed: "HEXTORAW(REPLACE('6f7a8b9c-0d1e-4f2a-3b4c-5d6e7f8a9b0c', '-', ''))"
+              - column:
+                  name: authorization_id
+                  valueComputed: "HEXTORAW(REPLACE('5a12bc3d-e4f5-4a6b-8c7d-9e0f1a2b3c4d', '-', ''))"
+              - column:
+                  name: authorization_method
+                  value: 'NEO_SECURE_SIGNATURE_BOUND'
+              - column:
+                  name: authorization_credential
+                  value: 'sig-credential'
+              - column:
+                  name: status
+                  value: 'AUTHORIZED'
+              - column:
+                  name: is_deleted
+                  valueNumeric: 0
+              - column:
+                  name: created_by
+                  value: 'system'
+              - column:
+                  name: updated_by
+                  value: 'system'

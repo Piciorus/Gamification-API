@@ -1,0 +1,97 @@
+databaseChangeLog:
+  - changeSet:
+      id: 006-insert-authorizations-data
+      author: vlad.pop@externe.bnpparibas.com
+      changes:
+        - insert:
+            schemaName: tam
+            tableName: authorizations
+            columns:
+              - column:
+                  name: id
+                  valueComputed: "HEXTORAW(REPLACE('3432bb5f-d777-4dc9-8443-234ef6334718', '-', ''))"
+              - column:
+                  name: external_id
+                  valueComputed: "HEXTORAW(REPLACE('33769851-5503-44b1-b503-f661fe09391a', '-', ''))"
+              - column:
+                  name: transaction_id
+                  valueComputed: "HEXTORAW(REPLACE('74b6ebe1-0a09-41f0-8c7b-5bab8c9b9acb', '-', ''))"
+              - column:
+                  name: owner
+                  value: 'taxsrv-sc'
+              - column:
+                  name: service
+                  value: 'compensation-pot-change'
+              - column:
+                  name: service_version
+                  value: 'v1'
+              - column:
+                  name: expires_at
+                  valueComputed: "SYSTIMESTAMP"
+              - column:
+                  name: status
+                  value: 'PENDING'
+              - column:
+                  name: tenant
+                  value: 'B2C'
+              - column:
+                  name: crm_customer_number
+                  value: '1234567890'
+              - column:
+                  name: transaction_payload_id
+                  valueComputed: "HEXTORAW(REPLACE('8078dbb6-2fbd-41c6-ae1e-fe6e9b7e53a2', '-', ''))"
+              - column:
+                  name: is_deleted
+                  valueNumeric: 0
+              - column:
+                  name: created_by
+                  value: 'system'
+              - column:
+                  name: updated_by
+                  value: 'system'
+        - insert:
+            schemaName: tam
+            tableName: authorizations
+            columns:
+              - column:
+                  name: id
+                  valueComputed: "HEXTORAW(REPLACE('5a12bc3d-e4f5-4a6b-8c7d-9e0f1a2b3c4d', '-', ''))"
+              - column:
+                  name: external_id
+                  valueComputed: "HEXTORAW(REPLACE('6b23cd4e-f5a6-4b7c-9d8e-0f1a2b3c4d5e', '-', ''))"
+              - column:
+                  name: transaction_id
+                  valueComputed: "HEXTORAW(REPLACE('7c34de5f-a6b7-4c8d-0e9f-1a2b3c4d5e6f', '-', ''))"
+              - column:
+                  name: owner
+                  value: 'taxsrv-sc'
+              - column:
+                  name: service
+                  value: 'compensation-pot-change'
+              - column:
+                  name: service_version
+                  value: 'v1'
+              - column:
+                  name: expires_at
+                  valueComputed: "SYSTIMESTAMP"
+              - column:
+                  name: status
+                  value: 'AUTHORIZED'
+              - column:
+                  name: tenant
+                  value: 'B2B'
+              - column:
+                  name: crm_customer_number
+                  value: '9876543210'
+              - column:
+                  name: transaction_payload_id
+                  valueComputed: "HEXTORAW(REPLACE('9e56fa7b-c8d9-4e0f-2a1b-3c4d5e6f7a8b', '-', ''))"
+              - column:
+                  name: is_deleted
+                  valueNumeric: 0
+              - column:
+                  name: created_by
+                  value: 'system'
+              - column:
+                  name: updated_by
+                  value: 'system'
