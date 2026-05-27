@@ -1,4 +1,15 @@
 ```
+docker compose exec vault sh -c '
+  export VAULT_ADDR=http://127.0.0.1:8200
+  export VAULT_TOKEN=root
+  vault secrets enable transit || true
+  vault write -f transit/keys/abc
+  vault kv put secret/local/trauth-sc/credentials H2_LOCAL_USR=sa H2_LOCAL_PASS=password
+  vault kv get secret/local/trauth-sc/credentials
+'
+```
+
+```
 curl -s -H "X-Vault-Token: root" http://127.0.0.1:8200/v1/secret/data/local/trauth-sc/credentials | python3 -m json.tool
 
 ```
