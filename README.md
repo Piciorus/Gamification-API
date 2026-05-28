@@ -1,13 +1,13 @@
 ```
-package de.consorsbank.core.trauthsc.tam.core.authorizationattemptstatus.service;
+package de.consorsbank.core.trauthsc.tam.core.payloadtransactionauthorization.service;
 
-import de.consorsbank.core.trauthsc.rest.api.tam.get.authorization.attempt.status.model.GetAuthorizationAttemptStatusResponse;
-import de.consorsbank.core.trauthsc.tam.controller.AuthorizationAttemptStatusApi;
-import de.consorsbank.core.trauthsc.tam.core.authorizationattemptstatus.mapper.AuthorizationAttemptStatusMapper;
-import de.consorsbank.core.trauthsc.tam.core.authorizationattemptstatus.repository.AuthorizationAttemptRepository;
+import de.consorsbank.core.trauthsc.rest.api.tam.get.payload.transaction.authorization.status.model.GetPayloadTransactionAuthorizationResponse;
+import de.consorsbank.core.trauthsc.tam.controller.PayloadTransactionAuthorization;
 import de.consorsbank.core.trauthsc.tam.core.authorizationstatus.repository.AuthorizationRepository;
+import de.consorsbank.core.trauthsc.tam.core.payloadtransactionauthorization.mapper.PayloadTransactionAuthorizationMapper;
 import de.consorsbank.core.trauthsc.tam.exception.CommonException;
 import de.consorsbank.core.trauthsc.tam.exception.TamExceptionCode;
+import de.consorsbank.core.trauthsc.tam.payloadvault.PayloadVaultManager;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -19,27 +19,23 @@ import java.util.UUID;
 @Slf4j
 @Service
 @RequiredArgsConstructor
-public class AuthorizationAttemptStatusServiceImpl implements AuthorizationAttemptStatusApi {
+public class PayloadTransactionAuthorizationServiceImpl implements PayloadTransactionAuthorization {
 
     private final AuthorizationRepository authorizationRepository;
-    private final AuthorizationAttemptRepository authorizationAttemptRepository;
-    private final AuthorizationAttemptStatusMapper authorizationAttemptStatusMapper;
+    private final PayloadVaultManager payloadVaultManager;
+    private final PayloadTransactionAuthorizationMapper payloadTransactionAuthorizationMapper;
 
     @Override
     @Transactional(readOnly = true)
-    public GetAuthorizationAttemptStatusResponse getAuthorizationAttemptStatus(String authorizationId, String attemptId) {
-        var authorizationUuid = UUID.fromString(authorizationId);
-        var attemptUuid = UUID.fromString(attemptId);
-
-        authorizationRepository.findById(authorizationUuid)
+    public GetPayloadTransactionAuthorizationResponse getPayloadTransactionAuthorization(String authorizationId) {
+        var authorizationEntity = authorizationRepository.findById(UUID.fromString(authorizationId))
                 .orElseThrow(() -> new CommonException(TamExceptionCode.AUTHORIZATION_NOT_FOUND, List.of(authorizationId)));
 
-        var attemptEntity = authorizationAttemptRepository.findByIdAndAuthorizationId(attemptUuid, authorizationUuid)
-                .orElseThrow(() -> new CommonException(TamExceptionCode.AUTHORIZATION_ATTEMPT_NOT_FOUND, List.of(attemptId)));
+        var payload = payloadVaultManager.getPayload(authorizationEntity.getTransactionPayloadId());
 
-        log.debug("Found attempt {} with status {}", attemptId, attemptEntity.getStatus());
+        log.debug("Found payload for authorization {}", authorizationId);
 
-        return authorizationAttemptStatusMapper.toResponse(attemptEntity);
+        return payloadTransactionAuthorizationMapper.map(payload);
     }
 }
 
@@ -47,19 +43,15 @@ public class AuthorizationAttemptStatusServiceImpl implements AuthorizationAttem
 
 
 
-
 ```
+package de.consorsbank.core.trauthsc.tam.core.payloadtransactionauthorization.service;
 
-package de.consorsbank.core.trauthsc.tam.core.authorizationattemptstatus.service;
-
-import de.consorsbank.core.trauthsc.rest.api.tam.get.authorization.attempt.status.model.GetAuthorizationAttemptStatusResponse;
-import de.consorsbank.core.trauthsc.tam.core.authorizationattemptstatus.mapper.AuthorizationAttemptStatusMapper;
-import de.consorsbank.core.trauthsc.tam.core.authorizationattemptstatus.repository.AuthorizationAttemptRepository;
 import de.consorsbank.core.trauthsc.tam.core.authorizationstatus.repository.AuthorizationRepository;
-import de.consorsbank.core.trauthsc.tam.entity.AuthorizationAttemptEntity;
+import de.consorsbank.core.trauthsc.tam.core.payloadtransactionauthorization.mapper.PayloadTransactionAuthorizationMapper;
 import de.consorsbank.core.trauthsc.tam.entity.AuthorizationEntity;
 import de.consorsbank.core.trauthsc.tam.exception.CommonException;
 import de.consorsbank.core.trauthsc.tam.exception.TamExceptionCode;
+import de.consorsbank.core.trauthsc.tam.payloadvault.PayloadVaultManager;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
@@ -73,116 +65,151 @@ import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
-class AuthorizationAttemptStatusServiceImplTest {
+class PayloadTransactionAuthorizationServiceImplTest {
 
     private static final UUID AUTHORIZATION_ID = UUID.randomUUID();
     private static final String AUTHORIZATION_ID_STRING = AUTHORIZATION_ID.toString();
-    private static final UUID ATTEMPT_ID = UUID.randomUUID();
-    private static final String ATTEMPT_ID_STRING = ATTEMPT_ID.toString();
+    private static final String TRANSACTION_PAYLOAD_ID = UUID.randomUUID().toString();
+    private static final String PAYLOAD_JSON = "{\"amount\":100.00,\"currency\":\"EUR\"}";
 
     @Mock
     private AuthorizationRepository authorizationRepository;
 
     @Mock
-    private AuthorizationAttemptRepository authorizationAttemptRepository;
+    private PayloadVaultManager payloadVaultManager;
 
     @Mock
-    private AuthorizationAttemptStatusMapper authorizationAttemptStatusMapper;
+    private PayloadTransactionAuthorizationMapper payloadTransactionAuthorizationMapper;
 
     @InjectMocks
-    private AuthorizationAttemptStatusServiceImpl service;
+    private PayloadTransactionAuthorizationServiceImpl service;
 
     @Test
-    void getAuthorizationAttemptStatus_happyPath_returnsResponse() {
+    void getPayloadTransactionAuthorization_happyPath_returnsPayload() {
         // given
         var authorizationEntity = mock(AuthorizationEntity.class);
-        var attemptEntity = mock(AuthorizationAttemptEntity.class);
-        var expectedResponse = mock(GetAuthorizationAttemptStatusResponse.class);
+        var expectedResponse = de.consorsbank.core.trauthsc.rest.api.tam.get.payload.transaction.authorization.status.model
+                .GetPayloadTransactionAuthorizationResponse.builder()
+                .transactionServicePayload(PAYLOAD_JSON)
+                .build();
 
+        when(authorizationEntity.getTransactionPayloadId()).thenReturn(TRANSACTION_PAYLOAD_ID);
         when(authorizationRepository.findById(AUTHORIZATION_ID))
                 .thenReturn(Optional.of(authorizationEntity));
-        when(authorizationAttemptRepository.findByIdAndAuthorizationId(ATTEMPT_ID, AUTHORIZATION_ID))
-                .thenReturn(Optional.of(attemptEntity));
-        when(authorizationAttemptStatusMapper.toResponse(attemptEntity))
+        when(payloadVaultManager.getPayload(TRANSACTION_PAYLOAD_ID))
+                .thenReturn(PAYLOAD_JSON);
+        when(payloadTransactionAuthorizationMapper.map(PAYLOAD_JSON))
                 .thenReturn(expectedResponse);
 
         // when
-        var result = service.getAuthorizationAttemptStatus(AUTHORIZATION_ID_STRING, ATTEMPT_ID_STRING);
+        var result = service.getPayloadTransactionAuthorization(AUTHORIZATION_ID_STRING);
 
         // then
         assertEquals(expectedResponse, result);
+        assertEquals(PAYLOAD_JSON, result.getTransactionServicePayload());
         verify(authorizationRepository).findById(AUTHORIZATION_ID);
-        verify(authorizationAttemptRepository).findByIdAndAuthorizationId(ATTEMPT_ID, AUTHORIZATION_ID);
-        verify(authorizationAttemptStatusMapper).toResponse(attemptEntity);
+        verify(payloadVaultManager).getPayload(TRANSACTION_PAYLOAD_ID);
+        verify(payloadTransactionAuthorizationMapper).map(PAYLOAD_JSON);
     }
 
     @Test
-    void getAuthorizationAttemptStatus_authorizationNotFound_throwsCommonException() {
+    void getPayloadTransactionAuthorization_authorizationNotFound_throwsCommonException() {
         // given
         when(authorizationRepository.findById(AUTHORIZATION_ID))
                 .thenReturn(Optional.empty());
 
         // when & then
         var exception = assertThrows(CommonException.class,
-                () -> service.getAuthorizationAttemptStatus(AUTHORIZATION_ID_STRING, ATTEMPT_ID_STRING));
+                () -> service.getPayloadTransactionAuthorization(AUTHORIZATION_ID_STRING));
 
         assertEquals(TamExceptionCode.AUTHORIZATION_NOT_FOUND, exception.getExceptionCode());
-        verifyNoInteractions(authorizationAttemptRepository);
-        verifyNoInteractions(authorizationAttemptStatusMapper);
+        verifyNoInteractions(payloadVaultManager);
+        verifyNoInteractions(payloadTransactionAuthorizationMapper);
     }
 
     @Test
-    void getAuthorizationAttemptStatus_attemptNotFound_throwsCommonException() {
+    void getPayloadTransactionAuthorization_invalidUuid_throwsIllegalArgumentException() {
+        // when & then
+        assertThrows(IllegalArgumentException.class,
+                () -> service.getPayloadTransactionAuthorization("not-a-valid-uuid"));
+
+        verifyNoInteractions(authorizationRepository);
+        verifyNoInteractions(payloadVaultManager);
+        verifyNoInteractions(payloadTransactionAuthorizationMapper);
+    }
+}
+
+```
+
+
+```
+package de.consorsbank.core.trauthsc.tam.controller;
+
+import de.consorsbank.core.trauthsc.rest.api.tam.get.payload.transaction.authorization.status.model.GetPayloadTransactionAuthorizationResponse;
+import de.consorsbank.core.trauthsc.tam.config.SecurityConfiguration;
+import de.consorsbank.core.trauthsc.tam.test.ControllerUnitTestConfig;
+import de.consorsbank.core.trauthsc.tam.test.TestUtils;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
+import org.springframework.context.annotation.Import;
+import org.springframework.http.MediaType;
+import org.springframework.test.context.ActiveProfiles;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
+import org.springframework.test.web.servlet.MockMvc;
+
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.when;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
+
+@ExtendWith(MockitoExtension.class)
+@WebMvcTest(controllers = PayloadTransactionAuthorizationController.class)
+@Import({SecurityConfiguration.class})
+@ActiveProfiles("test")
+class PayloadTransactionAuthorizationControllerTest extends ControllerUnitTestConfig {
+
+    @Autowired
+    private MockMvc mockMvc;
+
+    @MockitoBean
+    private PayloadTransactionAuthorization payloadTransactionAuthorization;
+
+    @Test
+    void should_ReturnPayload_When_AuthorizationIdIsValid() throws Exception {
         // given
-        var authorizationEntity = mock(AuthorizationEntity.class);
+        when(payloadTransactionAuthorization.getPayloadTransactionAuthorization(any(String.class))).thenReturn(
+                GetPayloadTransactionAuthorizationResponse.builder()
+                        .transactionServicePayload("{\"amount\":100.00,\"currency\":\"EUR\"}")
+                        .build());
 
-        when(authorizationRepository.findById(AUTHORIZATION_ID))
-                .thenReturn(Optional.of(authorizationEntity));
-        when(authorizationAttemptRepository.findByIdAndAuthorizationId(ATTEMPT_ID, AUTHORIZATION_ID))
-                .thenReturn(Optional.empty());
-
-        // when & then
-        var exception = assertThrows(CommonException.class,
-                () -> service.getAuthorizationAttemptStatus(AUTHORIZATION_ID_STRING, ATTEMPT_ID_STRING));
-
-        assertEquals(TamExceptionCode.AUTHORIZATION_ATTEMPT_NOT_FOUND, exception.getExceptionCode());
-        verifyNoInteractions(authorizationAttemptStatusMapper);
+        // when
+        mockMvc.perform(
+                        get(uriTemplate: "/v1/authorizations/8b146851-7ee8-4ba6-ad2b-af1724b2b5d3/payload")
+                                .contentType(MediaType.APPLICATION_JSON_VALUE)
+                                .headers(TestUtils.getAllHttpHeadersWithoutOwner(source: "get-payload-transaction-authorization")))
+                // then
+                .andExpect(status().isOk());
     }
 
     @Test
-    void getAuthorizationAttemptStatus_invalidAuthorizationId_throwsIllegalArgumentException() {
-        // when & then
-        assertThrows(IllegalArgumentException.class,
-                () -> service.getAuthorizationAttemptStatus("invalid-uuid", ATTEMPT_ID_STRING));
+    void should_ReturnBadRequest_When_RequiredHeadersAreNotPassed() throws Exception {
+        // given
+        when(payloadTransactionAuthorization.getPayloadTransactionAuthorization(any(String.class))).thenReturn(
+                GetPayloadTransactionAuthorizationResponse.builder()
+                        .transactionServicePayload("{\"amount\":100.00,\"currency\":\"EUR\"}")
+                        .build());
 
-        verifyNoInteractions(authorizationRepository);
-        verifyNoInteractions(authorizationAttemptRepository);
-        verifyNoInteractions(authorizationAttemptStatusMapper);
+        // when
+        mockMvc.perform(
+                        get(uriTemplate: "/v1/authorizations/8b146851-7ee8-4ba6-ad2b-af1724b2b5d3/payload")
+                                .contentType(MediaType.APPLICATION_JSON_VALUE)
+                                .headers(TestUtils.getMissingHttpHeadersWithoutOwner()))
+                // then
+                .andExpect(status().isBadRequest());
     }
-
-    @Test
-    void getAuthorizationAttemptStatus_invalidAttemptId_throwsIllegalArgumentException() {
-        // when & then
-        assertThrows(IllegalArgumentException.class,
-                () -> service.getAuthorizationAttemptStatus(AUTHORIZATION_ID_STRING, "invalid-uuid"));
-
-        verifyNoInteractions(authorizationRepository);
-        verifyNoInteractions(authorizationAttemptRepository);
-        verifyNoInteractions(authorizationAttemptStatusMapper);
-    }
-}
-
-```
-
-
-
-```
-package de.consorsbank.core.trauthsc.tam.controller;
-
-import de.consorsbank.core.trauthsc.rest.api.tam.get.authorization.attempt.status.model.GetAuthorizationAttemptStatusResponse;
-
-public interface AuthorizationAttemptStatusApi {
-    GetAuthorizationAttemptStatusResponse getAuthorizationAttemptStatus(String authorizationId, String attemptId);
 }
 
 
@@ -193,50 +220,69 @@ public interface AuthorizationAttemptStatusApi {
 ```
 package de.consorsbank.core.trauthsc.tam.controller;
 
-import de.consorsbank.core.trauthsc.rest.api.tam.get.authorization.attempt.status.model.GetAuthorizationAttemptStatusResponse;
+import de.consorsbank.core.trauthsc.rest.api.tam.get.payload.transaction.authorization.status.model.GetPayloadTransactionAuthorizationResponse;
+
+public interface PayloadTransactionAuthorization {
+    GetPayloadTransactionAuthorizationResponse getPayloadTransactionAuthorization(String authorizationId);
+}
+
+```
+
+
+
+```
+package de.consorsbank.core.trauthsc.tam.controller;
+
+import de.consorsbank.core.trauthsc.rest.api.tam.get.payload.transaction.authorization.status.api.GetPayloadTransactionAuthorizationApi;
+import de.consorsbank.core.trauthsc.rest.api.tam.get.payload.transaction.authorization.status.model.GetPayloadTransactionAuthorizationResponse;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.RestController;
 
 @RestController
 @RequiredArgsConstructor
-public class AuthorizationAttemptStatusController implements GetAuthorizationAttemptStatusApi {
+public class PayloadTransactionAuthorizationController implements GetPayloadTransactionAuthorizationApi {
 
-    private final AuthorizationAttemptStatusApi authorizationAttemptStatus;
+    private final PayloadTransactionAuthorization payloadTransactionAuthorization;
 
     @Override
-    public ResponseEntity<GetAuthorizationAttemptStatusResponse> getAuthorizationAttemptStatus(
-            String feId, String language, String traceId, String userAgent,
-            String xSourceService, String xRequestId, String authorizationId, String attemptId) {
-        var response = authorizationAttemptStatus.getAuthorizationAttemptStatus(authorizationId, attemptId);
+    public ResponseEntity<GetPayloadTransactionAuthorizationResponse> getPayloadTransactionAuthorization(
+            String feId, String language, String traceId, String xSourceService, String userAgent,
+            String xRequestId, String authorizationId) {
+        var response = payloadTransactionAuthorization.getPayloadTransactionAuthorization(authorizationId);
         return ResponseEntity.ok().body(response);
     }
 }
 
 ```
 
-
-
 ```
-package de.consorsbank.core.trauthsc.tam.core.authorizationattemptstatus.mapper;
+package de.consorsbank.core.trauthsc.tam.core.payloadtransactionauthorization.mapper;
 
-import de.consorsbank.core.trauthsc.rest.api.tam.get.authorization.attempt.status.model.GetAuthorizationAttemptStatusResponse;
-import de.consorsbank.core.trauthsc.tam.entity.AuthorizationAttemptEntity;
+import de.consorsbank.core.trauthsc.rest.api.tam.get.payload.transaction.authorization.status.model.GetPayloadTransactionAuthorizationResponse;
 import org.mapstruct.Mapper;
+import org.mapstruct.Mapping;
 
 @Mapper(componentModel = "spring")
-public interface AuthorizationAttemptStatusMapper {
+public interface PayloadTransactionAuthorizationMapper {
 
-    GetAuthorizationAttemptStatusResponse toResponse(AuthorizationAttemptEntity entity);
+    @Mapping(source = "payload", target = "transactionServicePayload")
+    GetPayloadTransactionAuthorizationResponse toResponse(String payload);
+
+    default GetPayloadTransactionAuthorizationResponse map(String payload) {
+        return GetPayloadTransactionAuthorizationResponse.builder()
+                .transactionServicePayload(payload)
+                .build();
+    }
 }
 
-```
-
 
 ```
-package de.consorsbank.core.trauthsc.rest.api.tam.get.authorization.attempt.status.model;
 
-import de.consorsbank.core.trauthsc.rest.api.tam.get.authorization.status.model.AuthorizationAttemptStatus;
+
+```
+package de.consorsbank.core.trauthsc.rest.api.tam.get.payload.transaction.authorization.status.model;
+
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -246,39 +292,102 @@ import lombok.NoArgsConstructor;
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
-public class GetAuthorizationAttemptStatusResponse {
+public class GetPayloadTransactionAuthorizationResponse {
 
-    private AuthorizationAttemptStatus status;
+    private String transactionServicePayload;
 }
+
+```
+```
+
+import org.springframework.cloud.contract.spec.Contract
+
+[
+    Contract.make {
+        priority( priority: 1)
+        description( description: """
+        Represents a successful scenario for getting payload transaction authorization
+        ...
+        given:
+            authorizationId : any
+        when:
+            api request to get payload transaction authorization
+        then:
+            return OK with GetPayloadTransactionAuthorizationResponse
+        ...
+        """)
+        request {
+            method method: 'GET'
+            urlPath($(consumer(regex( regex: '/v1/authorizations/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/payload'))))
+            headers {
+                header 'FeId': value(consumer(regex( regex: '.+')), producer( serverValue: 'WEB'))
+                header 'Language': value(consumer(regex( regex: '.+')), producer( serverValue: 'DE'))
+                header 'TraceId': value(consumer(regex( regex: '.+')), producer( serverValue: 'traceId'))
+                header 'User-Agent': value(consumer(regex( regex: '.+')), producer( serverValue: 'User-Agent'))
+                header 'x-source-service': value(consumer(regex( regex: '.+')), producer( serverValue: 'xSourceService'))
+                header 'x-request-id': value(consumer(regex( regex: '.+')), producer( serverValue: '123456'))
+            }
+        }
+        response {
+            status OK()
+            headers {
+                header 'x-correlation-id': fromRequest().header( key: "x-request-id")
+                contentType applicationJson()
+            }
+            body(
+                    "transactionServicePayload": "{\"amount\":100.00,\"currency\":\"EUR\"}"
+            )
+        }
+    }
+]
 
 ```
 
 
+
 ```
-package de.consorsbank.core.trauthsc.tam.core.authorizationattemptstatus.repository;
+import org.springframework.cloud.contract.spec.Contract
 
-import de.consorsbank.core.trauthsc.tam.entity.AuthorizationAttemptEntity;
-import org.springframework.data.jpa.repository.JpaRepository;
-import org.springframework.data.jpa.repository.Query;
-import org.springframework.data.repository.query.Param;
-import org.springframework.stereotype.Repository;
+[
+    Contract.make {
+        priority( priority: 10)
+        description( description: """
+        Represents a failure scenario for getting payload transaction authorization
+        ...
+        given:
+            authorizationId : any
+        when:
+            api request to get payload transaction authorization
+        then:
+            return BAD_REQUEST
+        ...
+        """)
+        request {
+            method method: 'GET'
+            urlPath($(consumer(regex( regex: '/v1/authorizations/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/payload'))))
+            headers {
+                header 'FeId': value(consumer(regex( regex: '.+')), producer( serverValue: 'WEB'))
+                header 'Language': value(consumer(regex( regex: '.+')), producer( serverValue: 'DE'))
+                header 'TraceId': value(consumer(regex( regex: '.+')), producer( serverValue: 'traceId'))
+                header 'User-Agent': value(consumer(regex( regex: '.+')), producer( serverValue: 'User-Agent'))
+                header 'x-request-id': value(consumer(regex( regex: '.+')), producer( serverValue: '123456'))
+            }
+        }
+        response {
+            status BAD_REQUEST()
+            headers {
+                header 'x-correlation-id': fromRequest().header( key: "x-request-id")
+                contentType applicationJson()
+            }
+            body(
+                    "code": "",
+                    "detail": "Required request header 'x-source-service' for method parameter type String is not present",
+                    "errors": [],
+                    "status": "400",
+                    "title": "Header x-source-service is required"
+            )
+        }
+    }
+]
 
-import java.util.List;
-import java.util.Optional;
-import java.util.UUID;
-
-@Repository
-public interface AuthorizationAttemptRepository extends JpaRepository<AuthorizationAttemptEntity, UUID> {
-
-    @Query("SELECT a FROM AuthorizationAttemptEntity a " +
-           "LEFT JOIN FETCH a.authorizationMethodEntity " +
-           "WHERE a.authorizationEntity.id = :authorizationId")
-    List<AuthorizationAttemptEntity> findByAuthorizationIdWithMethod(@Param("authorizationId") UUID authorizationId);
-
-    @Query("SELECT a FROM AuthorizationAttemptEntity a " +
-           "WHERE a.id = :attemptId AND a.authorizationEntity.id = :authorizationId")
-    Optional<AuthorizationAttemptEntity> findByIdAndAuthorizationId(
-            @Param("attemptId") UUID attemptId,
-            @Param("authorizationId") UUID authorizationId);
-}
 ```
