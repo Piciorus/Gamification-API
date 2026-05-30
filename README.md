@@ -1,97 +1,38 @@
 ```
-<springProperty scope="context" name="LOGSTASH_LEVEL"
-                source="LOGSTASH_LEVEL"
-                default="INFO"/>
+#!/bin/sh
 
-<appender name="LOGSTASH_ASYNC" class="ch.qos.logback.classic.AsyncAppender">
-    <queueSize>10000</queueSize>
-    <discardingThreshold>0</discardingThreshold>
-    <neverBlock>true</neverBlock>
-    <appender-ref ref="LOGSTASH_TCP_DMZR"/>
-</appender>
+vault server -dev -dev-root-token-id="root" &
+VAULT_PID=$!
 
-<root level="info">
-    <appender-ref ref="ENRICHED_CONSOLE_DMZR"/>
-    <appender-ref ref="LOGSTASH_ASYNC"/>
-</root>
+# Wait for vault to be ready
+export VAULT_ADDR="http://127.0.0.1:8200"
+export VAULT_TOKEN="root"
 
-jjjj
-<springProperty scope="context" name="LOGSTASH_LEVEL"
-                source="LOGSTASH_LEVEL"
-                default="INFO"/>
+echo ">> Waiting for Vault to be ready..."
+until vault status >/dev/null 2>&1; do
+  sleep 1
+done
+echo ">> Vault is up. Root Token: root"
 
-<appender name="LOGSTASH_ASYNC" class="ch.qos.logback.classic.AsyncAppender">
-    <filter class="ch.qos.logback.classic.filter.ThresholdFilter">
-        <level>${LOGSTASH_LEVEL}</level>
-    </filter>
-    <queueSize>10000</queueSize>
-    <discardingThreshold>0</discardingThreshold>
-    <neverBlock>true</neverBlock>
-    <appender-ref ref="LOGSTASH_TCP_DMZR"/>
-</appender>
+echo ">> Enabling transit engine"
+vault secrets enable transit 2>/dev/null || echo "transit already enabled"
 
-<root level="info">
-    <appender-ref ref="ENRICHED_CONSOLE_DMZR"/>
-    <appender-ref ref="LOGSTASH_ASYNC"/>
-</root>
+echo ">> Enabling kv engine"
+vault secrets enable -path=secret kv-v2 2>/dev/null || echo "kv already enabled"
 
+echo ">> Creating transit key 'abc'"
+vault write -f transit/keys/abc >/dev/null
 
+echo ">> Writing secret/data/local/trauth-sc/credentials"
+vault kv put secret/data/local/trauth-sc/credentials \
+  encryptionKey=abc \
+  H2_LOCAL_USR="${H2_LOCAL_USR:-sa}" \
+  H2_LOCAL_PASS="${H2_LOCAL_PASS:-password}"
+
+echo ">> Verifying"
+vault kv get secret/data/local/trauth-sc/credentials
+
+echo ">> Vault initialisation complete. Server running on PID ${VAULT_PID}."
+
+wait ${VAULT_PID}
 ```
-<springProperty scope="context" name="DISABLE_LOGSTASH_ASYNC"
-                source="DISABLE_LOGSTASH_ASYNC"
-                default="false"/>
-
-<appender name="LOGSTASH_ASYNC" class="ch.qos.logback.classic.AsyncAppender">
-    <queueSize>10000</queueSize>
-    <discardingThreshold>0</discardingThreshold>
-    <neverBlock>true</neverBlock>
-    <appender-ref ref="LOGSTASH_TCP_DMZR"/>
-</appender>
-
-<springProfile name="local-development-ssl | local-development-non-ssl">
-    <appender name="CONSOLE" class="ch.qos.logback.core.ConsoleAppender">
-        <encoder>
-            <pattern>%d{HH:mm:ss.SSS} [%thread] %-5level %logger{36} - %msg%n</pattern>
-        </encoder>
-    </appender>
-    <root level="info">
-        <appender-ref ref="CONSOLE"/>
-    </root>
-</springProfile>
-
-<springProfile name="openshift-d0 | openshift-d1 | openshift-p0 | openshift-t0 | openshift-t1 | openshift-u0 | openshift-u1 | openshift-x0">
-    <root level="info">
-        <appender-ref ref="ENRICHED_CONSOLE_DMZR"/>
-        <appender-ref ref="LOGSTASH_ASYNC"/>
-    </root>
-</springProfile>
-
-```
-<springProperty scope="context" name="DISABLE_LOGSTASH_ASYNC"
-                source="DISABLE_LOGSTASH_ASYNC"
-                default="false"/>
-
-<appender name="LOGSTASH_ASYNC" class="ch.qos.logback.classic.AsyncAppender">
-    <queueSize>10000</queueSize>
-    <discardingThreshold>0</discardingThreshold>
-    <neverBlock>true</neverBlock>
-    <appender-ref ref="LOGSTASH_TCP_DMZR"/>
-</appender>
-
-<springProfile name="local-development-ssl | local-development-non-ssl">
-    <appender name="CONSOLE" class="ch.qos.logback.core.ConsoleAppender">
-        <encoder>
-            <pattern>%d{HH:mm:ss.SSS} [%thread] %-5level %logger{36} - %msg%n</pattern>
-        </encoder>
-    </appender>
-    <root level="info">
-        <appender-ref ref="CONSOLE"/>
-    </root>
-</springProfile>
-
-<springProfile name="openshift-d0 | openshift-d1 | openshift-p0 | openshift-t0 | openshift-t1 | openshift-u0 | openshift-u1 | openshift-x0">
-    <root level="info">
-        <appender-ref ref="ENRICHED_CONSOLE_DMZR"/>
-        <appender-ref ref="LOGSTASH_ASYNC"/>
-    </root>
-</springProfile>
