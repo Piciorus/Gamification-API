@@ -15,6 +15,26 @@
     <appender-ref ref="LOGSTASH_ASYNC"/>
 </root>
 
+jjjj
+<springProperty scope="context" name="LOGSTASH_LEVEL"
+                source="LOGSTASH_LEVEL"
+                default="INFO"/>
+
+<appender name="LOGSTASH_ASYNC" class="ch.qos.logback.classic.AsyncAppender">
+    <filter class="ch.qos.logback.classic.filter.ThresholdFilter">
+        <level>${LOGSTASH_LEVEL}</level>
+    </filter>
+    <queueSize>10000</queueSize>
+    <discardingThreshold>0</discardingThreshold>
+    <neverBlock>true</neverBlock>
+    <appender-ref ref="LOGSTASH_TCP_DMZR"/>
+</appender>
+
+<root level="info">
+    <appender-ref ref="ENRICHED_CONSOLE_DMZR"/>
+    <appender-ref ref="LOGSTASH_ASYNC"/>
+</root>
+
 
 ```
 <springProperty scope="context" name="DISABLE_LOGSTASH_ASYNC"
