@@ -1,393 +1,208 @@
 ```
-package de.consorsbank.core.trauthsc.tam.core.payloadtransactionauthorization.service;
+package de.consorsbank.core.trauthsc.common.actuator;
 
-import de.consorsbank.core.trauthsc.rest.api.tam.get.payload.transaction.authorization.status.model.GetPayloadTransactionAuthorizationResponse;
-import de.consorsbank.core.trauthsc.tam.controller.PayloadTransactionAuthorization;
-import de.consorsbank.core.trauthsc.tam.core.authorizationstatus.repository.AuthorizationRepository;
-import de.consorsbank.core.trauthsc.tam.core.payloadtransactionauthorization.mapper.PayloadTransactionAuthorizationMapper;
-import de.consorsbank.core.trauthsc.tam.exception.CommonException;
-import de.consorsbank.core.trauthsc.tam.exception.TamExceptionCode;
-import de.consorsbank.core.trauthsc.tam.payloadvault.PayloadVaultManager;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
+import org.springframework.boot.actuate.health.Health;
+import org.springframework.boot.actuate.health.HealthIndicator;
+import org.springframework.stereotype.Component;
 
-import java.util.List;
-import java.util.UUID;
+import javax.sql.DataSource;
+import java.sql.Connection;
+import java.sql.ResultSet;
+import java.sql.Statement;
+import java.util.LinkedHashMap;
+import java.util.Map;
 
+/**
+ * Custom Spring Boot Actuator Health Indicator for both Oracle schemas (TAM and PVM).
+ *
+ * Exposed at: GET /actuator/health/db
+ * Or individually via the composite details.
+ *
+ * Required dependency in pom.xml:
+ *   <dependency>
+ *       <groupId>org.springframework.boot</groupId>
+ *       <artifactId>spring-boot-starter-actuator</artifactId>
+ *   </dependency>
+ *
+ * Required application.yml:
+ *   management:
+ *     endpoint:
+ *       health:
+ *         show-details: always
+ *     endpoints:
+ *       web:
+ *         exposure:
+ *           include: health, dbMonitor
+ */
 @Slf4j
-@Service
+@Component("db")  // becomes /actuator/health/db
 @RequiredArgsConstructor
-public class PayloadTransactionAuthorizationServiceImpl implements PayloadTransactionAuthorization {
+public class DatabaseSchemaHealthIndicator implements HealthIndicator {
 
-    private final AuthorizationRepository authorizationRepository;
-    private final PayloadVaultManager payloadVaultManager;
-    private final PayloadTransactionAuthorizationMapper payloadTransactionAuthorizationMapper;
+    private final DataSource tamDataSource;
+    private final DataSource pvmDataSource;
 
     @Override
-    @Transactional(readOnly = true)
-    public GetPayloadTransactionAuthorizationResponse getPayloadTransactionAuthorization(String authorizationId) {
-        var authorizationEntity = authorizationRepository.findById(UUID.fromString(authorizationId))
-                .orElseThrow(() -> new CommonException(TamExceptionCode.AUTHORIZATION_NOT_FOUND, List.of(authorizationId)));
+    public Health health() {
+        Map<String, Object> tamDetails = checkSchema("TAM", tamDataSource);
+        Map<String, Object> pvmDetails = checkSchema("PVM", pvmDataSource);
 
-        var payload = payloadVaultManager.getPayload(authorizationEntity.getTransactionPayloadId());
+        boolean tamUp = Boolean.TRUE.equals(tamDetails.get("connected"));
+        boolean pvmUp = Boolean.TRUE.equals(pvmDetails.get("connected"));
 
-        log.debug("Found payload for authorization {}", authorizationId);
+        Health.Builder builder = (tamUp && pvmUp) ? Health.up() : Health.down();
 
-        return payloadTransactionAuthorizationMapper.map(payload);
-    }
-}
-
-```
-
-
-
-```
-package de.consorsbank.core.trauthsc.tam.core.payloadtransactionauthorization.service;
-
-import de.consorsbank.core.trauthsc.tam.core.authorizationstatus.repository.AuthorizationRepository;
-import de.consorsbank.core.trauthsc.tam.core.payloadtransactionauthorization.mapper.PayloadTransactionAuthorizationMapper;
-import de.consorsbank.core.trauthsc.tam.entity.AuthorizationEntity;
-import de.consorsbank.core.trauthsc.tam.exception.CommonException;
-import de.consorsbank.core.trauthsc.tam.exception.TamExceptionCode;
-import de.consorsbank.core.trauthsc.tam.payloadvault.PayloadVaultManager;
-import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.InjectMocks;
-import org.mockito.Mock;
-import org.mockito.junit.jupiter.MockitoExtension;
-
-import java.util.Optional;
-import java.util.UUID;
-
-import static org.junit.jupiter.api.Assertions.*;
-import static org.mockito.Mockito.*;
-
-@ExtendWith(MockitoExtension.class)
-class PayloadTransactionAuthorizationServiceImplTest {
-
-    private static final UUID AUTHORIZATION_ID = UUID.randomUUID();
-    private static final String AUTHORIZATION_ID_STRING = AUTHORIZATION_ID.toString();
-    private static final String TRANSACTION_PAYLOAD_ID = UUID.randomUUID().toString();
-    private static final String PAYLOAD_JSON = "{\"amount\":100.00,\"currency\":\"EUR\"}";
-
-    @Mock
-    private AuthorizationRepository authorizationRepository;
-
-    @Mock
-    private PayloadVaultManager payloadVaultManager;
-
-    @Mock
-    private PayloadTransactionAuthorizationMapper payloadTransactionAuthorizationMapper;
-
-    @InjectMocks
-    private PayloadTransactionAuthorizationServiceImpl service;
-
-    @Test
-    void getPayloadTransactionAuthorization_happyPath_returnsPayload() {
-        // given
-        var authorizationEntity = mock(AuthorizationEntity.class);
-        var expectedResponse = de.consorsbank.core.trauthsc.rest.api.tam.get.payload.transaction.authorization.status.model
-                .GetPayloadTransactionAuthorizationResponse.builder()
-                .transactionServicePayload(PAYLOAD_JSON)
+        return builder
+                .withDetail("tam", tamDetails)
+                .withDetail("pvm", pvmDetails)
                 .build();
-
-        when(authorizationEntity.getTransactionPayloadId()).thenReturn(TRANSACTION_PAYLOAD_ID);
-        when(authorizationRepository.findById(AUTHORIZATION_ID))
-                .thenReturn(Optional.of(authorizationEntity));
-        when(payloadVaultManager.getPayload(TRANSACTION_PAYLOAD_ID))
-                .thenReturn(PAYLOAD_JSON);
-        when(payloadTransactionAuthorizationMapper.map(PAYLOAD_JSON))
-                .thenReturn(expectedResponse);
-
-        // when
-        var result = service.getPayloadTransactionAuthorization(AUTHORIZATION_ID_STRING);
-
-        // then
-        assertEquals(expectedResponse, result);
-        assertEquals(PAYLOAD_JSON, result.getTransactionServicePayload());
-        verify(authorizationRepository).findById(AUTHORIZATION_ID);
-        verify(payloadVaultManager).getPayload(TRANSACTION_PAYLOAD_ID);
-        verify(payloadTransactionAuthorizationMapper).map(PAYLOAD_JSON);
     }
 
-    @Test
-    void getPayloadTransactionAuthorization_authorizationNotFound_throwsCommonException() {
-        // given
-        when(authorizationRepository.findById(AUTHORIZATION_ID))
-                .thenReturn(Optional.empty());
+    private Map<String, Object> checkSchema(String schemaName, DataSource dataSource) {
+        Map<String, Object> details = new LinkedHashMap<>();
+        details.put("schema", schemaName);
 
-        // when & then
-        var exception = assertThrows(CommonException.class,
-                () -> service.getPayloadTransactionAuthorization(AUTHORIZATION_ID_STRING));
+        try (Connection connection = dataSource.getConnection()) {
+            details.put("connected", true);
+            details.put("url", connection.getMetaData().getURL());
+            details.put("username", connection.getMetaData().getUserName());
+            details.put("databaseProductName", connection.getMetaData().getDatabaseProductName());
+            details.put("databaseProductVersion", connection.getMetaData().getDatabaseProductVersion());
+            details.put("validationQuery", "SELECT 1 FROM DUAL");
 
-        assertEquals(TamExceptionCode.AUTHORIZATION_NOT_FOUND, exception.getExceptionCode());
-        verifyNoInteractions(payloadVaultManager);
-        verifyNoInteractions(payloadTransactionAuthorizationMapper);
-    }
+            // Run validation query
+            try (Statement stmt = connection.createStatement();
+                 ResultSet rs = stmt.executeQuery("SELECT 1 FROM DUAL")) {
+                details.put("validationQueryResult", rs.next() ? "OK" : "FAILED");
+            }
 
-    @Test
-    void getPayloadTransactionAuthorization_invalidUuid_throwsIllegalArgumentException() {
-        // when & then
-        assertThrows(IllegalArgumentException.class,
-                () -> service.getPayloadTransactionAuthorization("not-a-valid-uuid"));
+        } catch (Exception e) {
+            log.error("[DB Monitor] Failed to connect to schema {}: {}", schemaName, e.getMessage(), e);
+            details.put("connected", false);
+            details.put("error", e.getMessage());
+        }
 
-        verifyNoInteractions(authorizationRepository);
-        verifyNoInteractions(payloadVaultManager);
-        verifyNoInteractions(payloadTransactionAuthorizationMapper);
+        return details;
     }
 }
-
 ```
 
 
 ```
-package de.consorsbank.core.trauthsc.tam.controller;
+package de.consorsbank.core.trauthsc.common.actuator;
 
-import de.consorsbank.core.trauthsc.rest.api.tam.get.payload.transaction.authorization.status.model.GetPayloadTransactionAuthorizationResponse;
-import de.consorsbank.core.trauthsc.tam.config.SecurityConfiguration;
-import de.consorsbank.core.trauthsc.tam.test.ControllerUnitTestConfig;
-import de.consorsbank.core.trauthsc.tam.test.TestUtils;
-import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.junit.jupiter.MockitoExtension;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
-import org.springframework.context.annotation.Import;
-import org.springframework.http.MediaType;
-import org.springframework.test.context.ActiveProfiles;
-import org.springframework.test.context.bean.override.mockito.MockitoBean;
-import org.springframework.test.web.servlet.MockMvc;
-
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Mockito.when;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
-
-@ExtendWith(MockitoExtension.class)
-@WebMvcTest(controllers = PayloadTransactionAuthorizationController.class)
-@Import({SecurityConfiguration.class})
-@ActiveProfiles("test")
-class PayloadTransactionAuthorizationControllerTest extends ControllerUnitTestConfig {
-
-    @Autowired
-    private MockMvc mockMvc;
-
-    @MockitoBean
-    private PayloadTransactionAuthorization payloadTransactionAuthorization;
-
-    @Test
-    void should_ReturnPayload_When_AuthorizationIdIsValid() throws Exception {
-        // given
-        when(payloadTransactionAuthorization.getPayloadTransactionAuthorization(any(String.class))).thenReturn(
-                GetPayloadTransactionAuthorizationResponse.builder()
-                        .transactionServicePayload("{\"amount\":100.00,\"currency\":\"EUR\"}")
-                        .build());
-
-        // when
-        mockMvc.perform(
-                        get(uriTemplate: "/v1/authorizations/8b146851-7ee8-4ba6-ad2b-af1724b2b5d3/payload")
-                                .contentType(MediaType.APPLICATION_JSON_VALUE)
-                                .headers(TestUtils.getAllHttpHeadersWithoutOwner(source: "get-payload-transaction-authorization")))
-                // then
-                .andExpect(status().isOk());
-    }
-
-    @Test
-    void should_ReturnBadRequest_When_RequiredHeadersAreNotPassed() throws Exception {
-        // given
-        when(payloadTransactionAuthorization.getPayloadTransactionAuthorization(any(String.class))).thenReturn(
-                GetPayloadTransactionAuthorizationResponse.builder()
-                        .transactionServicePayload("{\"amount\":100.00,\"currency\":\"EUR\"}")
-                        .build());
-
-        // when
-        mockMvc.perform(
-                        get(uriTemplate: "/v1/authorizations/8b146851-7ee8-4ba6-ad2b-af1724b2b5d3/payload")
-                                .contentType(MediaType.APPLICATION_JSON_VALUE)
-                                .headers(TestUtils.getMissingHttpHeadersWithoutOwner()))
-                // then
-                .andExpect(status().isBadRequest());
-    }
-}
-
-
-```
-
-
-
-```
-package de.consorsbank.core.trauthsc.tam.controller;
-
-import de.consorsbank.core.trauthsc.rest.api.tam.get.payload.transaction.authorization.status.model.GetPayloadTransactionAuthorizationResponse;
-
-public interface PayloadTransactionAuthorization {
-    GetPayloadTransactionAuthorizationResponse getPayloadTransactionAuthorization(String authorizationId);
-}
-
-```
-
-
-
-```
-package de.consorsbank.core.trauthsc.tam.controller;
-
-import de.consorsbank.core.trauthsc.rest.api.tam.get.payload.transaction.authorization.status.api.GetPayloadTransactionAuthorizationApi;
-import de.consorsbank.core.trauthsc.rest.api.tam.get.payload.transaction.authorization.status.model.GetPayloadTransactionAuthorizationResponse;
 import lombok.RequiredArgsConstructor;
-import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.RestController;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.boot.actuate.endpoint.annotation.Endpoint;
+import org.springframework.boot.actuate.endpoint.annotation.ReadOperation;
+import org.springframework.stereotype.Component;
 
-@RestController
+import javax.sql.DataSource;
+import java.sql.Connection;
+import java.sql.ResultSet;
+import java.sql.Statement;
+import java.time.Instant;
+import java.util.LinkedHashMap;
+import java.util.Map;
+
+/**
+ * Custom actuator endpoint exposing detailed DB connection pool info for both schemas.
+ *
+ * Exposed at: GET /actuator/dbMonitor
+ *
+ * Enable in application.yml:
+ *   management:
+ *     endpoints:
+ *       web:
+ *         exposure:
+ *           include: health, dbMonitor
+ */
+@Slf4j
+@Component
+@Endpoint(id = "dbMonitor")
 @RequiredArgsConstructor
-public class PayloadTransactionAuthorizationController implements GetPayloadTransactionAuthorizationApi {
+public class DbMonitorEndpoint {
 
-    private final PayloadTransactionAuthorization payloadTransactionAuthorization;
+    private final DataSource tamDataSource;
+    private final DataSource pvmDataSource;
 
-    @Override
-    public ResponseEntity<GetPayloadTransactionAuthorizationResponse> getPayloadTransactionAuthorization(
-            String feId, String language, String traceId, String xSourceService, String userAgent,
-            String xRequestId, String authorizationId) {
-        var response = payloadTransactionAuthorization.getPayloadTransactionAuthorization(authorizationId);
-        return ResponseEntity.ok().body(response);
+    @ReadOperation
+    public Map<String, Object> dbMonitor() {
+        Map<String, Object> report = new LinkedHashMap<>();
+        report.put("timestamp", Instant.now().toString());
+        report.put("tam", collectSchemaInfo("TAM", tamDataSource));
+        report.put("pvm", collectSchemaInfo("PVM", pvmDataSource));
+        return report;
+    }
+
+    private Map<String, Object> collectSchemaInfo(String schemaName, DataSource dataSource) {
+        Map<String, Object> info = new LinkedHashMap<>();
+        info.put("schema", schemaName);
+
+        long startTime = System.currentTimeMillis();
+
+        try (Connection connection = dataSource.getConnection()) {
+            long responseTime = System.currentTimeMillis() - startTime;
+
+            info.put("status", "UP");
+            info.put("connectionResponseTimeMs", responseTime);
+            info.put("url", connection.getMetaData().getURL());
+            info.put("username", connection.getMetaData().getUserName());
+            info.put("databaseProduct", connection.getMetaData().getDatabaseProductName()
+                    + " " + connection.getMetaData().getDatabaseProductVersion());
+            info.put("autoCommit", connection.getAutoCommit());
+            info.put("transactionIsolation", isolationLevelName(connection.getTransactionIsolation()));
+            info.put("readOnly", connection.isReadOnly());
+            info.put("catalog", connection.getCatalog());
+
+            // Session info from Oracle
+            info.put("oracleSessionInfo", queryOracleSessionInfo(connection));
+
+        } catch (Exception e) {
+            long responseTime = System.currentTimeMillis() - startTime;
+            log.error("[DbMonitor] Error connecting to schema {}: {}", schemaName, e.getMessage(), e);
+            info.put("status", "DOWN");
+            info.put("connectionResponseTimeMs", responseTime);
+            info.put("error", e.getMessage());
+        }
+
+        return info;
+    }
+
+    private Map<String, Object> queryOracleSessionInfo(Connection connection) {
+        Map<String, Object> sessionInfo = new LinkedHashMap<>();
+        try (Statement stmt = connection.createStatement();
+             ResultSet rs = stmt.executeQuery(
+                     "SELECT SYS_CONTEXT('USERENV','SESSION_USER') AS session_user, " +
+                     "SYS_CONTEXT('USERENV','DB_NAME') AS db_name, " +
+                     "SYS_CONTEXT('USERENV','SERVER_HOST') AS server_host, " +
+                     "SYS_CONTEXT('USERENV','INSTANCE_NAME') AS instance_name " +
+                     "FROM DUAL"
+             )) {
+            if (rs.next()) {
+                sessionInfo.put("sessionUser", rs.getString("session_user"));
+                sessionInfo.put("dbName", rs.getString("db_name"));
+                sessionInfo.put("serverHost", rs.getString("server_host"));
+                sessionInfo.put("instanceName", rs.getString("instance_name"));
+            }
+        } catch (Exception e) {
+            log.warn("[DbMonitor] Could not fetch Oracle session info: {}", e.getMessage());
+            sessionInfo.put("error", e.getMessage());
+        }
+        return sessionInfo;
+    }
+
+    private String isolationLevelName(int level) {
+        return switch (level) {
+            case Connection.TRANSACTION_NONE -> "NONE";
+            case Connection.TRANSACTION_READ_UNCOMMITTED -> "READ_UNCOMMITTED";
+            case Connection.TRANSACTION_READ_COMMITTED -> "READ_COMMITTED";
+            case Connection.TRANSACTION_REPEATABLE_READ -> "REPEATABLE_READ";
+            case Connection.TRANSACTION_SERIALIZABLE -> "SERIALIZABLE";
+            default -> "UNKNOWN(" + level + ")";
+        };
     }
 }
-
-```
-
-```
-package de.consorsbank.core.trauthsc.tam.core.payloadtransactionauthorization.mapper;
-
-import de.consorsbank.core.trauthsc.rest.api.tam.get.payload.transaction.authorization.status.model.GetPayloadTransactionAuthorizationResponse;
-import org.mapstruct.Mapper;
-import org.mapstruct.Mapping;
-
-@Mapper(componentModel = "spring")
-public interface PayloadTransactionAuthorizationMapper {
-
-    @Mapping(source = "payload", target = "transactionServicePayload")
-    GetPayloadTransactionAuthorizationResponse toResponse(String payload);
-
-    default GetPayloadTransactionAuthorizationResponse map(String payload) {
-        return GetPayloadTransactionAuthorizationResponse.builder()
-                .transactionServicePayload(payload)
-                .build();
-    }
-}
-
-
-```
-
-
-```
-package de.consorsbank.core.trauthsc.rest.api.tam.get.payload.transaction.authorization.status.model;
-
-import lombok.AllArgsConstructor;
-import lombok.Builder;
-import lombok.Data;
-import lombok.NoArgsConstructor;
-
-@Data
-@Builder
-@NoArgsConstructor
-@AllArgsConstructor
-public class GetPayloadTransactionAuthorizationResponse {
-
-    private String transactionServicePayload;
-}
-
-```
-```
-
-import org.springframework.cloud.contract.spec.Contract
-
-[
-    Contract.make {
-        priority( priority: 1)
-        description( description: """
-        Represents a successful scenario for getting payload transaction authorization
-        ...
-        given:
-            authorizationId : any
-        when:
-            api request to get payload transaction authorization
-        then:
-            return OK with GetPayloadTransactionAuthorizationResponse
-        ...
-        """)
-        request {
-            method method: 'GET'
-            urlPath($(consumer(regex( regex: '/v1/authorizations/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/payload'))))
-            headers {
-                header 'FeId': value(consumer(regex( regex: '.+')), producer( serverValue: 'WEB'))
-                header 'Language': value(consumer(regex( regex: '.+')), producer( serverValue: 'DE'))
-                header 'TraceId': value(consumer(regex( regex: '.+')), producer( serverValue: 'traceId'))
-                header 'User-Agent': value(consumer(regex( regex: '.+')), producer( serverValue: 'User-Agent'))
-                header 'x-source-service': value(consumer(regex( regex: '.+')), producer( serverValue: 'xSourceService'))
-                header 'x-request-id': value(consumer(regex( regex: '.+')), producer( serverValue: '123456'))
-            }
-        }
-        response {
-            status OK()
-            headers {
-                header 'x-correlation-id': fromRequest().header( key: "x-request-id")
-                contentType applicationJson()
-            }
-            body(
-                    "transactionServicePayload": "{\"amount\":100.00,\"currency\":\"EUR\"}"
-            )
-        }
-    }
-]
-
-```
-
-
-
-```
-import org.springframework.cloud.contract.spec.Contract
-
-[
-    Contract.make {
-        priority( priority: 10)
-        description( description: """
-        Represents a failure scenario for getting payload transaction authorization
-        ...
-        given:
-            authorizationId : any
-        when:
-            api request to get payload transaction authorization
-        then:
-            return BAD_REQUEST
-        ...
-        """)
-        request {
-            method method: 'GET'
-            urlPath($(consumer(regex( regex: '/v1/authorizations/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/payload'))))
-            headers {
-                header 'FeId': value(consumer(regex( regex: '.+')), producer( serverValue: 'WEB'))
-                header 'Language': value(consumer(regex( regex: '.+')), producer( serverValue: 'DE'))
-                header 'TraceId': value(consumer(regex( regex: '.+')), producer( serverValue: 'traceId'))
-                header 'User-Agent': value(consumer(regex( regex: '.+')), producer( serverValue: 'User-Agent'))
-                header 'x-request-id': value(consumer(regex( regex: '.+')), producer( serverValue: '123456'))
-            }
-        }
-        response {
-            status BAD_REQUEST()
-            headers {
-                header 'x-correlation-id': fromRequest().header( key: "x-request-id")
-                contentType applicationJson()
-            }
-            body(
-                    "code": "",
-                    "detail": "Required request header 'x-source-service' for method parameter type String is not present",
-                    "errors": [],
-                    "status": "400",
-                    "title": "Header x-source-service is required"
-            )
-        }
-    }
-]
-
 ```
