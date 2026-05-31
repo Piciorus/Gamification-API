@@ -1,94 +1,92 @@
-# Getting Started
-
-## Local development
-
-### With Docker Compose (recommended)
-
-1. Start all dependencies:
-```bash
-cd ./docker-compose
-docker compose up -d
 ```
 
-2. Wait for all services to be healthy (Oracle takes ~90s on first start):
-```bash
-docker compose ps
+package de.consorsbank.core.trauthsc.pvm.service;
+
+import de.consorsbank.core.trauthsc.pvm.mapper.PayloadVaultMapper;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
+import org.springframework.stereotype.Service;
+
+import javax.crypto.Cipher;
+import javax.crypto.spec.GCMParameterSpec;
+import javax.crypto.spec.SecretKeySpec;
+import java.nio.charset.StandardCharsets;
+import java.security.SecureRandom;
+import java.util.Base64;
+import java.util.Map;
+
+@Service
+@ConditionalOnProperty(
+        name = "spring.vault.enabled",
+        havingValue = "false",
+        matchIfMissing = true
+)
+@RequiredArgsConstructor
+@Slf4j
+public class LocalTransitServiceImpl implements VaultTransitService {
+
+    private static final int GCM_IV_LENGTH = 12;
+    private static final int GCM_TAG_LENGTH = 128;
+    private static final String AES_GCM = "AES/GCM/NoPadding";
+    private static final SecureRandom SECURE_RANDOM = new SecureRandom();
+
+    @Value("${local.encryption.key:localDevKeyMustBe32CharactersLon}")
+    private String encryptionKey;
+
+    @Override
+    public Map<String, String> encrypt(byte[] payload) {
+        try {
+            byte[] iv = new byte[GCM_IV_LENGTH];
+            SECURE_RANDOM.nextBytes(iv);
+
+            var cipher = initCipher(Cipher.ENCRYPT_MODE, iv);
+            byte[] encrypted = cipher.doFinal(payload);
+
+            // Prepend IV to ciphertext
+            byte[] encryptedWithIv = new byte[GCM_IV_LENGTH + encrypted.length];
+            System.arraycopy(iv, 0, encryptedWithIv, 0, GCM_IV_LENGTH);
+            System.arraycopy(encrypted, 0, encryptedWithIv, GCM_IV_LENGTH, encrypted.length);
+
+            return Map.of(
+                PayloadVaultMapper.CIPHER_TEXT, 
+                Base64.getEncoder().encodeToString(encryptedWithIv),
+                PayloadVaultMapper.HMAC, "local-hmac"
+            );
+        } catch (Exception e) {
+            throw new RuntimeException("Local encryption failed", e);
+        }
+    }
+
+    @Override
+    public Map<String, String> decrypt(byte[] payload, int encryptedKeyVersion) {
+        try {
+            byte[] decoded = Base64.getDecoder().decode(payload);
+
+            // Extract IV from first 12 bytes
+            byte[] iv = new byte[GCM_IV_LENGTH];
+            System.arraycopy(decoded, 0, iv, 0, GCM_IV_LENGTH);
+            byte[] cipherText = new byte[decoded.length - GCM_IV_LENGTH];
+            System.arraycopy(decoded, GCM_IV_LENGTH, cipherText, 0, cipherText.length);
+
+            var cipher = initCipher(Cipher.DECRYPT_MODE, iv);
+            return Map.of(
+                PayloadVaultMapper.DECRYPT_CIPHER_TEXT,
+                new String(cipher.doFinal(cipherText), StandardCharsets.UTF_8),
+                PayloadVaultMapper.HMAC, "local-hmac"
+            );
+        } catch (Exception e) {
+            throw new RuntimeException("Local decryption failed", e);
+        }
+    }
+
+    private Cipher initCipher(int mode, byte[] iv) throws Exception {
+        var key = new SecretKeySpec(
+            encryptionKey.getBytes(StandardCharsets.UTF_8), "AES");
+        var cipher = Cipher.getInstance(AES_GCM);
+        cipher.init(mode, key, new GCMParameterSpec(GCM_TAG_LENGTH, iv));
+        return cipher;
+    }
+}
 ```
-
-3. Start the application with profile `local-development-non-ssl-with-compose`
-
-4. To reset everything (clean DB + volumes):
-```bash
-docker compose down -v
-docker compose up -d
-```
-
-> **Note:** On first run Oracle will execute init scripts automatically (create users, grants). No manual DB setup needed.
-
-> **Note:** Vault is **disabled by default** in this profile. Encryption uses local AES. To enable Vault, set `spring.vault.enabled=true` and start the `hvault` service:
-> ```bash
-> docker compose up -d hvault
-> ```
-
----
-
-### With local DB (alternative)
-
-1. Start local Docker
-2. Start Oracle:
-```bash
-docker run -d --name oracle-local-trauth -p 1521:1521 -e ORACLE_PASSWORD=12345 gvenzl/oracle-xe:21-slim-faststart
-```
-3. Create local database with name `oracle-local-trauth`
-4. Start the application with profile `local-development-non-ssl`
-
----
-
-### With Vault (optional)
-
-#### Option 1 — via Docker Compose
-```bash
-cd ./docker-compose
-docker compose up -d hvault
-```
-
-#### Option 2 — via brew
-```bash
-brew tap hashicorp/tap
-brew install hashicorp/tap/vault
-vault server -dev
-```
-
-Then run:
-```bash
-export VAULT_ADDR='http://127.0.0.1:8200'
-vault secrets list
-vault secrets enable transit
-vault kv put secret/data/local/trauth-sc/credentials encryptionKey=abc
-vault kv get secret/data/local/trauth-sc/credentials
-```
-
-Set `spring.vault.enabled=true` in your local profile yaml.
-
----
-
-## Swagger
-
-http://localhost:8323/svc/trauth/swagger-ui/index.html
-
----
-
-## Nexus Credentials Update
-
-...
-
----
-
-## Profiles
-
-| Profile | DB | Vault | Use case |
-|---|---|---|---|
-| `local-development-non-ssl-with-compose` | Docker Oracle | disabled | Docker Compose |
-| `local-development-non-ssl` | Local Oracle | disabled | Manual setup |
-| `local-development-ssl` | Local Oracle | disabled | SSL local |
-| `openshift-d0/d1/...` | OpenShift Oracle | enabled | Server |
