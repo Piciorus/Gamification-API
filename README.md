@@ -1,25 +1,22 @@
 ```
 @Service
 @ConditionalOnProperty(
-    name = "spring.vault.enabled", 
-    havingValue = "false", 
+    name = "spring.vault.enabled",
+    havingValue = "false",
     matchIfMissing = true
 )
 @RequiredArgsConstructor
 @Slf4j
 public class LocalTransitServiceImpl implements VaultTransitService {
 
-    @Value("${local.encryption.key:localDevKeyMustBe32CharactersLong}")
+    @Value("${local.encryption.key:localDevKeyMustBe32CharactersLong!}")
     private String encryptionKey;
 
     @Override
     public Map<String, String> encrypt(byte[] payload) {
         try {
-            SecretKeySpec key = new SecretKeySpec(
-                encryptionKey.getBytes(), "AES");
-            Cipher cipher = Cipher.getInstance("AES/ECB/PKCS5Padding");
-            cipher.init(Cipher.ENCRYPT_MODE, key);
-            String cipherText = Base64.getEncoder()
+            var cipher = initCipher(Cipher.ENCRYPT_MODE);
+            var cipherText = Base64.getEncoder()
                 .encodeToString(cipher.doFinal(payload));
             return Map.of(
                 PayloadVaultMapper.CIPHER_TEXT, cipherText,
@@ -31,18 +28,26 @@ public class LocalTransitServiceImpl implements VaultTransitService {
     }
 
     @Override
-    public String decrypt(String cipherText, String keyVersion) {
+    public Map<String, String> decrypt(byte[] payload, int encryptedKeyVersion) {
         try {
-            SecretKeySpec key = new SecretKeySpec(
-                encryptionKey.getBytes(), "AES");
-            Cipher cipher = Cipher.getInstance("AES/ECB/PKCS5Padding");
-            cipher.init(Cipher.DECRYPT_MODE, key);
-            byte[] decrypted = cipher.doFinal(
-                Base64.getDecoder().decode(cipherText));
-            return new String(decrypted);
+            var cipher = initCipher(Cipher.DECRYPT_MODE);
+            var decrypted = new String(cipher.doFinal(
+                Base64.getDecoder().decode(payload)));
+            return Map.of(
+                PayloadVaultMapper.DECRYPT_CIPHER_TEXT, decrypted,
+                PayloadVaultMapper.HMAC, "local-hmac"
+            );
         } catch (Exception e) {
             throw new RuntimeException("Local decryption failed", e);
         }
+    }
+
+    private Cipher initCipher(int mode) throws Exception {
+        var key = new SecretKeySpec(
+            encryptionKey.getBytes(StandardCharsets.UTF_8), "AES");
+        var cipher = Cipher.getInstance("AES/ECB/PKCS5Padding");
+        cipher.init(mode, key);
+        return cipher;
     }
 }
 ```
