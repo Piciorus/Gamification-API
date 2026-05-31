@@ -1,28 +1,82 @@
 ```
+@Service
+@ConditionalOnProperty(
+    name = "spring.vault.enabled", 
+    havingValue = "false", 
+    matchIfMissing = true
+)
+@RequiredArgsConstructor
+@Slf4j
+public class LocalTransitServiceImpl implements VaultTransitService {
 
-docker exec -it oracle sqlplus sys/12345@XEPDB1 as sysdba
+    @Value("${local.encryption.key:localDevKeyMustBe32CharactersLong}")
+    private String encryptionKey;
 
--- check grants
-SELECT grantee, privilege, table_name 
-FROM dba_tab_privs 
-WHERE grantee IN ('TAM', 'PVM')
-AND table_name IN ('DBA_PENDING_TRANSACTIONS', 'PENDING_TRANS$', 'DBA_2PC_PENDING');
+    @Override
+    public Map<String, String> encrypt(byte[] payload) {
+        try {
+            SecretKeySpec key = new SecretKeySpec(
+                encryptionKey.getBytes(), "AES");
+            Cipher cipher = Cipher.getInstance("AES/ECB/PKCS5Padding");
+            cipher.init(Cipher.ENCRYPT_MODE, key);
+            String cipherText = Base64.getEncoder()
+                .encodeToString(cipher.doFinal(payload));
+            return Map.of(
+                PayloadVaultMapper.CIPHER_TEXT, cipherText,
+                PayloadVaultMapper.HMAC, "local-hmac"
+            );
+        } catch (Exception e) {
+            throw new RuntimeException("Local encryption failed", e);
+        }
+    }
 
-SELECT grantee, privilege 
-FROM dba_sys_privs 
-WHERE grantee IN ('TAM', 'PVM');
+    @Override
+    public String decrypt(String cipherText, String keyVersion) {
+        try {
+            SecretKeySpec key = new SecretKeySpec(
+                encryptionKey.getBytes(), "AES");
+            Cipher cipher = Cipher.getInstance("AES/ECB/PKCS5Padding");
+            cipher.init(Cipher.DECRYPT_MODE, key);
+            byte[] decrypted = cipher.doFinal(
+                Base64.getDecoder().decode(cipherText));
+            return new String(decrypted);
+        } catch (Exception e) {
+            throw new RuntimeException("Local decryption failed", e);
+        }
+    }
+}
+```
 
 
+```
+@Service
+@ConditionalOnProperty(name = "spring.vault.enabled", havingValue = "true")
+@RequiredArgsConstructor
+@Slf4j
+public class VaultTransitServiceImpl implements VaultTransitService {
+    // existing code unchanged
+}
+```
 
-GRANT SELECT ON sys.dba_pending_transactions TO your_db_user;
-GRANT SELECT ON sys.pending_trans$ TO your_db_user;
-GRANT SELECT ON sys.dba_2pc_pending TO your_db_user;
-GRANT EXECUTE ON sys.dbms_xa TO your_db_user;
 
+```
+spring:
+  vault:
+    enabled: false
 
-GRANT SELECT ON sys.dba_pending_transactions TO your_user;
-GRANT SELECT ON sys.pending_trans$ TO your_user;
-GRANT SELECT ON sys.dba_2pc_pending TO your_user;
-GRANT EXECUTE ON sys.dbms_xa TO your_user;
+local:
+  encryption:
+    key: localDevKeyMustBe32CharactersLong  # exactly 32 chars for AES-256
+```
 
+```
+@Service
+@ConditionalOnProperty(name = "spring.vault.enabled", havingValue = "false", matchIfMissing = true)
+public class LocalSecretReaderServiceImpl implements KvSecretReaderService {
+    @Override
+    public String readSecretValue(String key) {
+        // return dummy value locally or read from application.yaml
+        return "local-secret-" + key;
+    }
+}
 ```
