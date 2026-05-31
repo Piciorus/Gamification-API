@@ -1,27 +1,6 @@
 ```
-<springProperty scope="context" name="LOGSTASH_ENABLED"
-                source="logging.logstash.enabled"
-                default="false"/>
-
-<!-- Appender only created if enabled -->
-<if condition='property("LOGSTASH_ENABLED").equals("true")'>
-    <then>
-        <appender name="LOGSTASH_ASYNC" class="ch.qos.logback.classic.AsyncAppender">
-            <queueSize>10000</queueSize>
-            <discardingThreshold>0</discardingThreshold>
-            <neverBlock>true</neverBlock>
-            <appender-ref ref="LOGSTASH_TCP_DMZR"/>
-        </appender>
-    </then>
-</if>
-
-<root level="info">
-    <appender-ref ref="ENRICHED_CONSOLE_DMZR"/>
-    <if condition='property("LOGSTASH_ENABLED").equals("true")'>
-        <then>
-            <appender-ref ref="LOGSTASH_ASYNC"/>
-        </then>
-    </if>
-</root>
-
+GRANT SELECT ON sys.dba_pending_transactions TO your_db_user;
+GRANT SELECT ON sys.pending_trans$ TO your_db_user;
+GRANT SELECT ON sys.dba_2pc_pending TO your_db_user;
+GRANT EXECUTE ON sys.dbms_xa TO your_db_user;
 ```
