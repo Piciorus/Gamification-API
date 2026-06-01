@@ -1,110 +1,141 @@
 ```
-package de.consorsbank.core.trauthsc.pvm.service;
+@Service
+@RequiredArgsConstructor
+@Slf4j
+public class SubmitAuthorizationMethodServiceImpl implements SubmitAuthorizationMethodService {
 
-import de.consorsbank.core.trauthsc.pvm.mapper.PayloadVaultMapper;
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Test;
-import org.springframework.test.util.ReflectionTestUtils;
+    private final AuthorizationEngineService authorizationEngineService;
+    private final SubmitAuthorizationMethodMapper submitAuthorizationMethodMapper;
+    private final RequestSpecificData requestSpecificData;
+    private final Map<UUID, AuthorizationMethodEnum> attemptIdToAuthMethod;
 
-import java.nio.charset.StandardCharsets;
-import java.util.Map;
+    private final AuthorizationRepository authorizationRepository;
+    private final AuthorizationAttemptRepository authorizationAttemptRepository;
 
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
+    @Override
+    public SubmitAuthorizationMethodResponse submitAuthorization(
+            String authorizationId,
+            SubmitAuthorizationMethodRequest submitAuthorizationMethodRequest) {
 
-class LocalTransitServiceImplTest {
+        UUID attemptId = UUID.randomUUID();
 
-    private LocalTransitServiceImpl service;
+        // Map the incoming method to enum for internal use
+        switch (submitAuthorizationMethodRequest.getAuthorizationMethod()) {
+            case TAN_FROM_GENERATOR:
+                attemptIdToAuthMethod.put(attemptId, AuthorizationMethodEnum.TAN_FROM_GENERATOR);
+                break;
+            case TAN_FROM_NEOAPP:
+                attemptIdToAuthMethod.put(attemptId, AuthorizationMethodEnum.TAN_FROM_NEOAPP);
+                break;
+            case QRCODE_FROM_GENERATOR:
+                attemptIdToAuthMethod.put(attemptId, AuthorizationMethodEnum.QRCODE_FROM_GENERATOR);
+                break;
+            case PUSH_NOTIFICATION_FORM_NEO_APP:
+                attemptIdToAuthMethod.put(attemptId, AuthorizationMethodEnum.PUSH_NOTIFICATION_FORM_NEO_APP);
+                break;
+            case NEO_SECURE_SIGNATURE_UNBOUND:
+                attemptIdToAuthMethod.put(attemptId, AuthorizationMethodEnum.NEO_SECURE_SIGNATURE_UNBOUND);
+                break;
+            case NEO_SECURE_SIGNATURE_BOUND:
+                attemptIdToAuthMethod.put(attemptId, AuthorizationMethodEnum.NEO_SECURE_SIGNATURE_BOUND);
+                break;
+        }
 
-    private static final String TEST_KEY = "localDevKeyMustBe32CharactersLon";
-    private static final String TEST_PAYLOAD = "test-payload-data";
+        // Step 1: Check if authorization method is allowed for current service
+        AuthorizationEntity authorizationEntity = authorizationRepository
+                .findById(UUID.fromString(authorizationId))
+                .orElseThrow(() -> new RuntimeException("AuthorizationEntity not found for id: " + authorizationId));
 
-    @BeforeEach
-    void setUp() {
-        service = new LocalTransitServiceImpl();
-        ReflectionTestUtils.setField(service, "encryptionKey", TEST_KEY);
-    }
+        ServiceEntity serviceEntity = authorizationEntity.getServiceEntity();
+        AuthorizationMethodEnum requestedMethodEnum = submitAuthorizationMethodMapper
+                .authorizationMethodToAuthorizationMethodEnum(
+                        submitAuthorizationMethodRequest.getAuthorizationMethod());
 
-    @Test
-    void encrypt_shouldReturnCipherTextAndHmac() {
-        // when
-        var result = service.encrypt(TEST_PAYLOAD.getBytes(StandardCharsets.UTF_8));
+        boolean methodAllowedForService = serviceEntity.getAuthorizationMethodEntities()
+                .stream()
+                .anyMatch(m -> m.getName().equals(requestedMethodEnum.name()));
 
-        // then
-        assertThat(result).containsKey(PayloadVaultMapper.CIPHER_TEXT);
-        assertThat(result).containsKey(PayloadVaultMapper.HMAC);
-        assertThat(result.get(PayloadVaultMapper.CIPHER_TEXT)).isNotBlank();
-        assertThat(result.get(PayloadVaultMapper.CIPHER_TEXT))
-            .isNotEqualTo(TEST_PAYLOAD);
-    }
+        if (!methodAllowedForService) {
+            throw new RuntimeException("Authorization method not allowed for this service: "
+                    + requestedMethodEnum);
+        }
 
-    @Test
-    void encrypt_shouldProduceDifferentCipherTextEachTime() {
-        // GCM uses random IV so same plaintext = different ciphertext
-        var result1 = service.encrypt(TEST_PAYLOAD.getBytes(StandardCharsets.UTF_8));
-        var result2 = service.encrypt(TEST_PAYLOAD.getBytes(StandardCharsets.UTF_8));
+        // Step 2: AuthorizationEntity already fetched above — exists check done via orElseThrow
 
-        assertThat(result1.get(PayloadVaultMapper.CIPHER_TEXT))
-            .isNotEqualTo(result2.get(PayloadVaultMapper.CIPHER_TEXT));
-    }
+        // Step 3: Check if status of AuthorizationEntity permits the authorization attempt
+        if (authorizationEntity.getStatus() != AuthorizationStatusEnum.INITIATED
+                && authorizationEntity.getStatus() != AuthorizationStatusEnum.PENDING) {
+            throw new RuntimeException("Authorization status does not permit a new attempt: "
+                    + authorizationEntity.getStatus());
+        }
 
-    @Test
-    void decrypt_shouldReturnOriginalPayload() {
-        // given
-        var encrypted = service.encrypt(TEST_PAYLOAD.getBytes(StandardCharsets.UTF_8));
-        byte[] cipherBytes = encrypted.get(PayloadVaultMapper.CIPHER_TEXT)
-            .getBytes(StandardCharsets.UTF_8);
+        // Step 4: Check if the same method already exists / handle QR and push notif special cases
+        List<AuthorizationAttemptEntity> existingAttempts = authorizationAttemptRepository
+                .findByAuthorizationIdWithMethod(authorizationEntity.getId());
 
-        // when
-        var result = service.decrypt(cipherBytes, 1);
+        boolean sameMethodExists = existingAttempts.stream()
+                .anyMatch(a -> a.getAuthorizationMethodEntity().getName()
+                        .equals(requestedMethodEnum.name()));
 
-        // then
-        assertThat(result.get(PayloadVaultMapper.DECRYPT_CIPHER_TEXT))
-            .isEqualTo(TEST_PAYLOAD);
-    }
+        if (sameMethodExists) {
+            throw new RuntimeException("An attempt with the same authorization method already exists.");
+        }
 
-    @Test
-    void decrypt_shouldReturnHmac() {
-        // given
-        var encrypted = service.encrypt(TEST_PAYLOAD.getBytes(StandardCharsets.UTF_8));
-        byte[] cipherBytes = encrypted.get(PayloadVaultMapper.CIPHER_TEXT)
-            .getBytes(StandardCharsets.UTF_8);
+        // Special case: QR and push notif cannot coexist with other active attempts
+        boolean isQrOrPush = requestedMethodEnum == AuthorizationMethodEnum.QRCODE_FROM_GENERATOR
+                || requestedMethodEnum == AuthorizationMethodEnum.PUSH_NOTIFICATION_FORM_NEO_APP;
 
-        // when
-        var result = service.decrypt(cipherBytes, 1);
+        if (isQrOrPush && !existingAttempts.isEmpty()) {
+            throw new RuntimeException("QR/Push notification method cannot be combined with other active attempts.");
+        }
 
-        // then
-        assertThat(result).containsKey(PayloadVaultMapper.HMAC);
-        assertThat(result.get(PayloadVaultMapper.HMAC)).isNotBlank();
-    }
+        // Step 5: Call authorization engine (preliminary if 2-step, inline otherwise)
+        if (authorizationEngineService.shouldPerformPreliminaryAuthorization(requestedMethodEnum)) {
+            PreliminaryAuthorizationRequest preliminaryAuthorizationRequest =
+                    submitAuthorizationMethodMapper
+                            .submitAuthorizationMethodRequestToPreliminaryAuthorizationRequest(
+                                    submitAuthorizationMethodRequest);
 
-    @Test
-    void decrypt_shouldIgnoreKeyVersion() {
-        // key version is irrelevant for local impl
-        var encrypted = service.encrypt(TEST_PAYLOAD.getBytes(StandardCharsets.UTF_8));
-        byte[] cipherBytes = encrypted.get(PayloadVaultMapper.CIPHER_TEXT)
-            .getBytes(StandardCharsets.UTF_8);
+            PreliminaryAuthorizationResponse preliminaryAuthorizationResponse =
+                    authorizationEngineService.preliminaryAuthorizationSubmission(
+                            preliminaryAuthorizationRequest);
 
-        var result1 = service.decrypt(cipherBytes, 1);
-        var result2 = service.decrypt(cipherBytes, 99);
+            // Step 6 (QR case): Save attempt entity with INITIATED status, return QR data
+            if (submitAuthorizationMethodRequest.getAuthorizationMethod()
+                    == AuthorizationMethod.QRCODE_FROM_GENERATOR) {
 
-        assertThat(result1.get(PayloadVaultMapper.DECRYPT_CIPHER_TEXT))
-            .isEqualTo(result2.get(PayloadVaultMapper.DECRYPT_CIPHER_TEXT));
-    }
+                AuthorizationAttemptEntity attemptEntity = new AuthorizationAttemptEntity();
+                attemptEntity.setExternalId(attemptId);
+                attemptEntity.setAuthorizationEntity(authorizationEntity);
+                attemptEntity.setStatus(AuthorizationAttemptStatusEnum.INITIATED);
+                authorizationAttemptRepository.save(attemptEntity);
 
-    @Test
-    void decrypt_withInvalidPayload_shouldThrowRuntimeException() {
-        assertThatThrownBy(() ->
-            service.decrypt("invalid-base64!!!".getBytes(StandardCharsets.UTF_8), 1))
-            .isInstanceOf(RuntimeException.class)
-            .hasMessageContaining("Local decryption failed");
-    }
+                SubmitAuthorizationMethodWithQrDataResponse response =
+                        new SubmitAuthorizationMethodWithQrDataResponse();
+                response.setAuthorizationAttemptStatus(AuthorizationAttemptStatus.INITIATED);
+                response.setQrCode(preliminaryAuthorizationResponse.image());
+                response.setQrCodePayload(preliminaryAuthorizationResponse.payload());
+                response.setQrCodeCreatedAt(
+                        OffsetDateTime.parse(preliminaryAuthorizationResponse.createdAt()));
+                response.setQrCodeValidTo(
+                        OffsetDateTime.parse(preliminaryAuthorizationResponse.validBy()));
 
-    @Test
-    void encrypt_withEmptyPayload_shouldStillEncrypt() {
-        var result = service.encrypt(new byte[0]);
+                return response;
+            }
+        }
 
-        assertThat(result.get(PayloadVaultMapper.CIPHER_TEXT)).isNotBlank();
+        // Step 6: Save attempt entity and update AuthorizationEntity status for non-QR flows
+        AuthorizationAttemptEntity attemptEntity = new AuthorizationAttemptEntity();
+        attemptEntity.setExternalId(attemptId);
+        attemptEntity.setAuthorizationEntity(authorizationEntity);
+        attemptEntity.setStatus(AuthorizationAttemptStatusEnum.INITIATED);
+        authorizationAttemptRepository.save(attemptEntity);
+
+        authorizationEntity.setStatus(AuthorizationStatusEnum.PENDING);
+        authorizationRepository.save(authorizationEntity);
+
+        return new SubmitAuthorizationMethodWithBaseFieldsResponse(AuthorizationAttemptStatus.INITIATED);
     }
 }
+
 ```
