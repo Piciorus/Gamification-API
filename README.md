@@ -8,7 +8,6 @@ public class SubmitAuthorizationMethodServiceImpl implements SubmitAuthorization
     private final SubmitAuthorizationMethodMapper submitAuthorizationMethodMapper;
     private final RequestSpecificData requestSpecificData;
     private final Map<UUID, AuthorizationMethodEnum> attemptIdToAuthMethod;
-
     private final AuthorizationRepository authorizationRepository;
     private final AuthorizationAttemptRepository authorizationAttemptRepository;
 
@@ -19,7 +18,6 @@ public class SubmitAuthorizationMethodServiceImpl implements SubmitAuthorization
 
         UUID attemptId = UUID.randomUUID();
 
-        // Map the incoming method to enum for internal use
         switch (submitAuthorizationMethodRequest.getAuthorizationMethod()) {
             case TAN_FROM_GENERATOR:
                 attemptIdToAuthMethod.put(attemptId, AuthorizationMethodEnum.TAN_FROM_GENERATOR);
@@ -41,35 +39,35 @@ public class SubmitAuthorizationMethodServiceImpl implements SubmitAuthorization
                 break;
         }
 
-        // Step 1: Check if authorization method is allowed for current service
+        // Step 1 & 2: Check if AuthorizationEntity exists and method is allowed for service
         AuthorizationEntity authorizationEntity = authorizationRepository
                 .findById(UUID.fromString(authorizationId))
-                .orElseThrow(() -> new RuntimeException("AuthorizationEntity not found for id: " + authorizationId));
+                .orElseThrow(() -> new RuntimeException(
+                        "AuthorizationEntity not found for id: " + authorizationId));
 
-        ServiceEntity serviceEntity = authorizationEntity.getServiceEntity();
         AuthorizationMethodEnum requestedMethodEnum = submitAuthorizationMethodMapper
                 .authorizationMethodToAuthorizationMethodEnum(
                         submitAuthorizationMethodRequest.getAuthorizationMethod());
 
+        ServiceEntity serviceEntity = authorizationEntity.getServiceEntity();
         boolean methodAllowedForService = serviceEntity.getAuthorizationMethodEntities()
                 .stream()
                 .anyMatch(m -> m.getName().equals(requestedMethodEnum.name()));
 
         if (!methodAllowedForService) {
-            throw new RuntimeException("Authorization method not allowed for this service: "
-                    + requestedMethodEnum);
+            throw new RuntimeException(
+                    "Authorization method not allowed for this service: " + requestedMethodEnum);
         }
 
-        // Step 2: AuthorizationEntity already fetched above — exists check done via orElseThrow
-
-        // Step 3: Check if status of AuthorizationEntity permits the authorization attempt
+        // Step 3: Check if status permits the authorization attempt
         if (authorizationEntity.getStatus() != AuthorizationStatusEnum.INITIATED
                 && authorizationEntity.getStatus() != AuthorizationStatusEnum.PENDING) {
-            throw new RuntimeException("Authorization status does not permit a new attempt: "
-                    + authorizationEntity.getStatus());
+            throw new RuntimeException(
+                    "Authorization status does not permit a new attempt: "
+                            + authorizationEntity.getStatus());
         }
 
-        // Step 4: Check if the same method already exists / handle QR and push notif special cases
+        // Step 4: Check if same method already exists; special case for QR and push notif
         List<AuthorizationAttemptEntity> existingAttempts = authorizationAttemptRepository
                 .findByAuthorizationIdWithMethod(authorizationEntity.getId());
 
@@ -78,29 +76,54 @@ public class SubmitAuthorizationMethodServiceImpl implements SubmitAuthorization
                         .equals(requestedMethodEnum.name()));
 
         if (sameMethodExists) {
-            throw new RuntimeException("An attempt with the same authorization method already exists.");
+            throw new RuntimeException(
+                    "An attempt with the same authorization method already exists.");
         }
 
-        // Special case: QR and push notif cannot coexist with other active attempts
         boolean isQrOrPush = requestedMethodEnum == AuthorizationMethodEnum.QRCODE_FROM_GENERATOR
                 || requestedMethodEnum == AuthorizationMethodEnum.PUSH_NOTIFICATION_FORM_NEO_APP;
 
         if (isQrOrPush && !existingAttempts.isEmpty()) {
-            throw new RuntimeException("QR/Push notification method cannot be combined with other active attempts.");
+            throw new RuntimeException(
+                    "QR/Push notification method cannot be combined with other active attempts.");
         }
 
-        // Step 5: Call authorization engine (preliminary if 2-step, inline otherwise)
+        // Step 5: Build preliminary request arguments
+        String template = "{\"metadata\":{\"supportedLanguages\":[\"de\"],"
+                + "\"defaultLanguage\":\"de\",\"frontendId\":\"WEB\","
+                + "\"credentialFlow\":\"SIGNATURE\"}";
+
+        Map<String, String> dataMap = new HashMap<>();
+        dataMap.put("ACCOUNT_NUMBER_IBAN", "DE09701204008402740008");
+        dataMap.put("AMOUNT_VALUE", "1");
+
+        TamOrderTypeEnum orderType = TamOrderTypeEnum.SEPA_PAYMENT_2;
+        TamLanguageEnum language = TamLanguageEnum.DE;
+        int validityDuration = 1200;
+        int size = 300;
+
+        // Step 5: Call authorization engine (2-step preliminary or inline)
         if (authorizationEngineService.shouldPerformPreliminaryAuthorization(requestedMethodEnum)) {
+
             PreliminaryAuthorizationRequest preliminaryAuthorizationRequest =
                     submitAuthorizationMethodMapper
                             .submitAuthorizationMethodRequestToPreliminaryAuthorizationRequest(
-                                    submitAuthorizationMethodRequest);
+                                    submitAuthorizationMethodRequest,
+                                    requestSpecificData,
+                                    template,
+                                    authorizationEntity.getTransactionId().toString(),
+                                    dataMap,
+                                    orderType,
+                                    language,
+                                    validityDuration,
+                                    size
+                            );
 
             PreliminaryAuthorizationResponse preliminaryAuthorizationResponse =
                     authorizationEngineService.preliminaryAuthorizationSubmission(
                             preliminaryAuthorizationRequest);
 
-            // Step 6 (QR case): Save attempt entity with INITIATED status, return QR data
+            // Step 6: QR case — save attempt and return QR data response
             if (submitAuthorizationMethodRequest.getAuthorizationMethod()
                     == AuthorizationMethod.QRCODE_FROM_GENERATOR) {
 
@@ -124,7 +147,7 @@ public class SubmitAuthorizationMethodServiceImpl implements SubmitAuthorization
             }
         }
 
-        // Step 6: Save attempt entity and update AuthorizationEntity status for non-QR flows
+        // Step 6: Save attempt and update AuthorizationEntity status for non-QR flows
         AuthorizationAttemptEntity attemptEntity = new AuthorizationAttemptEntity();
         attemptEntity.setExternalId(attemptId);
         attemptEntity.setAuthorizationEntity(authorizationEntity);
@@ -134,7 +157,8 @@ public class SubmitAuthorizationMethodServiceImpl implements SubmitAuthorization
         authorizationEntity.setStatus(AuthorizationStatusEnum.PENDING);
         authorizationRepository.save(authorizationEntity);
 
-        return new SubmitAuthorizationMethodWithBaseFieldsResponse(AuthorizationAttemptStatus.INITIATED);
+        return new SubmitAuthorizationMethodWithBaseFieldsResponse(
+                AuthorizationAttemptStatus.INITIATED);
     }
 }
 
