@@ -1,4 +1,19 @@
 ```
+default AuthorizationMethodEntity toAuthorizationMethodEntity(
+        SubmitAuthorizationMethodRequest request) {
+    AuthorizationMethodEntity entity = new AuthorizationMethodEntity();
+    entity.setName(String.valueOf(request.getAuthorizationMethod()));
+    entity.setDescription(request.getAuthorizationMethod().getValue());
+    return entity;
+}
+```
+```
+@Mapping(target = "authorizationMethodEntity", 
+        expression = "java(toAuthorizationMethodEntity(request))")
+```
+
+
+```
 @Service
 @RequiredArgsConstructor
 @Slf4j
