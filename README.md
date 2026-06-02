@@ -1,3 +1,84 @@
+@Override
+@Transactional(rollbackFor = CommonException.class)
+public InitiateTransactionAuthorizationResponse initiateTransactionAuthorization(
+        InitiateTransactionAuthorizationRequest request) {
+
+    log.info("Initiating authorization for transactionId {}.", request.getTransactionId());
+
+    // Step 1: Validate no existing authorization for this transactionId
+    validateNoExistingAuthorizationForTransaction(request.getTransactionId());
+
+    // Step 2: Validate customer is allowed to create authorization for service+serviceVersion
+    validateServiceAllowedForCustomer(request);
+
+    // Step 3: Validate expiresAt is not in the past
+    validateExpiresAt(request.getExpiresAt());
+
+    // Save payload and authorization
+    var payloadId = savePayloadToVault(request, OWNER);
+    var authorizationEntity = getOrCreateAuthorizationEntity(request, payloadId.toString());
+    var savedAuthorizationEntity = authorizationRepository.save(authorizationEntity);
+
+    log.info("Authorization having transactionId {} was initiated.", request.getTransactionId());
+
+    var initiateTransactionAuthorizationResponse = initiateTransactionAuthorizationMapper
+            .toResponse(savedAuthorizationEntity);
+    transactionEventJmsSender.sendMessage(
+            savedAuthorizationEntity.getTransactionId(),
+            AuthorizationStatusEnum.AUTHORIZED);
+
+    return initiateTransactionAuthorizationResponse;
+}
+
+// -------------------------------------------------------------------------
+// Private helper methods
+// -------------------------------------------------------------------------
+
+private void validateNoExistingAuthorizationForTransaction(UUID transactionId) {
+    if (transactionId == null) {
+        return;
+    }
+    List<AuthorizationEntity> existing =
+            authorizationRepository.findAllByTransactionId(transactionId);
+
+    if (!existing.isEmpty()) {
+        log.error("Authorization for transactionId {} already exists.", transactionId);
+        throw new CommonException(
+                TamExceptionCode.TRANSACTION_WAS_ALREADY_INITIATED,
+                List.of(String.valueOf(transactionId)));
+    }
+}
+
+private void validateServiceAllowedForCustomer(
+        InitiateTransactionAuthorizationRequest request) {
+
+    ServiceId serviceId = new ServiceId();
+    serviceId.setOwner(OWNER);
+    serviceId.setService(request.getTransactionService());
+    serviceId.setServiceVersion(request.getTransactionServiceVersion());
+
+    serviceRepository.findById(serviceId)
+            .orElseThrow(() -> {
+                log.error("No service found for owner {}, service {}, version {}.",
+                        OWNER,
+                        request.getTransactionService(),
+                        request.getTransactionServiceVersion());
+                return new CommonException(
+                        TamExceptionCode.SERVICE_NOT_FOUND,
+                        List.of(OWNER,
+                                request.getTransactionService(),
+                                request.getTransactionServiceVersion()));
+            });
+}
+
+private void validateExpiresAt(OffsetDateTime expiresAt) {
+    if (expiresAt == null || OffsetDateTime.now().isAfter(expiresAt)) {
+        throw new CommonException(
+                TamExceptionCode.AUTHORIZATION_EXPIRES_AT_IN_THE_PAST,
+                List.of(String.valueOf(expiresAt)));
+    }
+}
+
 ```
 @Service
 @RequiredArgsConstructor
