@@ -236,3 +236,27 @@ void updateAuthorizationEntityStatus(
         @MappingTarget AuthorizationEntity authorizationEntity,
         AuthorizationStatusEnum newStatus);
 ```
+
+
+```
+private void validateAuthorizationStatus(AuthorizationEntity authorizationEntity) {
+    if (authorizationEntity.getIsDeleted()) {
+        throw new CommonException(
+                TamExceptionCode.AUTHORIZATION_IS_DELETED,
+                List.of(String.valueOf(authorizationEntity.getId())));
+    }
+
+    if (OffsetDateTime.now().isAfter(authorizationEntity.getExpiresAt())) {
+        throw new CommonException(
+                TamExceptionCode.AUTHORIZATION_EXPIRED,
+                List.of(String.valueOf(authorizationEntity.getExpiresAt())));
+    }
+
+    if (authorizationEntity.getStatus() != AuthorizationStatusEnum.INITIATED
+            && authorizationEntity.getStatus() != AuthorizationStatusEnum.PENDING) {
+        throw new CommonException(
+                TamExceptionCode.AUTHORIZATION_STATUS_DOES_NOT_PERMIT,
+                List.of(String.valueOf(authorizationEntity.getStatus())));
+    }
+}
+```
