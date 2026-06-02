@@ -1,4 +1,300 @@
 ```
+@Service
+@RequiredArgsConstructor
+@Slf4j
+public class SubmitAuthorizationCredentialServiceImpl implements SubmitAuthorizationCredentialService {
+
+    private final AuthorizationEngineService authorizationEngineService;
+    private final SubmitAuthorizationCredentialMapper submitAuthorizationCredentialMapper;
+    private final AuthorizationRepository authorizationRepository;
+    private final AuthorizationAttemptRepository authorizationAttemptRepository;
+    private final TransactionEventJmsSender transactionEventJmsSender;
+
+    @Override
+    @Transactional(rollbackFor = CommonException.class)
+    public SubmitAuthorizationCredentialResponse submitAuthorizationCredential(
+            String authorizationHeader,
+            String feId,
+            String language,
+            String traceId,
+            String authorizationId,
+            SubmitAuthorizationCredentialRequest submitAuthorizationCredentialRequest) {
+
+        // Step 0: Check if GENERIC_TAN — length==6 -> TAN_FROM_GENERATOR, length==9 -> TAN_FROM_NEOAPP
+        resolveGenericTanMethod(submitAuthorizationCredentialRequest);
+
+        // Step 1: Check if authorization exists & attempt exists for authorizationId + method
+        AuthorizationEntity authorizationEntity = findAuthorization(authorizationId);
+        AuthorizationAttemptEntity authorizationAttemptEntity =
+                findAttempt(authorizationEntity, submitAuthorizationCredentialRequest);
+
+        // Step 2: Check status of AuthorizationEntity (status + expired + isDeleted)
+        validateAuthorizationStatus(authorizationEntity);
+
+        // Step 3: Check tenant & crmCustomerNumber match AuthorizationEntity
+        validateTenantAndCrmCustomer(authorizationEntity, submitAuthorizationCredentialRequest);
+
+        // Step 4: Check status of AuthorizationAttemptEntity (status + expired + isDeleted)
+        validateAttemptStatus(authorizationAttemptEntity);
+
+        // Step 5: Check there's no other attempt already approved
+        validateNoApprovedAttemptExists(authorizationEntity);
+
+        // Step 6: Check if template is required for service+method (TODO: TemplateManagementService)
+        String template = resolveTemplate(submitAuthorizationCredentialRequest);
+
+        // Build supporting data
+        RequestSpecificData requestSpecificData =
+                buildRequestSpecificData(
+                        authorizationHeader, feId, language, traceId,
+                        submitAuthorizationCredentialRequest);
+        Map<String, String> dataMap = buildDataMap(submitAuthorizationCredentialRequest);
+        TamOrderTypeEnum orderType = TamOrderTypeEnum.SEPA_PAYMENT_2;
+        TamLanguageEnum tamLanguage = TamLanguageEnum.DE;
+
+        // Step 7: Call authorization engine with credentials
+        AuthorizationRequest authorizationRequest = submitAuthorizationCredentialMapper
+                .submitAuthorizationCredentialRequestToAuthorizationRequest(
+                        submitAuthorizationCredentialRequest,
+                        requestSpecificData,
+                        template,
+                        authorizationId,
+                        dataMap,
+                        orderType,
+                        tamLanguage,
+                        authorizationHeader);
+        AuthorizationResponse authorizationResponse =
+                authorizationEngineService.submitAuthorization(authorizationRequest);
+
+        // Step 8: Check there's no other attempt already approved (post-engine check)
+        validateNoApprovedAttemptExists(authorizationEntity);
+
+        // Step 9: Update AuthorizationEntity and AuthorizationAttemptEntity
+        AuthorizationAttemptStatus status = resolveStatus(
+                submitAuthorizationCredentialRequest, authorizationResponse);
+
+        updateAttemptStatus(authorizationAttemptEntity, status);
+        updateAuthorizationStatus(authorizationEntity, status);
+
+        // Step 11: In case of success, set other attempts to AUTHORIZED_WITH_ANOTHER_METHOD
+        if (status == AuthorizationAttemptStatus.AUTHORIZED) {
+            markOtherAttemptsAsAuthorizedWithAnotherMethod(
+                    authorizationEntity, authorizationAttemptEntity);
+        }
+
+        // Step 10: Send authorization status on queue to domain MS
+        transactionEventJmsSender.sendMessage(UUID.fromString(authorizationId), status);
+
+        // Note: This method doesn't make sense for PUSH_NOTIFICATION (result is async)
+        if (submitAuthorizationCredentialRequest.getAuthorizationMethod()
+                .equals(AuthorizationMethod.PUSH_NOTIFICATION_FORM_NEO_APP)) {
+            log.warn("submitAuthorizationCredential called for PUSH_NOTIFICATION — "
+                    + "result is async, returning PENDING status.");
+        }
+
+        return new SubmitAuthorizationCredentialResponse(status);
+    }
+
+    // -------------------------------------------------------------------------
+    // Private helper methods
+    // -------------------------------------------------------------------------
+
+    private void resolveGenericTanMethod(
+            SubmitAuthorizationCredentialRequest request) {
+        if (!request.getAuthorizationMethod().equals(AuthorizationMethod.GENERIC_TAN)) {
+            return;
+        }
+        String credential = request.getAuthorizationCredential();
+        if (credential == null) {
+            throw new CommonException(TamExceptionCode.AUTHORIZATION_CREDENTIAL_MISSING);
+        }
+        if (credential.length() == 6) {
+            request.setAuthorizationMethod(AuthorizationMethod.TAN_FROM_GENERATOR);
+        } else if (credential.length() == 9) {
+            request.setAuthorizationMethod(AuthorizationMethod.TAN_FROM_NEOAPP);
+        } else {
+            throw new CommonException(
+                    TamExceptionCode.AUTHORIZATION_CREDENTIAL_INVALID_LENGTH,
+                    List.of(String.valueOf(credential.length())));
+        }
+    }
+
+    private AuthorizationEntity findAuthorization(String authorizationId) {
+        return authorizationRepository
+                .findById(UUID.fromString(authorizationId))
+                .orElseThrow(() -> new CommonException(
+                        TamExceptionCode.AUTHORIZATION_NOT_FOUND,
+                        List.of(authorizationId)));
+    }
+
+    private AuthorizationAttemptEntity findAttempt(
+            AuthorizationEntity authorizationEntity,
+            SubmitAuthorizationCredentialRequest request) {
+        return authorizationAttemptRepository
+                .findByAuthorizationEntityIdAndAuthorizationMethodEntityName(
+                        authorizationEntity.getId(),
+                        request.getAuthorizationMethod().name())
+                .orElseThrow(() -> new CommonException(
+                        TamExceptionCode.NO_ACTIVE_ATTEMPT_FOUND,
+                        List.of(authorizationEntity.getId().toString(),
+                                String.valueOf(request.getAuthorizationMethod()))));
+    }
+
+    private void validateAuthorizationStatus(AuthorizationEntity authorizationEntity) {
+        if (authorizationEntity.getIsDeleted()) {
+            throw new CommonException(
+                    TamExceptionCode.AUTHORIZATION_IS_DELETED,
+                    List.of(authorizationEntity.getId().toString()));
+        }
+        if (OffsetDateTime.now().isAfter(authorizationEntity.getExpiresAt())) {
+            throw new CommonException(
+                    TamExceptionCode.AUTHORIZATION_EXPIRED,
+                    List.of(String.valueOf(authorizationEntity.getExpiresAt())));
+        }
+        if (authorizationEntity.getStatus() != AuthorizationStatusEnum.INITIATED
+                && authorizationEntity.getStatus() != AuthorizationStatusEnum.PENDING) {
+            throw new CommonException(
+                    TamExceptionCode.AUTHORIZATION_STATUS_DOES_NOT_PERMIT_CREDENTIAL_SUBMISSION,
+                    List.of(String.valueOf(authorizationEntity.getStatus())));
+        }
+    }
+
+    private void validateAttemptStatus(AuthorizationAttemptEntity attemptEntity) {
+        if (attemptEntity.getIsDeleted()) {
+            throw new CommonException(
+                    TamExceptionCode.AUTHORIZATION_IS_DELETED,
+                    List.of(attemptEntity.getId().toString()));
+        }
+        if (attemptEntity.getStatus() != AuthorizationAttemptStatusEnum.INITIATED
+                && attemptEntity.getStatus() != AuthorizationAttemptStatusEnum.PENDING) {
+            throw new CommonException(
+                    TamExceptionCode.AUTHORIZATION_STATUS_DOES_NOT_PERMIT_CREDENTIAL_SUBMISSION,
+                    List.of(String.valueOf(attemptEntity.getStatus())));
+        }
+    }
+
+    private void validateTenantAndCrmCustomer(
+            AuthorizationEntity authorizationEntity,
+            SubmitAuthorizationCredentialRequest request) {
+        if (!authorizationEntity.getTenant().name()
+                .equals(request.getTenant().getValue())
+                || !authorizationEntity.getCrmCustomerNumber()
+                .equals(request.getCrmCustomerNumber())) {
+            throw new CommonException(
+                    TamExceptionCode.AUTHORIZATION_TENANT_OR_CRM_MISMATCH);
+        }
+    }
+
+    private void validateNoApprovedAttemptExists(AuthorizationEntity authorizationEntity) {
+        boolean hasApprovedAttempt = authorizationAttemptRepository
+                .existsByAuthorizationEntityIdAndStatus(
+                        authorizationEntity.getId(),
+                        AuthorizationAttemptStatusEnum.AUTHORIZED);
+        if (hasApprovedAttempt) {
+            throw new CommonException(
+                    TamExceptionCode.AUTHORIZATION_ALREADY_APPROVED);
+        }
+    }
+
+    private String resolveTemplate(SubmitAuthorizationCredentialRequest request) {
+        // TODO: delegate to TemplateManagementService once available
+        if (request.getAuthorizationMethod().equals(AuthorizationMethod.NEO_SECURE_SIGNATURE_BOUND)) {
+            return "{\"metadata\":{\"supportedLanguages\":[\"de\"],\"defaultLanguage\":\"de\","
+                    + "\"frontendId\":\"WEB\",\"credentialFlow\":\"SIGNATURE\","
+                    + "\"transactionTemplate\":\"...\"}";
+        }
+        if (request.getAuthorizationMethod().equals(AuthorizationMethod.PUSH_NOTIFICATION_FORM_NEO_APP)) {
+            return "{\"metadata\":{\"supportedLanguages\":[\"de\"],\"defaultLanguage\":\"de\","
+                    + "\"frontendId\":\"\",\"credentialFlow\":\"SIGNATURE\","
+                    + "\"transactionTemplate\":\"...\"}";
+        }
+        return "";
+    }
+
+    private RequestSpecificData buildRequestSpecificData(
+            String authorizationHeader,
+            String feId,
+            String language,
+            String traceId,
+            SubmitAuthorizationCredentialRequest request) {
+        RequestSpecificData data = new RequestSpecificData();
+        data.setAuthorization(authorizationHeader);
+        data.setLanguage(language);
+        data.setFeId(feId);
+        data.setTraceId(traceId);
+        data.setRequestLanguage(language);
+        data.setCrmCustomerno(request.getCrmCustomerNumber());
+        data.setBackendOwnerNumber("1505396878");
+        return data;
+    }
+
+    private Map<String, String> buildDataMap(SubmitAuthorizationCredentialRequest request) {
+        Map<String, String> dataMap = new HashMap<>();
+        dataMap.put("ACCOUNT_NUMBER_IBAN",
+                request.getExtendedAuthorizationData().get("ACCOUNT_NUMBER_IBAN"));
+        dataMap.put("AMOUNT_VALUE",
+                request.getExtendedAuthorizationData().get("AMOUNT_VALUE"));
+        return dataMap;
+    }
+
+    private AuthorizationAttemptStatus resolveStatus(
+            SubmitAuthorizationCredentialRequest request,
+            AuthorizationResponse authorizationResponse) {
+        if (request.getAuthorizationMethod().equals(AuthorizationMethod.QRCODE_FROM_GENERATOR)) {
+            return authorizationResponse.valid()
+                    ? AuthorizationAttemptStatus.AUTHORIZED
+                    : AuthorizationAttemptStatus.FAILED;
+        }
+        if (request.getAuthorizationMethod().equals(AuthorizationMethod.PUSH_NOTIFICATION_FORM_NEO_APP)) {
+            return authorizationResponse.valid()
+                    ? AuthorizationAttemptStatus.PENDING
+                    : AuthorizationAttemptStatus.FAILED;
+        }
+        return authorizationResponse.valid()
+                ? AuthorizationAttemptStatus.AUTHORIZED
+                : AuthorizationAttemptStatus.FAILED;
+    }
+
+    private void updateAttemptStatus(
+            AuthorizationAttemptEntity attemptEntity,
+            AuthorizationAttemptStatus status) {
+        attemptEntity.setStatus(AuthorizationAttemptStatusEnum.valueOf(status.name()));
+        authorizationAttemptRepository.save(attemptEntity);
+    }
+
+    private void updateAuthorizationStatus(
+            AuthorizationEntity authorizationEntity,
+            AuthorizationAttemptStatus status) {
+        if (status == AuthorizationAttemptStatus.AUTHORIZED) {
+            authorizationEntity.setStatus(AuthorizationStatusEnum.AUTHORIZED);
+        } else if (status == AuthorizationAttemptStatus.FAILED) {
+            authorizationEntity.setStatus(AuthorizationStatusEnum.CANCELED);
+        }
+        authorizationRepository.save(authorizationEntity);
+    }
+
+    private void markOtherAttemptsAsAuthorizedWithAnotherMethod(
+            AuthorizationEntity authorizationEntity,
+            AuthorizationAttemptEntity currentAttempt) {
+        List<AuthorizationAttemptEntity> otherAttempts = authorizationAttemptRepository
+                .findByAuthorizationIdWithMethod(authorizationEntity.getId())
+                .stream()
+                .filter(a -> !a.getId().equals(currentAttempt.getId()))
+                .collect(Collectors.toList());
+
+        otherAttempts.forEach(a ->
+                a.setStatus(AuthorizationAttemptStatusEnum.AUTHORIZED_WITH_ANOTHER_METHOD));
+        authorizationAttemptRepository.saveAll(otherAttempts);
+    }
+}
+```
+
+```
+boolean existsByAuthorizationEntityIdAndStatus(
+        UUID authorizationId, AuthorizationAttemptStatusEnum status);
+```
+
+```
 default AuthorizationMethodEntity toAuthorizationMethodEntity(
         SubmitAuthorizationMethodRequest request) {
     AuthorizationMethodEntity entity = new AuthorizationMethodEntity();
