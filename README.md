@@ -1,3 +1,40 @@
+@Configuration
+public class AuditDataSource {
+
+    @Bean("auditDataSource")
+    public DataSource auditDataSource(
+            @Qualifier("pvmDataSource") DataSource pvmDs,
+            @Qualifier("tamDataSource") DataSource tamDs) {
+
+        AbstractRoutingDataSource routing = new AbstractRoutingDataSource() {
+            
+            @Override
+            protected Object determineCurrentLookupKey() {
+                // 👇 just replace this method body
+                if (TransactionSynchronizationManager.isActualTransactionActive()) {
+                    String name = TransactionSynchronizationManager
+                        .getCurrentTransactionName();
+                    if (name != null && name.contains("tam")) {
+                        return "TAM";
+                    }
+                }
+                return "PVM"; // default
+            }
+            
+        };
+
+        Map<Object, Object> sources = new HashMap<>();
+        sources.put("PVM", pvmDs);
+        sources.put("TAM", tamDs);
+        routing.setTargetDataSources(sources);
+        routing.setDefaultTargetDataSource(pvmDs);
+        routing.afterPropertiesSet();
+        return routing;
+    }
+}
+
+
+
 @Bean("auditEntityManagerFactory")
 public EntityManagerFactory auditEntityManagerFactory(
         @Qualifier("pvmEntityManagerFactory") EntityManagerFactory pvmEmf,
