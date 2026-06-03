@@ -1,4 +1,22 @@
 @Configuration
+@EnableJpaRepositories(
+    basePackages = "com.consorsbank.common.audit.repository",
+    entityManagerFactoryRef = "auditEntityManagerFactory",
+    transactionManagerRef = "jtaTransactionManager"
+)
+public class AuditRepositoryConfig {
+
+    @Bean("auditEntityManagerFactory")
+    public LocalContainerEntityManagerFactoryBean auditEntityManagerFactory(
+            EntityManagerFactoryBuilder builder,
+            @Qualifier("routingAuditDataSource") DataSource dataSource) {  // 👈 updated
+        return builder
+            .dataSource(dataSource)
+            .packages("com.consorsbank.common.audit.entity")
+            .persistenceUnit("audit")
+            .build();
+    }
+}
 public class AuditDataSource {
 
     @Bean("auditDataSource")
