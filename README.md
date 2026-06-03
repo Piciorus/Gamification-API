@@ -1,3 +1,26 @@
+@Bean("auditDataSource")
+public DataSource auditDataSource(
+        @Qualifier("pvmDataSource") DataSource pvmDs,
+        @Qualifier("tamDataSource") DataSource tamDs) {
+
+    AbstractRoutingDataSource routing = new AbstractRoutingDataSource() {
+        @Override
+        protected Object determineCurrentLookupKey() {
+            return DataSourceContext.getCurrent(); // "PVM" or "TAM"
+        }
+    };
+
+    Map<Object, Object> sources = new HashMap<>();
+    sources.put("PVM", pvmDs);
+    sources.put("TAM", tamDs);
+    
+    routing.setTargetDataSources(sources);
+    routing.setDefaultTargetDataSource(pvmDs);
+    return routing;
+}
+
+
+
 ```
 @Slf4j
 public class FeignCustomLogger extends feign.Logger {
