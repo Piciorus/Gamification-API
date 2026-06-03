@@ -1,3 +1,22 @@
+@Bean("auditEntityManagerFactory")
+public EntityManagerFactory auditEntityManagerFactory(
+        @Qualifier("pvmEntityManagerFactory") EntityManagerFactory pvmEmf,
+        @Qualifier("tamEntityManagerFactory") EntityManagerFactory tamEmf) {
+    
+    // Return PVM as default; routing happens at DataSource level
+    return pvmEmf; 
+}
+
+@Bean
+public AuditOutboxRepository auditOutboxRepository(
+        @Qualifier("auditEntityManagerFactory") EntityManagerFactory emf) {
+    JpaRepositoryFactory factory = new JpaRepositoryFactory(
+        SharedEntityManagerCreator.createSharedEntityManager(emf)
+    );
+    return factory.getRepository(AuditOutboxRepository.class);
+}
+
+
 @Bean("auditDataSource")
 public DataSource auditDataSource(
         @Qualifier("pvmDataSource") DataSource pvmDs,
