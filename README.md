@@ -1,4 +1,31 @@
 ```
+private Schema<?> buildProblemDetailSchema(List<TamExceptionCode> codes) {
+    TamExceptionCode first = codes.get(0);
+
+    return new ObjectSchema()
+        .addProperty("code",    new StringSchema()
+            .example(first.getErrorCode()))
+        .addProperty("detail",  new StringSchema()
+            .example(first.getMessage()))
+        .addProperty("errors",  new ArraySchema()
+            .example(List.of()))
+        .addProperty("status",  new StringSchema()
+            .example(String.valueOf(first.getHttpStatus().value())))
+        .addProperty("title",   new StringSchema()
+            .example((Object) null))
+        .addProperty("traceId", new StringSchema()
+            .example(""));
+}
+```
+```
+.content(new Content().addMediaType(
+    "application/json",   // <-- match your actual Content-Type
+    new MediaType().schema(buildProblemDetailSchema(codes))
+));
+```
+
+
+```
 @Target(ElementType.METHOD)
 @Retention(RetentionPolicy.RUNTIME)
 @Documented
