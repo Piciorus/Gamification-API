@@ -1,121 +1,100 @@
 ```
-private Schema<?> buildProblemDetailSchema(List<TamExceptionCode> codes) {
-    TamExceptionCode first = codes.get(0);
+// Base class - generic over any ExceptionCode type
+public abstract class BaseErrorCodesCustomizer<T extends ExceptionCode> 
+        implements OperationCustomizer {
 
-    return new ObjectSchema()
-        .addProperty("code",    new StringSchema()
-            .example(first.getErrorCode()))
-        .addProperty("detail",  new StringSchema()
-            .example(first.getMessage()))
-        .addProperty("errors",  new ArraySchema()
-            .example(List.of()))
-        .addProperty("status",  new StringSchema()
-            .example(String.valueOf(first.getHttpStatus().value())))
-        .addProperty("title",   new StringSchema()
-            .example((Object) null))
-        .addProperty("traceId", new StringSchema()
-            .example(""));
-}
-```
-```
-.content(new Content().addMediaType(
-    "application/json",   // <-- match your actual Content-Type
-    new MediaType().schema(buildProblemDetailSchema(codes))
-));
-```
+    @Override
+    public Operation customize(Operation operation, HandlerMethod handlerMethod) {
+        T[] codes = getAnnotationCodes(handlerMethod);
+        if (codes == null) return operation;
 
+        Arrays.stream(codes)
+            .collect(Collectors.groupingBy(this::getHttpStatus))
+            .forEach((status, groupedCodes) -> {
+                String description = groupedCodes.stream()
+                    .map(c -> "- **%s** (`%s`): %s"
+                        .formatted(getName(c), getErrorCode(c), getMessage(c)))
+                    .collect(Collectors.joining("\n"));
 
-```
-@Target(ElementType.METHOD)
-@Retention(RetentionPolicy.RUNTIME)
-@Documented
-public @interface TamApiErrorCodes {
-    TamExceptionCode[] value();
+                operation.getResponses()
+                    .addApiResponse(String.valueOf(status.value()),
+                        new ApiResponse()
+                            .description(description)
+                            .content(new Content().addMediaType(
+                                "application/json",
+                                new MediaType().schema(buildSchema(groupedCodes))
+                            )));
+            });
+
+        return operation;
+    }
+
+    protected abstract T[] getAnnotationCodes(HandlerMethod handlerMethod);
+    protected abstract HttpStatus getHttpStatus(T code);
+    protected abstract String getErrorCode(T code);
+    protected abstract String getMessage(T code);
+    protected abstract String getName(T code);
+
+    private Schema<?> buildSchema(List<T> codes) {
+        T first = codes.get(0);
+        return new ObjectSchema()
+            .addProperty("code",    new StringSchema().example(getErrorCode(first)))
+            .addProperty("detail",  new StringSchema().example(getMessage(first)))
+            .addProperty("errors",  new ArraySchema().example(List.of()))
+            .addProperty("status",  new StringSchema()
+                .example(String.valueOf(getHttpStatus(first).value())))
+            .addProperty("title",   new StringSchema().example((Object) null))
+            .addProperty("traceId", new StringSchema().example(""));
+    }
 }
 ```
 
 
 ```
 @Component
-@RequiredArgsConstructor
-public class TamErrorCodesCustomizer implements OperationCustomizer {
+public class TamErrorCodesCustomizer 
+        extends BaseErrorCodesCustomizer<TamExceptionCode> {
 
     @Override
-    public Operation customize(Operation operation, HandlerMethod handlerMethod) {
-        TamApiErrorCodes annotation = handlerMethod
-            .getMethodAnnotation(TamApiErrorCodes.class);
-
-        if (annotation == null) return operation;
-
-        // Group error codes by HTTP status
-        Map<HttpStatus, List<TamExceptionCode>> byStatus = Arrays.stream(annotation.value())
-            .collect(Collectors.groupingBy(TamExceptionCode::getHttpStatus));
-
-        byStatus.forEach((status, codes) -> {
-            String description = codes.stream()
-                .map(c -> "- **%s** (`%s`): %s"
-                    .formatted(c.name(), c.getErrorCode(), c.getMessage()))
-                .collect(Collectors.joining("\n"));
-
-            ApiResponse apiResponse = new ApiResponse()
-                .description(description)
-                .content(new Content().addMediaType(
-                    "application/problem+json",
-                    new MediaType().schema(new Schema<>().$ref(
-                        "#/components/schemas/ProblemDetail"))
-                ));
-
-            operation.getResponses()
-                .addApiResponse(String.valueOf(status.value()), apiResponse);
-        });
-
-        return operation;
+    protected TamExceptionCode[] getAnnotationCodes(HandlerMethod handlerMethod) {
+        TamApiErrorCodes ann = handlerMethod.getMethodAnnotation(TamApiErrorCodes.class);
+        return ann != null ? ann.value() : null;
     }
+
+    @Override protected HttpStatus getHttpStatus(TamExceptionCode c) { return c.getHttpStatus(); }
+    @Override protected String getErrorCode(TamExceptionCode c)       { return c.getErrorCode(); }
+    @Override protected String getMessage(TamExceptionCode c)         { return c.getMessage(); }
+    @Override protected String getName(TamExceptionCode c)            { return c.name(); }
+}
+```
+
+
+```
+@Component
+public class PvmErrorCodesCustomizer 
+        extends BaseErrorCodesCustomizer<PvmExceptionCode> {
+
+    @Override
+    protected PvmExceptionCode[] getAnnotationCodes(HandlerMethod handlerMethod) {
+        PvmApiErrorCodes ann = handlerMethod.getMethodAnnotation(PvmApiErrorCodes.class);
+        return ann != null ? ann.value() : null;
+    }
+
+    @Override protected HttpStatus getHttpStatus(PvmExceptionCode c) { return c.getHttpStatus(); }
+    @Override protected String getErrorCode(PvmExceptionCode c)      { return c.getErrorCode(); }
+    @Override protected String getMessage(PvmExceptionCode c)        { return c.getMessage(); }
+    @Override protected String getName(PvmExceptionCode c)           { return c.name(); }
 }
 
 ```
 
 
 ```
-@Bean
-public GroupedOpenApi applicationApiTransactionAuthorizationManager(
-        TamErrorCodesCustomizer errorCodesCustomizer) {   // inject it
-    return GroupedOpenApi.builder()
-        .group("2-Transaction Authorization Manager")
-        .displayName("Transaction Authorization Manager")
-        .addOpenApiCustomizer(openApi -> readHtmlFile(openApi,
-            "documentation/documentation-tam.html"))
-        .addOperationCustomizer(errorCodesCustomizer)     // add here
-        .packagesToScan("de.consorsbank.core.trauthsc.tam.controller")
-        .build();
-}
-```
-
-
-```
-@TamApiErrorCodes({
-    TamExceptionCode.AUTHORIZATION_ALREADY_APPROVED,  // 131 CONFLICT
-    TamExceptionCode.INVALID_LANGUAGE                 // 135 BAD_REQUEST
-})
-@Override
-public ResponseEntity<InitiateTransactionAuthorizationResponse> 
-    initiateTransactionAuthorization(...) { ... }
-
-```
-
-
-```
-@Bean
-public OpenApiCustomizer problemDetailSchema() {
-    return openApi -> openApi.getComponents()
-        .addSchemas("ProblemDetail", new Schema<>()
-            .type("object")
-            .addProperty("type", new Schema<>().type("string"))
-            .addProperty("title", new Schema<>().type("string"))
-            .addProperty("status", new Schema<>().type("integer"))
-            .addProperty("detail", new Schema<>().type("string"))
-            .addProperty("errorCode", new Schema<>().type("string"))
-        );
+public interface ExceptionCode {
+    String getErrorCode();
+    String getMessage();
+    HttpStatus getHttpStatus();
+    String name(); // enums have this for free
 }
 
 ```
