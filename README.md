@@ -1,70 +1,71 @@
-package de.consorsbank.core.trauthsc.common.actuator;
-
-import org.springframework.boot.actuate.health.AbstractHealthIndicator;
-import org.springframework.boot.actuate.health.Health;
-import org.springframework.stereotype.Component;
-
-import javax.sql.DataSource;
-import java.sql.Connection;
-import java.sql.SQLException;
-import java.time.LocalDateTime;
+```
 
 @Component("dbHealthCheckIndicator")
 public class DbHealthCheckIndicator extends AbstractHealthIndicator {
 
-    private final DataSource tamDataSource;
+    private final String tamUrl;
+    private final String tamUser;
+    private final String tamPassword;
+    private final String pvmUrl;
+    private final String pvmUser;
+    private final String pvmPassword;
 
-    public DbHealthCheckIndicator(DataSource tamDataSource) {
+    public DbHealthCheckIndicator(
+            @Qualifier("tamDataSource") AtomikosDataSourceBean tamDataSource,
+            @Qualifier("pvmDataSource") AtomikosDataSourceBean pvmDataSource) {
         super("Database health check failed");
-        this.tamDataSource = tamDataSource;
+        // Extract from XA properties — no pool involved
+        Properties tamProps = tamDataSource.getXaProperties();
+        this.tamUrl = tamProps.getProperty("URL");
+        this.tamUser = tamProps.getProperty("user");
+        this.tamPassword = tamProps.getProperty("password");
+
+        Properties pvmProps = pvmDataSource.getXaProperties();
+        this.pvmUrl = pvmProps.getProperty("URL");
+        this.pvmUser = pvmProps.getProperty("user");
+        this.pvmPassword = pvmProps.getProperty("password");
     }
 
     @Override
     protected void doHealthCheck(Health.Builder builder) throws Exception {
-        try (Connection conn = tamDataSource.getConnection()) {
-            boolean valid = conn.isValid(5);
-            String vendor = conn.getMetaData().getDatabaseProductName();
+        CompletableFuture<Boolean> tamFuture = checkDb(tamUrl, tamUser, tamPassword);
+        CompletableFuture<Boolean> pvmFuture = checkDb(pvmUrl, pvmUser, pvmPassword);
 
-            if (valid) {
-                builder.up()
-                        .withDetail("database", vendor)
-                        .withDetail("time", LocalDateTime.now())
-                        .build();
-            } else {
-                builder.down()
-                        .withDetail("database", vendor)
-                        .withDetail("reason", "Connection isValid() returned false")
-                        .withDetail("time", LocalDateTime.now())
-                        .build();
+        boolean tamUp = getResult(tamFuture);
+        boolean pvmUp = getResult(pvmFuture);
+
+        if (tamUp && pvmUp) {
+            builder.up();
+        } else {
+            builder.down();
+        }
+
+        builder
+            .withDetail("tam", tamUp ? "UP" : "DOWN")
+            .withDetail("pvm", pvmUp ? "UP" : "DOWN")
+            .withDetail("time", LocalDateTime.now())
+            .build();
+    }
+
+    private CompletableFuture<Boolean> checkDb(String url, String user, String password) {
+        return CompletableFuture.supplyAsync(() -> {
+            try (Connection conn = DriverManager.getConnection(url, user, password)) {
+                return conn.isValid(3);
+            } catch (SQLException e) {
+                return false;
             }
-        } catch (SQLException e) {
-            builder.down(e)
-                    .withDetail("reason", e.getMessage())
-                    .withDetail("time", LocalDateTime.now())
-                    .build();
+        });
+    }
+
+    private boolean getResult(CompletableFuture<Boolean> future) {
+        try {
+            return future.get(3, TimeUnit.SECONDS);
+        } catch (TimeoutException e) {
+            future.cancel(true);
+            return false;
+        } catch (Exception e) {
+            return false;
         }
     }
-}
-
-
-
-```
-private Schema<?> buildSchema(List<T> codes) {
-    T first = codes.get(0);
-
-    return new ObjectSchema()
-        .addProperty("code",    new StringSchema()
-            .example(getErrorCode(first)))
-        .addProperty("detail",  new StringSchema()
-            .example(getMessage(first)))
-        .addProperty("errors",  new ArraySchema()
-            .items(new StringSchema())
-            .example(List.of()))
-        .addProperty("status",  new StringSchema()
-            .example(String.valueOf(getHttpStatus(first).value())))
-        .addProperty("title",   new StringSchema()
-            .example(getName(first)))                      // use enum name, never null
-        .addProperty("traceId", new StringSchema()
-            .example("c929594d-4142-4e0b-a63d-87f920137623")); // real UUID format
 }
 ```
