@@ -1,3 +1,66 @@
+```
+private Map<String, Map<String, Set<String>>> buildControllerReport() {
+    Map<String, Map<String, Set<String>>> report = new LinkedHashMap<>();
+
+    ClassPathScanningCandidateComponentProvider scanner =
+        new ClassPathScanningCandidateComponentProvider(false);
+    scanner.addIncludeFilter((metadataReader, factory) -> true); // scan ALL
+
+    Set<BeanDefinition> candidates = scanner
+        .findCandidateComponents(BASE_PACKAGE);
+
+    log.info("Controller scan found {} candidates", candidates.size());
+
+    candidates.forEach(bd -> {
+        try {
+            Class<?> clazz = Class.forName(bd.getBeanClassName());
+
+            // check if it's a controller — either directly or via interface
+            boolean isController = clazz.isAnnotationPresent(RestController.class)
+                || Arrays.stream(clazz.getInterfaces())
+                    .anyMatch(i -> i.isAnnotationPresent(RestController.class));
+
+            if (!isController) return;
+
+            log.info("Found controller: {}", clazz.getSimpleName());
+
+            Map<String, Set<String>> methodReport = new LinkedHashMap<>();
+
+            // get methods from controller AND its interfaces
+            Set<Method> apiMethods = new HashSet<>();
+            apiMethods.addAll(Arrays.asList(clazz.getDeclaredMethods()));
+            Arrays.stream(clazz.getInterfaces())
+                .flatMap(i -> Arrays.stream(i.getDeclaredMethods()))
+                .forEach(apiMethods::add);
+
+            apiMethods.stream()
+                .filter(this::isApiMethod)
+                .forEach(method -> {
+                    String methodKey = clazz.getName() + "#" + method.getName();
+                    log.info("  Scanning method: {}", method.getName());
+
+                    Set<String> visited = new HashSet<>();
+                    Set<String> allCodes = collectCodesTransitively(
+                        methodKey, visited
+                    );
+
+                    log.info("  {} → {} codes found", method.getName(), allCodes.size());
+                    methodReport.put(method.getName(), allCodes);
+                });
+
+            if (!methodReport.isEmpty()) {
+                report.put(clazz.getSimpleName(), methodReport);
+            }
+
+        } catch (Exception e) {
+            log.debug("Skip {}: {}", bd.getBeanClassName(), e.getMessage());
+        }
+    });
+
+    return report;
+}
+```
+
 
 @Slf4j
 @Component
