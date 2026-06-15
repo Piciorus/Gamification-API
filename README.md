@@ -1,4 +1,20 @@
 ```
+if (calledMethods != null) {
+    calledMethods.forEach(calledKey -> {
+        log.info("  → calledKey: [{}]", calledKey);
+        log.info("  → in methodCodesCache: {}", methodCodesCache.containsKey(calledKey));
+        log.info("  → in callGraphCache: {}", callGraphCache.containsKey(calledKey));
+        
+        // print similar keys in methodCodesCache
+        methodCodesCache.keySet().stream()
+            .filter(k -> k.contains(
+                calledKey.substring(calledKey.lastIndexOf('#'))))
+            .forEach(k -> log.info("  → similar in methodCodesCache: [{}]", k));
+    });
+}
+```
+
+```
 private Map<String, Map<String, Set<String>>> buildControllerReport() {
     Map<String, Map<String, Set<String>>> report = new LinkedHashMap<>();
 
