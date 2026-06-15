@@ -140,3 +140,71 @@ public class ExceptionCodeAnalyzer implements ApplicationListener<ContextRefresh
     }
 }
 ```
+
+```
+@Slf4j
+@Component
+@RequiredArgsConstructor
+public class ExceptionCodeAnalyzer implements ApplicationListener<ContextRefreshedEvent> {
+
+    private final ApplicationContext applicationContext;
+
+    @Override
+    public void onApplicationEvent(ContextRefreshedEvent event) {
+        applicationContext.getBeansWithAnnotation(RestController.class)
+            .forEach((name, controller) -> analyzeController(controller));
+    }
+
+    private void analyzeController(Object controller) {
+        Class<?> controllerClass = AopUtils.getTargetClass(controller);
+
+        Arrays.stream(controllerClass.getDeclaredFields())
+            .forEach(field -> {
+                try {
+                    // get the actual service impl class
+                    Class<?> serviceImpl = AopUtils.getTargetClass(
+                        applicationContext.getBean(field.getType())
+                    );
+
+                    // scan ALL methods in that service for exception codes
+                    Set<String> codes = scanForExceptionCodes(serviceImpl);
+
+                    if (!codes.isEmpty()) {
+                        log.info("[{}] → possible exception codes: {}",
+                            controllerClass.getSimpleName(), codes);
+                    }
+
+                } catch (Exception e) {
+                    // field is not a Spring bean — skip
+                }
+            });
+    }
+
+    private Set<String> scanForExceptionCodes(Class<?> serviceClass) throws IOException {
+        Set<String> foundCodes = new HashSet<>();
+
+        new ClassReader(serviceClass.getName()).accept(new ClassVisitor(Opcodes.ASM9) {
+            @Override
+            public MethodVisitor visitMethod(int access, String name,
+                    String descriptor, String signature, String[] exceptions) {
+                return new MethodVisitor(Opcodes.ASM9) {
+                    @Override
+                    public void visitFieldInsn(int opcode, String owner,
+                            String fieldName, String fieldDescriptor) {
+                        if (opcode == Opcodes.GETSTATIC
+                                && owner.contains("ExceptionCode")) {
+                            foundCodes.add(
+                                owner.substring(owner.lastIndexOf('/') + 1)
+                                + "." + fieldName
+                            );
+                        }
+                    }
+                };
+            }
+        }, 0);
+
+        return foundCodes;
+    }
+}
+
+```
