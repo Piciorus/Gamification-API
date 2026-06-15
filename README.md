@@ -1,4 +1,79 @@
 ```
+private Set<String> collectCodesTransitively(String methodKey, Set<String> visited) {
+    if (!visited.add(methodKey)) return Collections.emptySet();
+
+    Set<String> codes = new HashSet<>();
+
+    // resolve interface key → impl key if needed
+    Set<String> resolvedKeys = resolveToImpl(methodKey);
+
+    resolvedKeys.forEach(resolvedKey -> {
+        // direct codes on this method
+        Set<String> directCodes = methodCodesCache.get(resolvedKey);
+        if (directCodes != null) codes.addAll(directCodes);
+
+        // recurse into called methods
+        Set<String> calledMethods = callGraphCache.get(resolvedKey);
+        if (calledMethods != null) {
+            calledMethods.forEach(calledKey ->
+                codes.addAll(collectCodesTransitively(calledKey, visited))
+            );
+        }
+    });
+
+    return codes;
+}
+
+// resolve "ServiceInterface#method" → "ServiceImpl#method"
+private Set<String> resolveToImpl(String methodKey) {
+    // if key already exists in either cache — use as-is
+    if (methodCodesCache.containsKey(methodKey)
+            || callGraphCache.containsKey(methodKey)) {
+        return Set.of(methodKey);
+    }
+
+    // extract method name after #
+    String methodName = methodKey.substring(methodKey.indexOf('#'));
+
+    // find all impl keys with same method name
+    Set<String> implKeys = new HashSet<>();
+
+    methodCodesCache.keySet().stream()
+        .filter(k -> k.endsWith(methodName))
+        .filter(k -> {
+            // class in methodKey should be assignable from class in cache key
+            String interfaceClass = methodKey.substring(0, methodKey.indexOf('#'));
+            String implClass = k.substring(0, k.indexOf('#'));
+            try {
+                Class<?> iface = Class.forName(interfaceClass);
+                Class<?> impl = Class.forName(implClass);
+                return iface.isAssignableFrom(impl); // impl implements interface
+            } catch (ClassNotFoundException e) {
+                return false;
+            }
+        })
+        .forEach(implKeys::add);
+
+    callGraphCache.keySet().stream()
+        .filter(k -> k.endsWith(methodName))
+        .filter(k -> {
+            String interfaceClass = methodKey.substring(0, methodKey.indexOf('#'));
+            String implClass = k.substring(0, k.indexOf('#'));
+            try {
+                Class<?> iface = Class.forName(interfaceClass);
+                Class<?> impl = Class.forName(implClass);
+                return iface.isAssignableFrom(impl);
+            } catch (ClassNotFoundException e) {
+                return false;
+            }
+        })
+        .forEach(implKeys::add);
+
+    return implKeys.isEmpty() ? Set.of(methodKey) : implKeys;
+}
+```
+
+```
 if (calledMethods != null) {
     calledMethods.forEach(calledKey -> {
         log.info("  → calledKey: [{}]", calledKey);
