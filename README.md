@@ -6,10 +6,12 @@ public class ExceptionCodeAnalyzer {
     private static final String OUTPUT_FILE = "exception-codes-report.json";
     private static final String BASE_PACKAGE = "de.consorsbank.core.trauthsc";
 
+    // className → set of exception codes thrown directly in methods
     private final Map<String, Set<String>> methodCodesCache = new HashMap<>();
+    // callerClassName#method → set of calledClassName#method
     private final Map<String, Set<String>> callGraphCache = new HashMap<>();
-    // NEW: track which classes each class depends on
-    private final Map<String, Set<String>> classDependencyCache = new HashMap<>();
+    // className → set of injected dependency classNames (fields)
+    private final Map<String, Set<String>> fieldDependencyCache = new HashMap<>();
 
     @EventListener(ApplicationReadyEvent.class)
     public void analyze(ApplicationReadyEvent event) {
@@ -20,7 +22,7 @@ public class ExceptionCodeAnalyzer {
 
             log.info("Call Graph size: {}", callGraphCache.size());
             log.info("Method codes size: {}", methodCodesCache.size());
-            log.info("Class dependencies size: {}", classDependencyCache.size());
+            log.info("Field dependencies size: {}", fieldDependencyCache.size());
 
             Map<String, Map<String, Set<String>>> report = buildControllerReport();
             log.info("Report size: {}", report.size());
@@ -49,95 +51,75 @@ public class ExceptionCodeAnalyzer {
 
         candidates.forEach(bd -> {
             try {
-                Class<?> clazz = Class.forName(bd.getBeanClassName());
-                scanClass(clazz);
+                scanClass(bd.getBeanClassName());
             } catch (Exception e) {
                 log.debug("Could not scan {}: {}", bd.getBeanClassName(), e.getMessage());
             }
         });
     }
 
-    private void scanClass(Class<?> clazz) {
-        try {
-            String className = clazz.getName();
+    private void scanClass(String className) throws IOException {
+        new ClassReader(className).accept(new ClassVisitor(Opcodes.ASM9) {
 
-            new ClassReader(className).accept(new ClassVisitor(Opcodes.ASM9) {
+            @Override
+            public FieldVisitor visitField(int access, String name,
+                    String descriptor, String signature, Object value) {
 
-                @Override
-                public void visit(int version, int access, String name,
-                        String signature, String superName, String[] interfaces) {
-                    // track class-level dependencies (interfaces implemented)
-                    if (interfaces != null) {
-                        Arrays.stream(interfaces)
-                            .map(i -> i.replace('/', '.'))
-                            .filter(i -> i.startsWith(BASE_PACKAGE))
-                            .forEach(i -> classDependencyCache
-                                .computeIfAbsent(className, k -> new HashSet<>())
-                                .add(i));
-                    }
-                }
-
-                @Override
-                public FieldVisitor visitField(int access, String name,
-                        String descriptor, String signature, Object value) {
-                    // track field-level dependencies (injected services)
+                // collect injected field types — these are the dependencies
+                // descriptor format: "Lde/consorsbank/core/trauthsc/service/SomeService;"
+                if (descriptor.startsWith("L") && descriptor.endsWith(";")) {
                     String fieldType = descriptor
-                        .replace('/', '.')
-                        .replaceAll("^L|;$", "");
+                        .substring(1, descriptor.length() - 1)
+                        .replace('/', '.');
+
                     if (fieldType.startsWith(BASE_PACKAGE)) {
-                        classDependencyCache
+                        fieldDependencyCache
                             .computeIfAbsent(className, k -> new HashSet<>())
                             .add(fieldType);
                     }
-                    return null;
                 }
+                return null;
+            }
 
-                @Override
-                public MethodVisitor visitMethod(int access, String methodName,
-                        String descriptor, String signature, String[] exceptions) {
+            @Override
+            public MethodVisitor visitMethod(int access, String methodName,
+                    String descriptor, String signature, String[] exceptions) {
 
-                    String methodKey = className + "#" + methodName;
+                String methodKey = className + "#" + methodName;
 
-                    return new MethodVisitor(Opcodes.ASM9) {
+                return new MethodVisitor(Opcodes.ASM9) {
 
-                        @Override
-                        public void visitFieldInsn(int opcode, String owner,
-                                String fieldName, String fieldDescriptor) {
-                            // collect exception codes
-                            if (opcode == Opcodes.GETSTATIC
-                                    && owner.contains("ExceptionCode")) {
-                                methodCodesCache
-                                    .computeIfAbsent(methodKey, k -> new HashSet<>())
-                                    .add(owner.substring(owner.lastIndexOf('/') + 1)
-                                        + "." + fieldName);
-                            }
+                    @Override
+                    public void visitFieldInsn(int opcode, String owner,
+                            String fieldName, String fieldDescriptor) {
+                        // GETSTATIC on *ExceptionCode = exception code reference
+                        if (opcode == Opcodes.GETSTATIC
+                                && owner.contains("ExceptionCode")) {
+                            methodCodesCache
+                                .computeIfAbsent(methodKey, k -> new HashSet<>())
+                                .add(owner.substring(owner.lastIndexOf('/') + 1)
+                                    + "." + fieldName);
                         }
+                    }
 
-                        @Override
-                        public void visitMethodInsn(int opcode, String owner,
-                                String name, String descriptor,
-                                boolean isInterface) {
-                            // collect method calls within our package
-                            if (owner.replace('/', '.')
-                                    .startsWith(BASE_PACKAGE)) {
-                                String calledKey = owner.replace('/', '.')
-                                    + "#" + name;
-                                callGraphCache
-                                    .computeIfAbsent(methodKey, k -> new HashSet<>())
-                                    .add(calledKey);
-                            }
+                    @Override
+                    public void visitMethodInsn(int opcode, String owner,
+                            String name, String descriptor,
+                            boolean isInterface) {
+                        // track calls to methods within our package
+                        String ownerClass = owner.replace('/', '.');
+                        if (ownerClass.startsWith(BASE_PACKAGE)) {
+                            callGraphCache
+                                .computeIfAbsent(methodKey, k -> new HashSet<>())
+                                .add(ownerClass + "#" + name);
                         }
-                    };
-                }
-            }, 0);
-
-        } catch (IOException e) {
-            log.debug("Could not read bytecode for {}: {}",
-                clazz.getSimpleName(), e.getMessage());
-        }
+                    }
+                };
+            }
+        }, 0);
     }
 
-    // ── Step 2: build report per controller method ────────────────
+    // ── Step 2: build controller report ──────────────────────────
 
     private Map<String, Map<String, Set<String>>> buildControllerReport() {
         Map<String, Map<String, Set<String>>> report = new LinkedHashMap<>();
@@ -146,12 +128,7 @@ public class ExceptionCodeAnalyzer {
             new ClassPathScanningCandidateComponentProvider(false);
         scanner.addIncludeFilter((metadataReader, factory) -> true);
 
-        Set<BeanDefinition> candidates = scanner
-            .findCandidateComponents(BASE_PACKAGE);
-
-        log.info("Controller scan found {} candidates", candidates.size());
-
-        candidates.forEach(bd -> {
+        scanner.findCandidateComponents(BASE_PACKAGE).forEach(bd -> {
             try {
                 Class<?> clazz = Class.forName(bd.getBeanClassName());
 
@@ -166,10 +143,8 @@ public class ExceptionCodeAnalyzer {
 
                 Map<String, Set<String>> methodReport = new LinkedHashMap<>();
 
-                // collect methods from class + interfaces
                 Set<Method> apiMethods = new HashSet<>();
-                Arrays.stream(clazz.getDeclaredMethods())
-                    .forEach(apiMethods::add);
+                Arrays.stream(clazz.getDeclaredMethods()).forEach(apiMethods::add);
                 Arrays.stream(clazz.getInterfaces())
                     .flatMap(i -> Arrays.stream(i.getDeclaredMethods()))
                     .forEach(apiMethods::add);
@@ -184,7 +159,7 @@ public class ExceptionCodeAnalyzer {
                             methodKey, visited, 0
                         );
 
-                        log.info("  {}() → {} codes, visited {} methods",
+                        log.info("  {}() → {} codes found, {} methods visited",
                             method.getName(), allCodes.size(), visited.size());
 
                         methodReport.put(method.getName(), allCodes);
@@ -202,27 +177,29 @@ public class ExceptionCodeAnalyzer {
         return report;
     }
 
-    // ── recursive transitive traversal with depth tracking ────────
+    // ── core: recursive transitive traversal ──────────────────────
 
     private Set<String> collectCodesTransitively(
             String methodKey, Set<String> visited, int depth) {
 
         if (!visited.add(methodKey)) return Collections.emptySet();
-        if (depth > 20) return Collections.emptySet(); // safety limit
+        if (depth > 30) return Collections.emptySet(); // safety
 
         Set<String> codes = new HashSet<>();
 
-        // resolve interface → impl
+        // resolve interface → all impls
         Set<String> resolvedKeys = resolveToImpl(methodKey);
 
         resolvedKeys.forEach(resolvedKey -> {
             visited.add(resolvedKey);
 
-            // direct codes
+            // 1. direct exception codes in this method
             Set<String> directCodes = methodCodesCache.get(resolvedKey);
-            if (directCodes != null) codes.addAll(directCodes);
+            if (directCodes != null) {
+                codes.addAll(directCodes);
+            }
 
-            // recurse into called methods
+            // 2. follow explicit method calls (callGraph)
             Set<String> calledMethods = callGraphCache.get(resolvedKey);
             if (calledMethods != null) {
                 calledMethods.forEach(calledKey ->
@@ -232,20 +209,33 @@ public class ExceptionCodeAnalyzer {
                 );
             }
 
-            // ── NEW: also scan class dependencies ─────────────────
-            // e.g. ServiceImpl depends on RepositoryImpl, HelperService
+            // 3. ── KEY FIX: scan ALL methods of injected dependencies ──
+            // e.g. ServiceImpl has field: EncryptionService encryptionService
+            // → scan ALL methods of EncryptionServiceImpl too
             String implClassName = resolvedKey.substring(0, resolvedKey.indexOf('#'));
-            String implMethodName = resolvedKey.substring(resolvedKey.indexOf('#'));
+            String implMethodName = resolvedKey.substring(resolvedKey.indexOf('#') + 1);
 
-            Set<String> classDeps = classDependencyCache.get(implClassName);
-            if (classDeps != null) {
-                classDeps.forEach(depClass -> {
-                    String depMethodKey = depClass + implMethodName;
-                    if (!visited.contains(depMethodKey)) {
-                        codes.addAll(
-                            collectCodesTransitively(depMethodKey, visited, depth + 1)
-                        );
-                    }
+            Set<String> injectedDeps = fieldDependencyCache.get(implClassName);
+            if (injectedDeps != null) {
+                injectedDeps.forEach(depInterfaceName -> {
+                    // resolve dep interface → dep impl
+                    String depMethodKey = depInterfaceName + "#" + implMethodName;
+                    Set<String> depImplKeys = resolveToImpl(depMethodKey);
+
+                    depImplKeys.forEach(depImplKey -> {
+                        if (!visited.contains(depImplKey)) {
+                            // scan this specific method on the dep
+                            codes.addAll(
+                                collectCodesTransitively(depImplKey, visited, depth + 1)
+                            );
+
+                            // also scan ALL methods of dep impl
+                            // (dep might throw in helper methods called internally)
+                            String depImplClass = depImplKey.substring(
+                                0, depImplKey.indexOf('#'));
+                            scanAllMethodsOfClass(depImplClass, visited, depth, codes);
+                        }
+                    });
                 });
             }
         });
@@ -253,9 +243,32 @@ public class ExceptionCodeAnalyzer {
         return codes;
     }
 
-    // ── resolve interface key → impl key ─────────────────────────
+    // scan every method of a class transitively
+    private void scanAllMethodsOfClass(
+            String className, Set<String> visited, int depth, Set<String> codes) {
+
+        // find all method keys for this class in both caches
+        Set<String> allMethodKeys = new HashSet<>();
+
+        methodCodesCache.keySet().stream()
+            .filter(k -> k.startsWith(className + "#"))
+            .forEach(allMethodKeys::add);
+
+        callGraphCache.keySet().stream()
+            .filter(k -> k.startsWith(className + "#"))
+            .forEach(allMethodKeys::add);
+
+        allMethodKeys.forEach(mk -> {
+            if (!visited.contains(mk)) {
+                codes.addAll(collectCodesTransitively(mk, visited, depth + 1));
+            }
+        });
+    }
+
+    // ── resolve interface → impl ──────────────────────────────────
 
     private Set<String> resolveToImpl(String methodKey) {
+        // already concrete — exists in cache
         if (methodCodesCache.containsKey(methodKey)
                 || callGraphCache.containsKey(methodKey)) {
             return Set.of(methodKey);
@@ -270,7 +283,8 @@ public class ExceptionCodeAnalyzer {
             methodCodesCache.keySet().stream(),
             callGraphCache.keySet().stream()
         )
-        .filter(k -> k.endsWith(methodName))
+        .filter(k -> k.contains("#"))
+        .filter(k -> k.substring(k.indexOf('#')).equals(methodName))
         .filter(k -> {
             String implClassName = k.substring(0, k.indexOf('#'));
             try {
@@ -286,7 +300,7 @@ public class ExceptionCodeAnalyzer {
         return implKeys.isEmpty() ? Set.of(methodKey) : implKeys;
     }
 
-    // ── Step 3: log ───────────────────────────────────────────────
+    // ── log ───────────────────────────────────────────────────────
 
     private void logReport(Map<String, Map<String, Set<String>>> report) {
         report.forEach((controller, methods) -> {
@@ -301,14 +315,13 @@ public class ExceptionCodeAnalyzer {
         });
     }
 
-    // ── Step 4: write JSON with dependency tree ───────────────────
+    // ── write JSON ────────────────────────────────────────────────
 
     private void writeToFile(Map<String, Map<String, Set<String>>> report) {
         try {
             StringBuilder json = new StringBuilder("{\n");
-
-            // ── section 1: controller → method → codes ────────────
             json.append("  \"controllers\": {\n");
+
             Iterator<Map.Entry<String, Map<String, Set<String>>>> cIt =
                 report.entrySet().iterator();
 
@@ -321,9 +334,14 @@ public class ExceptionCodeAnalyzer {
 
                 while (mIt.hasNext()) {
                     Map.Entry<String, Set<String>> mEntry = mIt.next();
-                    json.append("      \"").append(mEntry.getKey()).append("\": [\n");
+                    json.append("      \"")
+                        .append(mEntry.getKey()).append("\": [\n");
 
-                    Iterator<String> codeIt = mEntry.getValue().iterator();
+                    // sort codes for consistent output
+                    List<String> sortedCodes = new ArrayList<>(mEntry.getValue());
+                    Collections.sort(sortedCodes);
+
+                    Iterator<String> codeIt = sortedCodes.iterator();
                     while (codeIt.hasNext()) {
                         json.append("        \"").append(codeIt.next()).append("\"");
                         if (codeIt.hasNext()) json.append(",");
@@ -339,43 +357,50 @@ public class ExceptionCodeAnalyzer {
                 if (cIt.hasNext()) json.append(",");
                 json.append("\n");
             }
+
             json.append("  },\n");
 
-            // ── section 2: class dependency tree ──────────────────
-            json.append("  \"dependencies\": {\n");
+            // dependency map section
+            json.append("  \"serviceDependencies\": {\n");
+
             Iterator<Map.Entry<String, Set<String>>> dIt =
-                classDependencyCache.entrySet().iterator();
+                fieldDependencyCache.entrySet().iterator();
 
-            while (dIt.hasNext()) {
-                Map.Entry<String, Set<String>> dEntry = dIt.next();
-                // only include service/component classes
-                if (!dEntry.getKey().contains("Service")
-                        && !dEntry.getKey().contains("Controller")
-                        && !dEntry.getKey().contains("Component")) {
-                    if (dIt.hasNext()) continue;
-                    else break;
-                }
+            // only show service/component impls
+            Map<String, Set<String>> filteredDeps = fieldDependencyCache
+                .entrySet().stream()
+                .filter(e -> e.getKey().contains("ServiceImpl")
+                    || e.getKey().contains("ComponentImpl")
+                    || e.getKey().contains("ManagerImpl"))
+                .collect(Collectors.toMap(
+                    e -> e.getKey().substring(e.getKey().lastIndexOf('.') + 1),
+                    e -> e.getValue().stream()
+                        .map(d -> d.substring(d.lastIndexOf('.') + 1))
+                        .collect(Collectors.toSet()),
+                    (a, b) -> a,
+                    LinkedHashMap::new
+                ));
 
-                String simpleKey = dEntry.getKey()
-                    .substring(dEntry.getKey().lastIndexOf('.') + 1);
+            Iterator<Map.Entry<String, Set<String>>> fdIt =
+                filteredDeps.entrySet().iterator();
 
-                json.append("    \"").append(simpleKey).append("\": [\n");
+            while (fdIt.hasNext()) {
+                Map.Entry<String, Set<String>> entry = fdIt.next();
+                json.append("    \"").append(entry.getKey()).append("\": [\n");
 
-                Iterator<String> depIt = dEntry.getValue().iterator();
+                Iterator<String> depIt = entry.getValue().iterator();
                 while (depIt.hasNext()) {
-                    String dep = depIt.next();
-                    String simpleDep = dep.substring(dep.lastIndexOf('.') + 1);
-                    json.append("      \"").append(simpleDep).append("\"");
+                    json.append("      \"").append(depIt.next()).append("\"");
                     if (depIt.hasNext()) json.append(",");
                     json.append("\n");
                 }
 
                 json.append("    ]");
-                if (dIt.hasNext()) json.append(",");
+                if (fdIt.hasNext()) json.append(",");
                 json.append("\n");
             }
-            json.append("  }\n");
-            json.append("}");
+
+            json.append("  }\n}");
 
             Path outputPath = Path.of(OUTPUT_FILE);
             Files.writeString(outputPath, json.toString());
