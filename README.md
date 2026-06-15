@@ -1,71 +1,103 @@
 ```
+# trauth-sc — Local Development with Docker Compose
 
-@Component("dbHealthCheckIndicator")
-public class DbHealthCheckIndicator extends AbstractHealthIndicator {
+## Prerequisites
 
-    private final String tamUrl;
-    private final String tamUser;
-    private final String tamPassword;
-    private final String pvmUrl;
-    private final String pvmUser;
-    private final String pvmPassword;
+- Docker Desktop running
+- Access to the internal Docker registry: `i-ckdregistry.pro.be.xpi.net.intra`
+- Nexus credentials (user token — see below)
 
-    public DbHealthCheckIndicator(
-            @Qualifier("tamDataSource") AtomikosDataSourceBean tamDataSource,
-            @Qualifier("pvmDataSource") AtomikosDataSourceBean pvmDataSource) {
-        super("Database health check failed");
-        // Extract from XA properties — no pool involved
-        Properties tamProps = tamDataSource.getXaProperties();
-        this.tamUrl = tamProps.getProperty("URL");
-        this.tamUser = tamProps.getProperty("user");
-        this.tamPassword = tamProps.getProperty("password");
+---
 
-        Properties pvmProps = pvmDataSource.getXaProperties();
-        this.pvmUrl = pvmProps.getProperty("URL");
-        this.pvmUser = pvmProps.getProperty("user");
-        this.pvmPassword = pvmProps.getProperty("password");
-    }
+## 1. Authenticate with the Internal Registry
 
-    @Override
-    protected void doHealthCheck(Health.Builder builder) throws Exception {
-        CompletableFuture<Boolean> tamFuture = checkDb(tamUrl, tamUser, tamPassword);
-        CompletableFuture<Boolean> pvmFuture = checkDb(pvmUrl, pvmUser, pvmPassword);
+If you cannot pull images (you'll see `unauthorized` errors), you need to log in first:
 
-        boolean tamUp = getResult(tamFuture);
-        boolean pvmUp = getResult(pvmFuture);
+```bash
+docker login i-ckdregistry.pro.be.xpi.net.intra
+```
 
-        if (tamUp && pvmUp) {
-            builder.up();
-        } else {
-            builder.down();
-        }
+When prompted:
+- **Username**: your Nexus user token **name code**
+- **Password**: your Nexus user token **pass code**
 
-        builder
-            .withDetail("tam", tamUp ? "UP" : "DOWN")
-            .withDetail("pvm", pvmUp ? "UP" : "DOWN")
-            .withDetail("time", LocalDateTime.now())
-            .build();
-    }
+> To get your token: log in to Nexus Repository Manager → top-right menu → **User Token**.
+> The dialog shows your token name code and pass code. Keep these secret and do not share them.
 
-    private CompletableFuture<Boolean> checkDb(String url, String user, String password) {
-        return CompletableFuture.supplyAsync(() -> {
-            try (Connection conn = DriverManager.getConnection(url, user, password)) {
-                return conn.isValid(3);
-            } catch (SQLException e) {
-                return false;
-            }
-        });
-    }
+---
 
-    private boolean getResult(CompletableFuture<Boolean> future) {
-        try {
-            return future.get(3, TimeUnit.SECONDS);
-        } catch (TimeoutException e) {
-            future.cancel(true);
-            return false;
-        } catch (Exception e) {
-            return false;
-        }
-    }
-}
+## 2. Start the Infrastructure (Docker Compose)
+
+```bash
+cd ./docker/
+docker compose up
+```
+
+This starts all required infrastructure containers (database, Vault, etc.).
+
+To stop and clean up volumes (fresh start):
+
+```bash
+cd ./docker/
+docker compose down
+```
+
+> To wipe data completely, also delete the Docker volumes manually or use `docker compose down -v`.
+
+---
+
+## 3. Start the Application
+
+Start the Spring Boot application with the local compose profile:
+
+```bash
+./gradlew bootRun --args='--spring.profiles.active=local-development-non-ssl-with-compose'
+```
+
+Or from IntelliJ IDEA: set the active profile to `local-development-non-ssl-with-compose` in your run configuration.
+
+---
+
+## 4. Verify
+
+- **Swagger UI**: [http://localhost:8323/svc/trauth/swagger-ui/index.html](http://localhost:8323/svc/trauth/swagger-ui/index.html)
+
+---
+
+## Local Vault Setup (optional, if not using compose Vault)
+
+If you need a local Vault instance instead:
+
+```bash
+brew tap hashicorp/tap
+brew install hashicorp/tap/vault
+vault server -dev
+```
+
+> ⚠️ Dev mode runs Vault entirely in-memory. Data does not persist across restarts.
+
+---
+
+## Local Oracle DB (alternative to Docker Compose DB)
+
+If you prefer a standalone Oracle XE container:
+
+```bash
+docker run -d \
+  --name oracle-local-trauth \
+  -p 1521:1521 \
+  -e ORACLE_PASSWORD=12345 \
+  gvenzl/oracle-xe:21-slim-faststart
+```
+
+Then create the local database schema with name `oracle-local-trauth`.
+
+JDBC URL: `jdbc:oracle:thin:@localhost:1521/XEPDB1`
+
+---
+
+## Nexus Credentials Update
+
+If your Nexus user token expires (tokens expire on a rolling basis — check the expiry date shown in the Nexus token dialog), regenerate a new token via Nexus → User Token, and re-run `docker login` with the new credentials.
+
 ```
