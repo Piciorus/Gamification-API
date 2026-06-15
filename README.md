@@ -1,100 +1,109 @@
-# trauth-sc — Local Development with Docker Compose
+```
+@Component
+@RequiredArgsConstructor
+public class AutoErrorCodesCustomizer implements OperationCustomizer {
 
-## Prerequisites
+    private final ExceptionCodeAnalyzer analyzer;
 
-- Docker Desktop running
-- Access to the internal Docker registry: `i-ckdregistry.pro.be.xpi.net.intra`
-- Nexus credentials (user token — see below)
+    // cache: controller method → detected exception codes
+    private final Map<Method, List<ExceptionCode>> cache = new ConcurrentHashMap<>();
 
----
+    @Override
+    public Operation customize(Operation operation, HandlerMethod handlerMethod) {
+        
+        // 1. check manual annotation first — takes priority
+        List<ExceptionCode> codes = resolveManualCodes(handlerMethod);
+        
+        // 2. if no manual annotation — auto-detect from bytecode
+        if (codes.isEmpty()) {
+            codes = cache.computeIfAbsent(
+                handlerMethod.getMethod(),
+                m -> analyzer.detectCodes(handlerMethod)
+            );
+        }
 
-## 1. Authenticate with the Internal Registry
+        if (codes.isEmpty()) return operation;
 
-If you cannot pull images (you'll see `unauthorized` errors), you need to log in first:
-
-```bash
-docker login i-ckdregistry.pro.be.xpi.net.intra
+        // ... same grouping + swagger enrichment as before
+        return operation;
+    }
+}
 ```
 
-When prompted:
-- **Username**: your Nexus user token **name code**
-- **Password**: your Nexus user token **pass code**
+```
+@Component
+public class ExceptionCodeAnalyzer {
 
-> To get your token: log in to Nexus Repository Manager → top-right menu → **User Token**.
-> The dialog shows your token name code and pass code. Keep these secret and do not share them.
-
----
-
-## 2. Start the Infrastructure (Docker Compose)
-
-```bash
-cd ./docker/
-docker compose up
+    public Set<String> analyzeMethodForThrownCodes(Class<?> serviceClass, String methodName) 
+            throws IOException {
+        
+        Set<String> foundCodes = new HashSet<>();
+        
+        ClassReader reader = new ClassReader(serviceClass.getName());
+        reader.accept(new ClassVisitor(Opcodes.ASM9) {
+            @Override
+            public MethodVisitor visitMethod(int access, String name, 
+                    String descriptor, String signature, String[] exceptions) {
+                if (name.equals(methodName)) {
+                    return new MethodVisitor(Opcodes.ASM9) {
+                        @Override
+                        public void visitFieldInsn(int opcode, String owner, 
+                                String fieldName, String fieldDescriptor) {
+                            // detect: TamExceptionCode.AUTHORIZATION_NOT_FOUND
+                            if (owner.contains("ExceptionCode")) {
+                                foundCodes.add(owner + "." + fieldName);
+                            }
+                        }
+                    };
+                }
+                return super.visitMethod(access, name, descriptor, signature, exceptions);
+            }
+        }, 0);
+        
+        return foundCodes;
+    }
+}
 ```
 
-This starts all required infrastructure containers (database, Vault, etc.).
 
-To stop and clean up volumes (fresh start):
+```
+@Component
+@RequiredArgsConstructor
+public class ExceptionCodeAnalyzer implements ApplicationListener<ContextRefreshedEvent> {
 
-```bash
-cd ./docker/
-docker compose down
+    private final ApplicationContext context;
+
+    @Override
+    public void onApplicationEvent(ContextRefreshedEvent event) {
+        // scan all @RestController beans
+        context.getBeansWithAnnotation(RestController.class)
+            .values()
+            .forEach(this::analyzeController);
+    }
+
+    private void analyzeController(Object controller) {
+        Arrays.stream(controller.getClass().getMethods())
+            .filter(m -> m.isAnnotationPresent(RequestMapping.class)
+                      || m.isAnnotationPresent(GetMapping.class)
+                      || m.isAnnotationPresent(PostMapping.class)
+                      || m.isAnnotationPresent(PatchMapping.class))
+            .forEach(method -> {
+                Set<Class<? extends ExceptionCode>> thrown = findThrownExceptionCodes(method);
+                if (!thrown.isEmpty()) {
+                    log.info("Method {} can throw: {}", method.getName(), thrown);
+                }
+            });
+    }
+}
+
 ```
 
-> To wipe data completely, also delete the Docker volumes manually or use `docker compose down -v`.
 
----
-
-## 3. Start the Application
-
-Start the Spring Boot application with the local compose profile:
-
-```bash
-./gradlew bootRun --args='--spring.profiles.active=local-development-non-ssl-with-compose'
 ```
 
-Or from IntelliJ IDEA: set the active profile to `local-development-non-ssl-with-compose` in your run configuration.
-
----
-
-## 4. Verify
-
-- **Swagger UI**: [http://localhost:8323/svc/trauth/swagger-ui/index.html](http://localhost:8323/svc/trauth/swagger-ui/index.html)
-
----
-
-## Local Vault Setup (optional, if not using compose Vault)
-
-If you need a local Vault instance instead:
-
-```bash
-brew tap hashicorp/tap
-brew install hashicorp/tap/vault
-vault server -dev
+<dependency>
+    <groupId>org.ow2.asm</groupId>
+    <artifactId>asm</artifactId>
+    <version>9.6</version>
+</dependency>
 ```
-
-> ⚠️ Dev mode runs Vault entirely in-memory. Data does not persist across restarts.
-
----
-
-## Local Oracle DB (alternative to Docker Compose DB)
-
-If you prefer a standalone Oracle XE container:
-
-```bash
-docker run -d \
-  --name oracle-local-trauth \
-  -p 1521:1521 \
-  -e ORACLE_PASSWORD=12345 \
-  gvenzl/oracle-xe:21-slim-faststart
-```
-
-Then create the local database schema with name `oracle-local-trauth`.
-
-JDBC URL: `jdbc:oracle:thin:@localhost:1521/XEPDB1`
-
----
-
-## Nexus Credentials Update
-
-If your Nexus user token expires (tokens expire on a rolling basis — check the expiry date shown in the Nexus token dialog), regenerate a new token via Nexus → User Token, and re-run `docker login` with the new credentials.
