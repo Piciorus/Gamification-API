@@ -1,4 +1,3 @@
-```
 # trauth-sc — Local Development with Docker Compose
 
 ## Prerequisites
@@ -99,5 +98,3 @@ JDBC URL: `jdbc:oracle:thin:@localhost:1521/XEPDB1`
 ## Nexus Credentials Update
 
 If your Nexus user token expires (tokens expire on a rolling basis — check the expiry date shown in the Nexus token dialog), regenerate a new token via Nexus → User Token, and re-run `docker login` with the new credentials.
-
-```
