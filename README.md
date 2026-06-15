@@ -1,3 +1,109 @@
+@Slf4j
+@Component
+public class ExceptionCodeAnalyzer {
+
+    private static final String OUTPUT_FILE = "exception-codes-report.json";
+
+    @EventListener(ApplicationReadyEvent.class)
+    public void analyze(ApplicationReadyEvent event) {
+        try {
+            ClassPathScanningCandidateComponentProvider scanner =
+                new ClassPathScanningCandidateComponentProvider(false);
+            scanner.addIncludeFilter(new AnnotationTypeFilter(Service.class));
+
+            Set<BeanDefinition> candidates = scanner
+                .findCandidateComponents("de.consorsbank.core.trauthsc");
+
+            // ── change: collect into map instead of just logging ──
+            Map<String, Set<String>> report = new LinkedHashMap<>();
+
+            candidates.forEach(bd -> {
+                try {
+                    Class<?> serviceClass = Class.forName(bd.getBeanClassName());
+                    Set<String> codes = scanForExceptionCodes(serviceClass);
+
+                    if (!codes.isEmpty()) {
+                        log.info("[{}] → possible exception codes: {}",
+                            serviceClass.getSimpleName(), codes);
+
+                        // ── add to report ──
+                        report.put(serviceClass.getSimpleName(), codes);
+                    }
+                } catch (Exception e) {
+                    log.warn("Skip {}: {}", bd.getBeanClassName(), e.getMessage());
+                }
+            });
+
+            // ── write to file after scanning all ──
+            writeToFile(report);
+
+        } catch (Exception e) {
+            log.warn("ExceptionCodeAnalyzer failed: {}", e.getMessage());
+        }
+    }
+
+    private void writeToFile(Map<String, Set<String>> report) {
+        try {
+            StringBuilder json = new StringBuilder("{\n");
+
+            Iterator<Map.Entry<String, Set<String>>> it = report.entrySet().iterator();
+            while (it.hasNext()) {
+                Map.Entry<String, Set<String>> entry = it.next();
+                json.append("  \"").append(entry.getKey()).append("\": [\n");
+
+                Iterator<String> codeIt = entry.getValue().iterator();
+                while (codeIt.hasNext()) {
+                    json.append("    \"").append(codeIt.next()).append("\"");
+                    if (codeIt.hasNext()) json.append(",");
+                    json.append("\n");
+                }
+
+                json.append("  ]");
+                if (it.hasNext()) json.append(",");
+                json.append("\n");
+            }
+
+            json.append("}");
+
+            Path outputPath = Path.of(OUTPUT_FILE);
+            Files.writeString(outputPath, json.toString());
+            log.info("Exception codes report written to: {}", 
+                outputPath.toAbsolutePath());
+
+        } catch (IOException e) {
+            log.warn("Could not write report: {}", e.getMessage());
+        }
+    }
+
+    private Set<String> scanForExceptionCodes(Class<?> serviceClass) throws IOException {
+        Set<String> foundCodes = new HashSet<>();
+
+        new ClassReader(serviceClass.getName()).accept(new ClassVisitor(Opcodes.ASM9) {
+            @Override
+            public MethodVisitor visitMethod(int access, String name,
+                    String descriptor, String signature, String[] exceptions) {
+                return new MethodVisitor(Opcodes.ASM9) {
+                    @Override
+                    public void visitFieldInsn(int opcode, String owner,
+                            String fieldName, String fieldDescriptor) {
+                        if (opcode == Opcodes.GETSTATIC
+                                && owner.contains("ExceptionCode")) {
+                            foundCodes.add(
+                                owner.substring(owner.lastIndexOf('/') + 1)
+                                + "." + fieldName
+                            );
+                        }
+                    }
+                };
+            }
+        }, 0);
+
+        return foundCodes;
+    }
+}
+
+
+
 ```
 @Slf4j
 @Component
