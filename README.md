@@ -1,3 +1,240 @@
+
+@Slf4j
+@Component
+public class ExceptionCodeAnalyzer {
+
+    private static final String OUTPUT_FILE = "exception-codes-report.json";
+    private static final String BASE_PACKAGE = "de.consorsbank.core.trauthsc";
+
+    // cache: className+methodName → exception codes found in bytecode
+    private final Map<String, Set<String>> methodCodesCache = new HashMap<>();
+    // cache: className+methodName → methods it calls (className+methodName)
+    private final Map<String, Set<String>> callGraphCache = new HashMap<>();
+
+    @EventListener(ApplicationReadyEvent.class)
+    public void analyze(ApplicationReadyEvent event) {
+        try {
+            log.info("=== Starting Exception Code Analysis ===");
+
+            // 1. scan ALL classes in base package — build full call graph + codes
+            buildFullCallGraph();
+
+            // 2. scan controllers and trace through call graph
+            Map<String, Map<String, Set<String>>> report = buildControllerReport();
+
+            // 3. log
+            logReport(report);
+
+            // 4. write to file
+            writeToFile(report);
+
+            log.info("=== Exception Code Analysis Complete ===");
+
+        } catch (Exception e) {
+            log.warn("ExceptionCodeAnalyzer failed: {}", e.getMessage());
+        }
+    }
+
+    // ── Step 1: scan ALL classes, build call graph ────────────────
+
+    private void buildFullCallGraph() {
+        ClassPathScanningCandidateComponentProvider scanner =
+            new ClassPathScanningCandidateComponentProvider(false);
+        // scan everything — services, components, helpers
+        scanner.addIncludeFilter(new RegexPatternTypeFilter(
+            Pattern.compile(".*")
+        ));
+
+        scanner.findCandidateComponents(BASE_PACKAGE).forEach(bd -> {
+            try {
+                Class<?> clazz = Class.forName(bd.getBeanClassName());
+                scanClass(clazz);
+            } catch (Exception e) {
+                // skip unloadable classes
+            }
+        });
+    }
+
+    private void scanClass(Class<?> clazz) throws IOException {
+        new ClassReader(clazz.getName()).accept(new ClassVisitor(Opcodes.ASM9) {
+            @Override
+            public MethodVisitor visitMethod(int access, String methodName,
+                    String descriptor, String signature, String[] exceptions) {
+
+                String methodKey = clazz.getName() + "#" + methodName;
+
+                return new MethodVisitor(Opcodes.ASM9) {
+
+                    @Override
+                    public void visitFieldInsn(int opcode, String owner,
+                            String fieldName, String fieldDescriptor) {
+                        // collect exception codes thrown in this method
+                        if (opcode == Opcodes.GETSTATIC
+                                && owner.contains("ExceptionCode")) {
+                            methodCodesCache
+                                .computeIfAbsent(methodKey, k -> new HashSet<>())
+                                .add(owner.substring(owner.lastIndexOf('/') + 1)
+                                    + "." + fieldName);
+                        }
+                    }
+
+                    @Override
+                    public void visitMethodInsn(int opcode, String owner,
+                            String name, String descriptor, boolean isInterface) {
+                        // collect calls to other methods in our package
+                        if (owner.replace('/', '.')
+                                .startsWith(BASE_PACKAGE)) {
+                            String calledKey = owner.replace('/', '.') + "#" + name;
+                            callGraphCache
+                                .computeIfAbsent(methodKey, k -> new HashSet<>())
+                                .add(calledKey);
+                        }
+                    }
+                };
+            }
+        }, 0);
+    }
+
+    // ── Step 2: build report per controller method ────────────────
+
+    private Map<String, Map<String, Set<String>>> buildControllerReport() {
+        Map<String, Map<String, Set<String>>> report = new LinkedHashMap<>();
+
+        ClassPathScanningCandidateComponentProvider scanner =
+            new ClassPathScanningCandidateComponentProvider(false);
+        scanner.addIncludeFilter(new AnnotationTypeFilter(RestController.class));
+
+        scanner.findCandidateComponents(BASE_PACKAGE).forEach(bd -> {
+            try {
+                Class<?> controllerClass = Class.forName(bd.getBeanClassName());
+                Map<String, Set<String>> methodReport = new LinkedHashMap<>();
+
+                Arrays.stream(controllerClass.getDeclaredMethods())
+                    .filter(this::isApiMethod)
+                    .forEach(method -> {
+                        String methodKey = controllerClass.getName()
+                            + "#" + method.getName();
+
+                        // recursively collect all codes reachable from this method
+                        Set<String> visited = new HashSet<>();
+                        Set<String> allCodes = collectCodesTransitively(
+                            methodKey, visited
+                        );
+
+                        methodReport.put(method.getName(), allCodes);
+                    });
+
+                if (!methodReport.isEmpty()) {
+                    report.put(controllerClass.getSimpleName(), methodReport);
+                }
+
+            } catch (Exception e) {
+                log.warn("Skip controller {}: {}", bd.getBeanClassName(), e.getMessage());
+            }
+        });
+
+        return report;
+    }
+
+    // ── recursive call graph traversal ────────────────────────────
+
+    private Set<String> collectCodesTransitively(String methodKey, Set<String> visited) {
+        // prevent infinite loops in circular calls
+        if (!visited.add(methodKey)) return Collections.emptySet();
+
+        Set<String> codes = new HashSet<>();
+
+        // add codes directly thrown in this method
+        Set<String> directCodes = methodCodesCache.get(methodKey);
+        if (directCodes != null) codes.addAll(directCodes);
+
+        // recurse into all called methods
+        Set<String> calledMethods = callGraphCache.get(methodKey);
+        if (calledMethods != null) {
+            calledMethods.forEach(calledKey ->
+                codes.addAll(collectCodesTransitively(calledKey, visited))
+            );
+        }
+
+        return codes;
+    }
+
+    // ── Step 3: log ───────────────────────────────────────────────
+
+    private void logReport(Map<String, Map<String, Set<String>>> report) {
+        report.forEach((controller, methods) -> {
+            log.info("Controller: {}", controller);
+            methods.forEach((method, codes) -> {
+                if (codes.isEmpty()) {
+                    log.info("  {}() → no exception codes detected", method);
+                } else {
+                    log.info("  {}() → {}", method, codes);
+                }
+            });
+        });
+    }
+
+    // ── Step 4: write JSON ────────────────────────────────────────
+
+    private void writeToFile(Map<String, Map<String, Set<String>>> report) {
+        try {
+            StringBuilder json = new StringBuilder("{\n");
+
+            Iterator<Map.Entry<String, Map<String, Set<String>>>> cIt =
+                report.entrySet().iterator();
+
+            while (cIt.hasNext()) {
+                Map.Entry<String, Map<String, Set<String>>> cEntry = cIt.next();
+                json.append("  \"").append(cEntry.getKey()).append("\": {\n");
+
+                Iterator<Map.Entry<String, Set<String>>> mIt =
+                    cEntry.getValue().entrySet().iterator();
+
+                while (mIt.hasNext()) {
+                    Map.Entry<String, Set<String>> mEntry = mIt.next();
+                    json.append("    \"").append(mEntry.getKey()).append("\": [\n");
+
+                    Iterator<String> codeIt = mEntry.getValue().iterator();
+                    while (codeIt.hasNext()) {
+                        json.append("      \"").append(codeIt.next()).append("\"");
+                        if (codeIt.hasNext()) json.append(",");
+                        json.append("\n");
+                    }
+
+                    json.append("    ]");
+                    if (mIt.hasNext()) json.append(",");
+                    json.append("\n");
+                }
+
+                json.append("  }");
+                if (cIt.hasNext()) json.append(",");
+                json.append("\n");
+            }
+
+            json.append("}");
+
+            Path outputPath = Path.of(OUTPUT_FILE);
+            Files.writeString(outputPath, json.toString());
+            log.info("Report written to: {}", outputPath.toAbsolutePath());
+
+        } catch (IOException e) {
+            log.warn("Could not write report: {}", e.getMessage());
+        }
+    }
+
+    // ── helpers ───────────────────────────────────────────────────
+
+    private boolean isApiMethod(Method method) {
+        return method.isAnnotationPresent(RequestMapping.class)
+            || method.isAnnotationPresent(GetMapping.class)
+            || method.isAnnotationPresent(PostMapping.class)
+            || method.isAnnotationPresent(PatchMapping.class)
+            || method.isAnnotationPresent(PutMapping.class)
+            || method.isAnnotationPresent(DeleteMapping.class);
+    }
+}
+
+
 @Slf4j
 @Component
 public class ExceptionCodeAnalyzer {
