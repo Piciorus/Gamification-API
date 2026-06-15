@@ -1,57 +1,107 @@
 ```
+@Slf4j
 @Component
 @RequiredArgsConstructor
-public class AutoErrorCodesCustomizer implements OperationCustomizer {
+public class ExceptionCodeAnalyzer implements ApplicationListener<ContextRefreshedEvent> {
 
-    private final ExceptionCodeAnalyzer analyzer;
-
-    // cache: controller method → detected exception codes
-    private final Map<Method, List<ExceptionCode>> cache = new ConcurrentHashMap<>();
+    private final ApplicationContext applicationContext;
 
     @Override
-    public Operation customize(Operation operation, HandlerMethod handlerMethod) {
-        
-        // 1. check manual annotation first — takes priority
-        List<ExceptionCode> codes = resolveManualCodes(handlerMethod);
-        
-        // 2. if no manual annotation — auto-detect from bytecode
-        if (codes.isEmpty()) {
-            codes = cache.computeIfAbsent(
-                handlerMethod.getMethod(),
-                m -> analyzer.detectCodes(handlerMethod)
-            );
-        }
+    public void onApplicationEvent(ContextRefreshedEvent event) {
+        log.info("=== Starting Exception Code Analysis ===");
 
-        if (codes.isEmpty()) return operation;
+        // get all @RestController beans
+        applicationContext.getBeansWithAnnotation(RestController.class)
+            .forEach((beanName, controllerBean) -> {
+                log.info("--- Analyzing controller: {}", controllerBean.getClass().getSimpleName());
+                analyzeController(controllerBean);
+            });
 
-        // ... same grouping + swagger enrichment as before
-        return operation;
+        log.info("=== Exception Code Analysis Complete ===");
     }
-}
-```
 
-```
-@Component
-public class ExceptionCodeAnalyzer {
+    private void analyzeController(Object controller) {
+        Class<?> controllerClass = AopUtils.getTargetClass(controller); // unwrap proxies
 
-    public Set<String> analyzeMethodForThrownCodes(Class<?> serviceClass, String methodName) 
+        // find all service fields injected into this controller
+        List<Class<?>> serviceClasses = findInjectedServices(controllerClass);
+
+        // for each controller method
+        Arrays.stream(controllerClass.getDeclaredMethods())
+            .filter(this::isApiMethod)
+            .forEach(method -> {
+                log.info("  Method: {}", method.getName());
+
+                Set<String> allCodes = new HashSet<>();
+
+                // scan each injected service for codes thrown in methods
+                // that match the controller method name pattern
+                serviceClasses.forEach(serviceClass -> {
+                    try {
+                        Set<String> codes = scanServiceClass(
+                            serviceClass, 
+                            method.getName()
+                        );
+                        allCodes.addAll(codes);
+                    } catch (IOException e) {
+                        log.warn("Could not analyze {}: {}", 
+                            serviceClass.getSimpleName(), e.getMessage());
+                    }
+                });
+
+                if (allCodes.isEmpty()) {
+                    log.info("    → No exception codes detected");
+                } else {
+                    log.info("    → Detected exception codes: {}", allCodes);
+                }
+            });
+    }
+
+    private List<Class<?>> findInjectedServices(Class<?> controllerClass) {
+        return Arrays.stream(controllerClass.getDeclaredFields())
+            .map(field -> {
+                // resolve actual impl from Spring context
+                try {
+                    Object bean = applicationContext.getBean(field.getType());
+                    return AopUtils.getTargetClass(bean); // unwrap proxy → get impl
+                } catch (Exception e) {
+                    return null;
+                }
+            })
+            .filter(Objects::nonNull)
+            .collect(Collectors.toList());
+    }
+
+    private Set<String> scanServiceClass(Class<?> serviceClass, String controllerMethodName) 
             throws IOException {
         
         Set<String> foundCodes = new HashSet<>();
-        
+
         ClassReader reader = new ClassReader(serviceClass.getName());
         reader.accept(new ClassVisitor(Opcodes.ASM9) {
             @Override
-            public MethodVisitor visitMethod(int access, String name, 
+            public MethodVisitor visitMethod(int access, String name,
                     String descriptor, String signature, String[] exceptions) {
-                if (name.equals(methodName)) {
+
+                // match service method by name similarity to controller method
+                // e.g. controller: "initiateTransactionAuthorization"
+                //      service:    "initiateTransactionAuthorization" (same name)
+                if (isRelatedMethod(name, controllerMethodName)) {
+                    log.debug("    Scanning service method: {}", name);
                     return new MethodVisitor(Opcodes.ASM9) {
                         @Override
-                        public void visitFieldInsn(int opcode, String owner, 
+                        public void visitFieldInsn(int opcode, String owner,
                                 String fieldName, String fieldDescriptor) {
-                            // detect: TamExceptionCode.AUTHORIZATION_NOT_FOUND
-                            if (owner.contains("ExceptionCode")) {
-                                foundCodes.add(owner + "." + fieldName);
+                            // GETSTATIC = how enum constants are loaded in bytecode
+                            if (opcode == Opcodes.GETSTATIC 
+                                    && owner.contains("ExceptionCode")) {
+                                log.debug("      Found: {}.{}", 
+                                    owner.substring(owner.lastIndexOf('/') + 1), 
+                                    fieldName);
+                                foundCodes.add(
+                                    owner.substring(owner.lastIndexOf('/') + 1) 
+                                    + "." + fieldName
+                                );
                             }
                         }
                     };
@@ -59,51 +109,34 @@ public class ExceptionCodeAnalyzer {
                 return super.visitMethod(access, name, descriptor, signature, exceptions);
             }
         }, 0);
-        
+
         return foundCodes;
     }
-}
-```
 
-
-```
-@Component
-@RequiredArgsConstructor
-public class ExceptionCodeAnalyzer implements ApplicationListener<ContextRefreshedEvent> {
-
-    private final ApplicationContext context;
-
-    @Override
-    public void onApplicationEvent(ContextRefreshedEvent event) {
-        // scan all @RestController beans
-        context.getBeansWithAnnotation(RestController.class)
-            .values()
-            .forEach(this::analyzeController);
+    private boolean isApiMethod(Method method) {
+        return method.isAnnotationPresent(RequestMapping.class)
+            || method.isAnnotationPresent(GetMapping.class)
+            || method.isAnnotationPresent(PostMapping.class)
+            || method.isAnnotationPresent(PatchMapping.class)
+            || method.isAnnotationPresent(PutMapping.class)
+            || method.isAnnotationPresent(DeleteMapping.class)
+            // also check interface methods for controllers implementing Api interfaces
+            || Arrays.stream(method.getDeclaringClass().getInterfaces())
+                .flatMap(i -> Arrays.stream(i.getDeclaredMethods()))
+                .filter(m -> m.getName().equals(method.getName()))
+                .anyMatch(m -> m.isAnnotationPresent(RequestMapping.class)
+                            || m.isAnnotationPresent(GetMapping.class)
+                            || m.isAnnotationPresent(PostMapping.class)
+                            || m.isAnnotationPresent(PatchMapping.class));
     }
 
-    private void analyzeController(Object controller) {
-        Arrays.stream(controller.getClass().getMethods())
-            .filter(m -> m.isAnnotationPresent(RequestMapping.class)
-                      || m.isAnnotationPresent(GetMapping.class)
-                      || m.isAnnotationPresent(PostMapping.class)
-                      || m.isAnnotationPresent(PatchMapping.class))
-            .forEach(method -> {
-                Set<Class<? extends ExceptionCode>> thrown = findThrownExceptionCodes(method);
-                if (!thrown.isEmpty()) {
-                    log.info("Method {} can throw: {}", method.getName(), thrown);
-                }
-            });
+    private boolean isRelatedMethod(String serviceMethodName, String controllerMethodName) {
+        // exact match first
+        if (serviceMethodName.equals(controllerMethodName)) return true;
+        // partial match — service might have slightly different name
+        String lower = controllerMethodName.toLowerCase();
+        return serviceMethodName.toLowerCase().contains(lower)
+            || lower.contains(serviceMethodName.toLowerCase());
     }
 }
-
-```
-
-
-```
-
-<dependency>
-    <groupId>org.ow2.asm</groupId>
-    <artifactId>asm</artifactId>
-    <version>9.6</version>
-</dependency>
 ```
