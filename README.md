@@ -1,76 +1,58 @@
 ```
-@Component("dbHealthCheckIndicator")
-public class DbHealthCheckIndicator extends AbstractHealthIndicator {
+// ---- Shared schema -> canonical package mapping ----
+// Tenant / AuthorizationMethod / AuthorizationAttemptStatus / AuthorizationStatus / ApiError
+// are defined once in common/schemas.yaml and $ref'd from every spec.
+// We pick ONE generated copy as canonical and point every other spec at it
+// via importMappings, so the generator does not recreate them per-module.
+def commonImports = [
+        "Tenant"                    : "de.consorsbank.core.trauthsc.rest.api.tam.initiate.transaction.authorization.model.Tenant",
+        "AuthorizationMethod"       : "de.consorsbank.core.trauthsc.rest.api.tam.initiate.transaction.authorization.model.AuthorizationMethod",
+        "AuthorizationStatus"       : "de.consorsbank.core.trauthsc.rest.api.tam.initiate.transaction.authorization.model.AuthorizationStatus",
+        "AuthorizationAttemptStatus": "de.consorsbank.core.trauthsc.rest.api.tam.initiate.transaction.authorization.model.AuthorizationAttemptStatus",
+        "ApiError"                  : "de.consorsbank.core.trauthsc.rest.api.tam.initiate.transaction.authorization.model.ApiError"
+]
 
-    private static final int TIMEOUT = 3;
+if (!ext.has('openApiSpecs')) ext.openApiSpecs = []
+ext.openApiSpecs += [
 
-    private final String tamUrl;
-    private final String tamUser;
-    private final String tamPassword;
-    private final String pvmUrl;
-    private final String pvmUser;
-    private final String pvmPassword;
+        // ---- CANONICAL ENTRY ----
+        // This is the one spec allowed to actually generate Tenant, AuthorizationMethod, etc.
+        // No importMappings here — it's the source of truth.
+        [name        : "init-transaction",
+         file        : "${projectDir}/src/main/resources/openapi/tam/initiate-transaction-authorization.yaml",
+         apiPackage  : "de.consorsbank.core.trauthsc.rest.api.tam.initiate.transaction.authorization.api",
+         modelPackage: "de.consorsbank.core.trauthsc.rest.api.tam.initiate.transaction.authorization.model"],
 
-    public DbHealthCheckIndicator(
-            TamDataSourceProperties tamDataSourceProperties,
-            PvmDataSourceProperties pvmDataSourceProperties) {
-        super("Database health check failed");
-        this.tamUrl = tamDataSourceProperties.getUrl();
-        this.tamUser = tamDataSourceProperties.getUsername();
-        this.tamPassword = tamDataSourceProperties.getPassword();
-        this.pvmUrl = pvmDataSourceProperties.getUrl();
-        this.pvmUser = pvmDataSourceProperties.getUsername();
-        this.pvmPassword = pvmDataSourceProperties.getPassword();
-    }
+        // ---- ALL OTHER ENTRIES: same as before, plus importMappings ----
+        [name          : "submit-authorization-method",
+         file          : "${projectDir}/src/main/resources/openapi/tam/submit-authorization-method.yaml",
+         apiPackage    : "de.consorsbank.core.trauthsc.rest.api.tam.submit.authorization.method.api",
+         modelPackage  : "de.consorsbank.core.trauthsc.rest.api.tam.submit.authorization.method.model",
+         importMappings: commonImports],
 
-    @Override
-    protected void doHealthCheck(Health.Builder builder) throws Exception {
-        var tamFuture = checkDb(tamUrl, tamUser, tamPassword);
-        var pvmFuture = checkDb(pvmUrl, pvmUser, pvmPassword);
+        [name          : "submit-authorization-credential",
+         file          : "${projectDir}/src/main/resources/openapi/tam/submit-authorization-credential.yaml",
+         apiPackage    : "de.consorsbank.core.trauthsc.rest.api.tam.submit.authorization.credential.api",
+         modelPackage  : "de.consorsbank.core.trauthsc.rest.api.tam.submit.authorization.credential.model",
+         importMappings: commonImports],
 
-        Health tamHealth = buildComponentHealth(tamFuture);
-        Health pvmHealth = buildComponentHealth(pvmFuture);
+        [name          : "get-authorization-status",
+         file          : "${projectDir}/src/main/resources/openapi/tam/get-authorization-status.yaml",
+         apiPackage    : "de.consorsbank.core.trauthsc.rest.api.tam.get.authorization.status.api",
+         modelPackage  : "de.consorsbank.core.trauthsc.rest.api.tam.get.authorization.status.model",
+         importMappings: commonImports],
 
-        boolean allUp = tamHealth.getStatus() == Status.UP
-                      && pvmHealth.getStatus() == Status.UP;
+        [name          : "get-authorization-attempt-status",
+         file          : "${projectDir}/src/main/resources/openapi/tam/get-authorization-attempt-status.yaml",
+         apiPackage    : "de.consorsbank.core.trauthsc.rest.api.tam.get.authorization.attempt.status.api",
+         modelPackage  : "de.consorsbank.core.trauthsc.rest.api.tam.get.authorization.attempt.status.model",
+         importMappings: commonImports],
 
-        builder.status(allUp ? Status.UP : Status.DOWN)
-               .withDetail("tam", tamHealth)
-               .withDetail("pvm", pvmHealth)
-               .build();
-    }
-
-    private Health buildComponentHealth(CompletableFuture<Boolean> future) {
-        boolean up = getResult(future);
-        return up
-            ? Health.up()
-                .withDetail("database", "Oracle")
-                .withDetail("validationQuery", "isValid()")
-                .build()
-            : Health.down()
-                .withDetail("database", "Oracle")
-                .withDetail("validationQuery", "isValid()")
-                .build();
-    }
-
-    private CompletableFuture<Boolean> checkDb(String url, String user, String password) {
-        return CompletableFuture.supplyAsync(() -> {
-            try (Connection conn = DriverManager.getConnection(url, user, password)) {
-                return conn.isValid(TIMEOUT);
-            } catch (SQLException e) {
-                return false;
-            }
-        });
-    }
-
-    private boolean getResult(CompletableFuture<Boolean> future) {
-        try {
-            return future.get(TIMEOUT, TimeUnit.SECONDS);
-        } catch (TimeoutException | InterruptedException | ExecutionException e) {
-            future.cancel(true);
-            return false;
-        }
-    }
-}
+        [name          : "get-payload-transaction-authorization",
+         file          : "${projectDir}/src/main/resources/openapi/tam/get-payload-transaction-authorization.yaml",
+         apiPackage    : "de.consorsbank.core.trauthsc.rest.api.tam.get.payload.transaction.authorization.status.api",
+         modelPackage  : "de.consorsbank.core.trauthsc.rest.api.tam.get.payload.transaction.authorization.status.model",
+         importMappings: commonImports]
+]
 
 ```
