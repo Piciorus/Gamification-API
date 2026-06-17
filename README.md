@@ -1,3 +1,19 @@
+private boolean getResult(CompletableFuture<Boolean> future) {
+    try {
+        return future.get(TIMEOUT, TimeUnit.SECONDS);
+    } catch (TimeoutException e) {
+        future.cancel(true);
+        return false;
+    } catch (InterruptedException e) {
+        Thread.currentThread().interrupt(); // restore interrupt status
+        future.cancel(true);
+        return false;
+    } catch (ExecutionException e) {
+        return false;
+    }
+}
+
+
 ```
 SubmitAuthorizationMethodResponse:
   type: object
