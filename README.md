@@ -6,6 +6,167 @@ import org.springframework.boot.health.contributor.Health;
 import org.springframework.boot.health.contributor.Status;
 import org.springframework.stereotype.Component;
 
+import java.io.IOException;
+import java.net.InetSocketAddress;
+import java.net.Socket;
+import java.net.URI;
+import java.util.concurrent.CancellationException;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
+
+@Component
+public class KobilHealthCheckIndicator extends AbstractHealthIndicator {
+
+    private static final int TIMEOUT_SECONDS = 3;
+    private static final int CONNECT_TIMEOUT_MILLIS = 2000;
+    private static final String KOBIL = "kobil";
+    private static final String HOST = "host";
+    private static final String PORT = "port";
+
+    private final String host;
+    private final int port;
+
+    public KobilHealthCheckIndicator(FeignClientUrlProperties feignClientUrlProperties) {
+        super("Kobil health check failed");
+        URI uri = URI.create(feignClientUrlProperties.transauthKobilScClient().url());
+        this.host = uri.getHost();
+        this.port = uri.getPort() != -1 ? uri.getPort() : defaultPortFor(uri.getScheme());
+    }
+
+    private static int defaultPortFor(String scheme) {
+        return "https".equalsIgnoreCase(scheme) ? 443 : 80;
+    }
+
+    @Override
+    protected void doHealthCheck(Health.Builder builder) {
+        var future = checkTcp();
+        boolean up = getResult(future);
+
+        builder.status(up ? Status.UP : Status.DOWN)
+                .withDetail(KOBIL, up ? "reachable" : "unreachable")
+                .withDetail(HOST, host)
+                .withDetail(PORT, port);
+    }
+
+    private CompletableFuture<Boolean> checkTcp() {
+        return CompletableFuture.supplyAsync(() -> {
+            try (Socket socket = new Socket()) {
+                socket.connect(new InetSocketAddress(host, port), CONNECT_TIMEOUT_MILLIS);
+                return true;
+            } catch (IOException e) {
+                return false;
+            }
+        });
+    }
+
+    private boolean getResult(CompletableFuture<Boolean> future) {
+        try {
+            return future.get(TIMEOUT_SECONDS, TimeUnit.SECONDS);
+        } catch (TimeoutException e) {
+            future.cancel(true);
+            return false;
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            future.cancel(true);
+            return false;
+        } catch (ExecutionException | CancellationException e) {
+            return false;
+        }
+    }
+}
+```
+
+
+```
+package de.consorsbank.core.trauthsc.common.actuator;
+
+import org.springframework.boot.health.contributor.AbstractHealthIndicator;
+import org.springframework.boot.health.contributor.Health;
+import org.springframework.boot.health.contributor.Status;
+import org.springframework.stereotype.Component;
+
+import java.io.IOException;
+import java.net.InetSocketAddress;
+import java.net.Socket;
+import java.net.URI;
+import java.util.concurrent.CancellationException;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
+
+@Component
+public class DraasHealthCheckIndicator extends AbstractHealthIndicator {
+
+    private static final int TIMEOUT_SECONDS = 3;
+    private static final int CONNECT_TIMEOUT_MILLIS = 2000;
+    private static final String DRAAS = "draas";
+    private static final String HOST = "host";
+    private static final String PORT = "port";
+
+    private final String host;
+    private final int port;
+
+    public DraasHealthCheckIndicator(FeignClientUrlProperties feignClientUrlProperties) {
+        super("Draas health check failed");
+        URI uri = URI.create(feignClientUrlProperties.draasClient().url());
+        this.host = uri.getHost();
+        this.port = uri.getPort() != -1 ? uri.getPort() : defaultPortFor(uri.getScheme());
+    }
+
+    private static int defaultPortFor(String scheme) {
+        return "https".equalsIgnoreCase(scheme) ? 443 : 80;
+    }
+
+    @Override
+    protected void doHealthCheck(Health.Builder builder) {
+        var future = checkTcp();
+        boolean up = getResult(future);
+
+        builder.status(up ? Status.UP : Status.DOWN)
+                .withDetail(DRAAS, up ? "reachable" : "unreachable")
+                .withDetail(HOST, host)
+                .withDetail(PORT, port);
+    }
+
+    private CompletableFuture<Boolean> checkTcp() {
+        return CompletableFuture.supplyAsync(() -> {
+            try (Socket socket = new Socket()) {
+                socket.connect(new InetSocketAddress(host, port), CONNECT_TIMEOUT_MILLIS);
+                return true;
+            } catch (IOException e) {
+                return false;
+            }
+        });
+    }
+
+    private boolean getResult(CompletableFuture<Boolean> future) {
+        try {
+            return future.get(TIMEOUT_SECONDS, TimeUnit.SECONDS);
+        } catch (TimeoutException e) {
+            future.cancel(true);
+            return false;
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            future.cancel(true);
+            return false;
+        } catch (ExecutionException | CancellationException e) {
+            return false;
+        }
+    }
+}
+```
+
+```
+package de.consorsbank.core.trauthsc.common.actuator;
+
+import org.springframework.boot.health.contributor.AbstractHealthIndicator;
+import org.springframework.boot.health.contributor.Health;
+import org.springframework.boot.health.contributor.Status;
+import org.springframework.stereotype.Component;
+
 import jakarta.jms.Connection;
 import jakarta.jms.ConnectionFactory;
 import jakarta.jms.JMSException;
