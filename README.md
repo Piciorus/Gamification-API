@@ -1,3 +1,7 @@
+grep -E "2026-06-15 14:(1[5-9]|[23][0-9]|4[0-5]):" custpi-sc-az1-*.log
+
+
+
 private boolean getResult(CompletableFuture<Boolean> future) {
     try {
         return future.get(TIMEOUT, TimeUnit.SECONDS);
