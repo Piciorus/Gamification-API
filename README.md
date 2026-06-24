@@ -1,3 +1,303 @@
+
+package de.consorsbank.core.trauthsc.authorizationengine.service;
+
+import de.consorsbank.core.trauthsc.authorizationengine.dto.AuthorizationMethodEnum;
+import de.consorsbank.core.trauthsc.authorizationengine.dto.AuthorizationRequest;
+import de.consorsbank.core.trauthsc.authorizationengine.dto.AuthorizationResponse;
+import de.consorsbank.core.trauthsc.authorizationengine.dto.PreliminaryAuthorizationRequest;
+import de.consorsbank.core.trauthsc.authorizationengine.dto.PreliminaryAuthorizationResponse;
+import de.consorsbank.core.trauthsc.authorizationengine.mapper.base.AuthorizationMapper;
+import de.consorsbank.core.trauthsc.authorizationengine.mapper.base.MultiStepAuthorizationMapper;
+import de.consorsbank.core.trauthsc.authorizationengine.provider.base.AuthorizationBaseRequest;
+import de.consorsbank.core.trauthsc.authorizationengine.provider.base.AuthorizationBaseResponse;
+import de.consorsbank.core.trauthsc.authorizationengine.provider.base.AuthorizationInitBaseRequest;
+import de.consorsbank.core.trauthsc.authorizationengine.provider.base.AuthorizationInitBaseResponse;
+import de.consorsbank.core.trauthsc.authorizationengine.provider.base.AuthorizationProvider;
+import de.consorsbank.core.trauthsc.authorizationengine.provider.base.MultiStepAuthorizationProvider;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Nested;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.EnumSource;
+
+import java.lang.reflect.Field;
+import java.util.EnumMap;
+import java.util.Map;
+
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoMoreInteractions;
+import static org.mockito.Mockito.when;
+
+/**
+ * Unit tests for {@link AuthorizationEngineServiceImpl}.
+ *
+ * <p>NOTE ON RECONSTRUCTION: this class, the {@code AuthorizationProvider} /
+ * {@code AuthorizationMapper} interfaces, and {@code MultiStepAuthorizationProvider} were
+ * reconstructed from photos of an IDE screen, not from the actual source file. The
+ * non-multi-step path ({@code submitAuthorization}, {@code getAuthorizationProvider}) is backed
+ * by clearly-photographed source and should be reliable. The multi-step path
+ * ({@code preliminaryAuthorizationSubmission}) relies on a {@code MultiStepAuthorizationMapper}
+ * interface whose declaration was never fully visible — only its 4-type-parameter usage. If your
+ * actual interface differs (different method names/generics), the multi-step tests below will
+ * need adjusting; everything else should compile and pass as-is.
+ *
+ * <p>Dependencies assumed on the test classpath: JUnit 5, Mockito (mockito-core /
+ * mockito-junit-jupiter), AssertJ.
+ */
+@DisplayName("AuthorizationEngineServiceImpl")
+class AuthorizationEngineServiceImplTest {
+
+    private AuthorizationProvider<AuthorizationBaseRequest, AuthorizationBaseResponse> simpleProvider;
+    private AuthorizationMapper<AuthorizationBaseRequest, AuthorizationBaseResponse> simpleMapper;
+
+    private MultiStepAuthorizationProvider<AuthorizationBaseRequest, AuthorizationBaseResponse,
+            AuthorizationInitBaseRequest, AuthorizationInitBaseResponse> multiStepProvider;
+    private MultiStepAuthorizationMapper<AuthorizationBaseRequest, AuthorizationBaseResponse,
+            AuthorizationInitBaseRequest, AuthorizationInitBaseResponse> multiStepMapper;
+
+    private Map<AuthorizationMethodEnum, AuthorizationProvider<?, ?>> providerMap;
+
+    private AuthorizationEngineServiceImpl sut;
+
+    @BeforeEach
+    void setUp() {
+        simpleProvider = mock(AuthorizationProvider.class);
+        simpleMapper = mock(AuthorizationMapper.class);
+
+        multiStepProvider = mock(MultiStepAuthorizationProvider.class);
+        multiStepMapper = mock(MultiStepAuthorizationMapper.class);
+
+        providerMap = new EnumMap<>(AuthorizationMethodEnum.class);
+
+        sut = new AuthorizationEngineServiceImpl(providerMap);
+    }
+
+    // ------------------------------------------------------------------
+    // shouldPerformPreliminaryAuthorization
+    // ------------------------------------------------------------------
+
+    @Nested
+    @DisplayName("shouldPerformPreliminaryAuthorization")
+    class ShouldPerformPreliminaryAuthorization {
+
+        @Test
+        @DisplayName("returns true when the resolved provider is a MultiStepAuthorizationProvider")
+        void returnsTrue_whenProviderIsMultiStep() {
+            providerMap.put(AuthorizationMethodEnum.QRCODE_FROM_GENERATOR, multiStepProvider);
+
+            boolean result = sut.shouldPerformPreliminaryAuthorization(AuthorizationMethodEnum.QRCODE_FROM_GENERATOR);
+
+            assertThat(result).isTrue();
+        }
+
+        @Test
+        @DisplayName("returns false when the resolved provider is a plain AuthorizationProvider")
+        void returnsFalse_whenProviderIsNotMultiStep() {
+            providerMap.put(AuthorizationMethodEnum.GENERIC_TAN, simpleProvider);
+
+            boolean result = sut.shouldPerformPreliminaryAuthorization(AuthorizationMethodEnum.GENERIC_TAN);
+
+            assertThat(result).isFalse();
+        }
+
+        @Test
+        @DisplayName("throws when no provider is registered for the method")
+        void throws_whenNoProviderRegistered() {
+            assertThatThrownBy(() ->
+                    sut.shouldPerformPreliminaryAuthorization(AuthorizationMethodEnum.TAN_FROM_NEOAPP))
+                    .isInstanceOf(NullPointerException.class); // adjust if impl null-checks differently
+        }
+    }
+
+    // ------------------------------------------------------------------
+    // shouldSubmitAuthorizationEarlier
+    // ------------------------------------------------------------------
+
+    @Nested
+    @DisplayName("shouldSubmitAuthorizationEarlier")
+    class ShouldSubmitAuthorizationEarlier {
+
+        @Test
+        @DisplayName("returns true only for PUSH_NOTIFICATION_FORM_NEO_APP")
+        void returnsTrue_forPushNotificationFormNeoApp() {
+            boolean result = sut.shouldSubmitAuthorizationEarlier(
+                    AuthorizationMethodEnum.PUSH_NOTIFICATION_FORM_NEO_APP);
+
+            assertThat(result).isTrue();
+        }
+
+        @ParameterizedTest(name = "returns false for {0}")
+        @EnumSource(value = AuthorizationMethodEnum.class, names = "PUSH_NOTIFICATION_FORM_NEO_APP", mode = EnumSource.Mode.EXCLUDE)
+        @DisplayName("returns false for every other enum value")
+        void returnsFalse_forAllOtherMethods(AuthorizationMethodEnum methodEnum) {
+            boolean result = sut.shouldSubmitAuthorizationEarlier(methodEnum);
+
+            assertThat(result).isFalse();
+        }
+    }
+
+    // ------------------------------------------------------------------
+    // submitAuthorization
+    // ------------------------------------------------------------------
+
+    @Nested
+    @DisplayName("submitAuthorization")
+    class SubmitAuthorization {
+
+        @Test
+        @DisplayName("resolves provider + mapper, maps request, authorizes, maps response")
+        void happyPath_delegatesToProviderAndMapper() {
+            AuthorizationRequest request = mock(AuthorizationRequest.class);
+            when(request.authorizationMethodEnum()).thenReturn(AuthorizationMethodEnum.GENERIC_TAN);
+            providerMap.put(AuthorizationMethodEnum.GENERIC_TAN, simpleProvider);
+
+            AuthorizationBaseRequest baseRequest = mock(AuthorizationBaseRequest.class);
+            AuthorizationBaseResponse baseResponse = mock(AuthorizationBaseResponse.class);
+            AuthorizationResponse expectedResponse = mock(AuthorizationResponse.class);
+
+            when(simpleProvider.getAuthorizationMapper()).thenReturn((AuthorizationMapper) simpleMapper);
+            when(simpleMapper.authorizationRequestToReq(request)).thenReturn(baseRequest);
+            when(simpleProvider.authorize(baseRequest)).thenReturn(baseResponse);
+            when(simpleMapper.respToAuthorizationResponse(baseResponse)).thenReturn(expectedResponse);
+
+            AuthorizationResponse actual = sut.submitAuthorization(request);
+
+            assertThat(actual).isSameAs(expectedResponse);
+
+            verify(simpleMapper).authorizationRequestToReq(request);
+            verify(simpleProvider).authorize(baseRequest);
+            verify(simpleMapper).respToAuthorizationResponse(baseResponse);
+        }
+
+        @Test
+        @DisplayName("looks up the provider using the request's authorizationMethodEnum")
+        void looksUpProvider_usingRequestMethodEnum() {
+            AuthorizationRequest request = mock(AuthorizationRequest.class);
+            when(request.authorizationMethodEnum()).thenReturn(AuthorizationMethodEnum.NEO_SECURE_SIGNATURE_BOUND);
+            providerMap.put(AuthorizationMethodEnum.NEO_SECURE_SIGNATURE_BOUND, simpleProvider);
+
+            when(simpleProvider.getAuthorizationMapper()).thenReturn((AuthorizationMapper) simpleMapper);
+            when(simpleMapper.authorizationRequestToReq(any())).thenReturn(mock(AuthorizationBaseRequest.class));
+            when(simpleProvider.authorize(any())).thenReturn(mock(AuthorizationBaseResponse.class));
+            when(simpleMapper.respToAuthorizationResponse(any())).thenReturn(mock(AuthorizationResponse.class));
+
+            sut.submitAuthorization(request);
+
+            verify(request).authorizationMethodEnum();
+            verify(simpleProvider).authorize(any());
+        }
+
+        @Test
+        @DisplayName("throws when no provider is registered for the request's method")
+        void throws_whenProviderNotRegistered() {
+            AuthorizationRequest request = mock(AuthorizationRequest.class);
+            when(request.authorizationMethodEnum()).thenReturn(AuthorizationMethodEnum.TAN_FROM_GENERATOR);
+            // providerMap intentionally left empty for this method
+
+            assertThatThrownBy(() -> sut.submitAuthorization(request))
+                    .isInstanceOf(NullPointerException.class); // adjust if impl null-checks differently
+        }
+
+        @Test
+        @DisplayName("does not call the provider/mapper more than once per invocation")
+        void doesNotOverInvokeCollaborators() {
+            AuthorizationRequest request = mock(AuthorizationRequest.class);
+            when(request.authorizationMethodEnum()).thenReturn(AuthorizationMethodEnum.GENERIC_TAN);
+            providerMap.put(AuthorizationMethodEnum.GENERIC_TAN, simpleProvider);
+
+            when(simpleProvider.getAuthorizationMapper()).thenReturn((AuthorizationMapper) simpleMapper);
+            when(simpleMapper.authorizationRequestToReq(any())).thenReturn(mock(AuthorizationBaseRequest.class));
+            when(simpleProvider.authorize(any())).thenReturn(mock(AuthorizationBaseResponse.class));
+            when(simpleMapper.respToAuthorizationResponse(any())).thenReturn(mock(AuthorizationResponse.class));
+
+            sut.submitAuthorization(request);
+
+            verify(simpleProvider).getAuthorizationMapper();
+            verify(simpleMapper).authorizationRequestToReq(request);
+            verify(simpleProvider).authorize(any());
+            verify(simpleMapper).respToAuthorizationResponse(any());
+            verifyNoMoreInteractions(simpleProvider, simpleMapper);
+        }
+    }
+
+    // ------------------------------------------------------------------
+    // preliminaryAuthorizationSubmission
+    // (multi-step path — see class-level NOTE ON RECONSTRUCTION)
+    // ------------------------------------------------------------------
+
+    @Nested
+    @DisplayName("preliminaryAuthorizationSubmission")
+    class PreliminaryAuthorizationSubmission {
+
+        @Test
+        @DisplayName("maps preliminary request to init request, initiates, maps init response back")
+        void happyPath_delegatesToMultiStepProviderAndMapper() {
+            PreliminaryAuthorizationRequest request = mock(PreliminaryAuthorizationRequest.class);
+            when(request.authorizationMethodEnum()).thenReturn(AuthorizationMethodEnum.QRCODE_FROM_GENERATOR);
+            providerMap.put(AuthorizationMethodEnum.QRCODE_FROM_GENERATOR, multiStepProvider);
+
+            AuthorizationInitBaseRequest initRequest = mock(AuthorizationInitBaseRequest.class);
+            AuthorizationInitBaseResponse initResponse = mock(AuthorizationInitBaseResponse.class);
+            PreliminaryAuthorizationResponse expectedResponse = mock(PreliminaryAuthorizationResponse.class);
+
+            when(multiStepProvider.getAuthorizationMapper()).thenReturn((AuthorizationMapper) multiStepMapper);
+            when(multiStepMapper.preliminaryAuthorizationRequestToInitReq(request)).thenReturn(initRequest);
+            when(multiStepProvider.initiate(initRequest)).thenReturn(initResponse);
+            when(multiStepMapper.initRespToPreliminaryAuthorizationResponse(initResponse)).thenReturn(expectedResponse);
+
+            PreliminaryAuthorizationResponse actual = sut.preliminaryAuthorizationSubmission(request);
+
+            assertThat(actual).isSameAs(expectedResponse);
+
+            verify(multiStepMapper).preliminaryAuthorizationRequestToInitReq(request);
+            verify(multiStepProvider).initiate(initRequest);
+            verify(multiStepMapper).initRespToPreliminaryAuthorizationResponse(initResponse);
+        }
+
+        @Test
+        @DisplayName("throws (ClassCastException) when the resolved provider is not multi-step")
+        void throws_whenResolvedProviderIsNotMultiStep() {
+            PreliminaryAuthorizationRequest request = mock(PreliminaryAuthorizationRequest.class);
+            when(request.authorizationMethodEnum()).thenReturn(AuthorizationMethodEnum.GENERIC_TAN);
+            providerMap.put(AuthorizationMethodEnum.GENERIC_TAN, simpleProvider);
+
+            assertThatThrownBy(() -> sut.preliminaryAuthorizationSubmission(request))
+                    .isInstanceOf(ClassCastException.class);
+        }
+
+        @Test
+        @DisplayName("throws when no provider is registered for the request's method")
+        void throws_whenProviderNotRegistered() {
+            PreliminaryAuthorizationRequest request = mock(PreliminaryAuthorizationRequest.class);
+            when(request.authorizationMethodEnum()).thenReturn(AuthorizationMethodEnum.TAN_FROM_NEOAPP);
+
+            assertThatThrownBy(() -> sut.preliminaryAuthorizationSubmission(request))
+                    .isInstanceOf(Exception.class); // NPE or CCE depending on exact cast order in impl
+        }
+    }
+
+    // ------------------------------------------------------------------
+    // Helper: only needed if AuthorizationEngineServiceImpl has no
+    // package-visible/constructor-injected access to authorizationProviderMap
+    // in your real source. If @RequiredArgsConstructor (Lombok) generates the
+    // constructor as seen in the screenshots, the constructor call in setUp()
+    // above is sufficient and this reflection helper is unused/removable.
+    // ------------------------------------------------------------------
+    private static void setProviderMapViaReflection(AuthorizationEngineServiceImpl target,
+                                                      Map<AuthorizationMethodEnum, AuthorizationProvider<?, ?>> map)
+            throws NoSuchFieldException, IllegalAccessException {
+        Field field = AuthorizationEngineServiceImpl.class.getDeclaredField("authorizationProviderMap");
+        field.setAccessible(true);
+        field.set(target, map);
+    }
+}
+
+
 ```
 package de.consorsbank.core.trauthsc.common.actuator;
 
