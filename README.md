@@ -1,3 +1,16 @@
+components:
+  securitySchemes:
+    mutualTLSAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: "N/A - mTLS enforced at transport layer"
+      description: >
+        Mutual TLS (mTLS) authentication. Client certificate is validated
+        by the API Gateway / Spring Security SSLContext before requests
+        reach this service. This scheme is documented here using
+        type: http for OpenAPI tooling compatibility, since type: mutualTLS
+        (OAS 3.1) has incomplete generator support as of openapi-generator 7.23.0.
+      x-original-type: mutualTLS
 
 package de.consorsbank.core.trauthsc.authorizationengine.service;
 
