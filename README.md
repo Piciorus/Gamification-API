@@ -1,3 +1,37 @@
+package de.consorsbank.core.trauthsc.common.util;
+
+import lombok.experimental.UtilityClass;
+
+import java.util.Optional;
+import java.util.concurrent.CancellationException;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
+
+@UtilityClass
+public class ActuatorUtils {
+
+    private static final int TIMEOUT = 3;
+
+    public static <T> Optional<T> getResult(CompletableFuture<T> future) {
+        try {
+            return Optional.ofNullable(future.get(TIMEOUT, TimeUnit.SECONDS));
+        } catch (TimeoutException e) {
+            future.cancel(true);
+            return Optional.empty();
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            future.cancel(true);
+            return Optional.empty();
+        } catch (ExecutionException | CancellationException e) {
+            return Optional.empty();
+        }
+    }
+}
+
+
+
 components:
   securitySchemes:
     mutualTLSAuth:
