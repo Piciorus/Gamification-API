@@ -1,3 +1,23 @@
+@Autowired
+private JdbcTemplate jdbcTemplate; // or your tam JdbcTemplate
+
+@BeforeEach
+void createAuthorization() {
+    var initResponse = testRestTemplate.exchange(
+        url(), HttpMethod.POST,
+        new HttpEntity<>(TestUtils.buildInitiateAuthorizationRequest(), 
+            TestUtils.getTestHttpHeaders()),
+        InitiateAuthorizationResponse.class
+    );
+    authorizationId = initResponse.getBody().authorizationId();
+    
+    // Does the row actually exist?
+    var count = jdbcTemplate.queryForObject(
+        "SELECT COUNT(*) FROM authorizations WHERE external_id = ?",
+        Integer.class, authorizationId
+    );
+    System.out.println("Row count after POST: " + count); // expect 1, likely 0
+}
 
 ```
 spring:
