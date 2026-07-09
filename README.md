@@ -1,131 +1,88 @@
 ```
 package de.consorsbank.core.trauthsc.integration;
 
-import com.github.tomakehurst.wiremock.WireMockServer;
-import de.consorsbank.core.trauthsc.integration.wiremock.WireMockConfig;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.autoconfigure.web.client.AutoConfigureWebClient;
-import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.boot.test.web.client.TestRestTemplate;
-import org.springframework.boot.test.web.server.LocalServerPort;
-import org.springframework.test.context.ActiveProfiles;
-import org.springframework.test.context.ContextConfiguration;
-import org.springframework.test.context.DynamicPropertyRegistry;
-import org.springframework.test.context.DynamicPropertySource;
+import org.testcontainers.oracle.OracleContainer;
+import org.testcontainers.utility.DockerImageName;
 
-@SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
-@ActiveProfiles("integration-test")
-@ContextConfiguration(classes = {WireMockConfig.class})
-@AutoConfigureTestRestTemplate
-public abstract class IntegrationBaseTest {
+public class GlobalOracleContainer 
+        extends OracleContainer {
 
-    protected static final String LOCALHOST = "http://localhost:";
+    // Oracle Free is the lightweight version — no license needed
+    private static final DockerImageName IMAGE =
+        DockerImageName.parse("gvenzl/oracle-free:23-slim");
 
-    // Singleton container — started once, shared across all test classes
-    static final GlobalPostgresContainer postgres =
-        GlobalPostgresContainer.getInstance();
+    private static GlobalOracleContainer container;
 
-    @LocalServerPort
-    protected int port;
-
-    @Autowired
-    protected TestRestTemplate testRestTemplate;
-
-    @Autowired
-    protected WireMockServer mockAuthorizationService;
-
-    /**
-     * Wires the running Postgres container into Spring's datasource properties
-     * before the application context starts.
-     *
-     * Overrides both the TAM and PVM datasource configs so Atomikos XA
-     * connects to the container instead of the production DB.
-     */
-    @DynamicPropertySource
-    static void configureDataSources(DynamicPropertyRegistry registry) {
-
-        // ── TAM datasource ────────────────────────────────────────────────────
-        registry.add("spring.datasource.tam.url",
-            postgres::getJdbcUrl);
-        registry.add("spring.datasource.tam.username",
-            postgres::getUsername);
-        registry.add("spring.datasource.tam.password",
-            postgres::getPassword);
-        // Atomikos reads XA properties separately
-        registry.add("spring.datasource.tam.xa-properties.URL",
-            postgres::getJdbcUrl);
-        registry.add("spring.datasource.tam.xa-properties.user",
-            postgres::getUsername);
-        registry.add("spring.datasource.tam.xa-properties.password",
-            postgres::getPassword);
-        // Static name — Atomikos requires stable uniqueResourceName
-        registry.add("spring.datasource.tam.configuration.uniqueResourceName",
-            () -> "tam-test");
-
-        // ── PVM datasource ────────────────────────────────────────────────────
-        registry.add("spring.datasource.pvm.url",
-            postgres::getJdbcUrl);
-        registry.add("spring.datasource.pvm.username",
-            postgres::getUsername);
-        registry.add("spring.datasource.pvm.password",
-            postgres::getPassword);
-        registry.add("spring.datasource.pvm.xa-properties.URL",
-            postgres::getJdbcUrl);
-        registry.add("spring.datasource.pvm.xa-properties.user",
-            postgres::getUsername);
-        registry.add("spring.datasource.pvm.xa-properties.password",
-            postgres::getPassword);
-        registry.add("spring.datasource.pvm.configuration.uniqueResourceName",
-            () -> "pvm-test");
+    private GlobalOracleContainer() {
+        super(IMAGE);
+        withReuse(true);
+        withStartupTimeoutSeconds(240); // Oracle takes longer than Postgres
+        withDatabaseName("FREEPDB1");
     }
 
-    protected String url() {
-        return LOCALHOST + port + path();
+    public static GlobalOracleContainer getInstance() {
+        if (container == null) {
+            container = new GlobalOracleContainer();
+            container.start();
+        }
+        return container;
     }
-
-    protected abstract String path();
 }
 ```
-
-
 ```
-# ─────────────────────────────────────────────────────────────────────────────
-# Integration test profile
-# DB connection properties are injected at runtime by @DynamicPropertySource
-# in IntegrationBaseTest — no hardcoded URLs here.
-# ─────────────────────────────────────────────────────────────────────────────
+static final GlobalOracleContainer oracle =
+    GlobalOracleContainer.getInstance();
 
+@DynamicPropertySource
+static void configureDataSources(DynamicPropertyRegistry registry) {
+
+    // TAM
+    registry.add("spring.datasource.tam.url", oracle::getJdbcUrl);
+    registry.add("spring.datasource.tam.username", oracle::getUsername);
+    registry.add("spring.datasource.tam.password", oracle::getPassword);
+    registry.add("spring.datasource.tam.xa-properties.URL", oracle::getJdbcUrl);
+    registry.add("spring.datasource.tam.xa-properties.user", oracle::getUsername);
+    registry.add("spring.datasource.tam.xa-properties.password", oracle::getPassword);
+    registry.add("spring.datasource.tam.configuration.uniqueResourceName",
+        () -> "tam-test");
+
+    // PVM
+    registry.add("spring.datasource.pvm.url", oracle::getJdbcUrl);
+    registry.add("spring.datasource.pvm.username", oracle::getUsername);
+    registry.add("spring.datasource.pvm.password", oracle::getPassword);
+    registry.add("spring.datasource.pvm.xa-properties.URL", oracle::getJdbcUrl);
+    registry.add("spring.datasource.pvm.xa-properties.user", oracle::getUsername);
+    registry.add("spring.datasource.pvm.xa-properties.password", oracle::getPassword);
+    registry.add("spring.datasource.pvm.configuration.uniqueResourceName",
+        () -> "pvm-test");
+}
+```
+```
 spring:
-
-  # Atomikos XA works fine with Postgres — no JTA override needed
   jpa:
-    database-platform: org.hibernate.dialect.PostgreSQLDialect
+    database-platform: org.hibernate.dialect.Oracle12cDialect
     hibernate:
       ddl-auto: none
     show-sql: true
-    properties:
-      hibernate:
-        format_sql: true
 
-  # Datasource pool sizing — smaller for tests
   datasource:
     tam:
+      driverClassName: oracle.jdbc.OracleDriver
+      xa-data-source-class-name: oracle.jdbc.xa.client.OracleXADataSource
       configuration:
+        uniqueResourceName: tam-test
         minPoolSize: 1
         maxPoolSize: 5
-        idle-timeout: 60
         borrowConnectionTimeout: 30
-      xa-data-source-class-name: org.postgresql.xa.PGXADataSource
-      driverClassName: org.postgresql.Driver
 
     pvm:
+      driverClassName: oracle.jdbc.OracleDriver
+      xa-data-source-class-name: oracle.jdbc.xa.client.OracleXADataSource
       configuration:
+        uniqueResourceName: pvm-test
         minPoolSize: 1
         maxPoolSize: 5
-        idle-timeout: 60
         borrowConnectionTimeout: 30
-      xa-data-source-class-name: org.postgresql.xa.PGXADataSource
-      driverClassName: org.postgresql.Driver
 
 liquibase:
   tam:
@@ -136,26 +93,9 @@ liquibase:
     change-log: classpath:/db/changelog/changelog-master-pvm.yaml
     enabled: true
     drop-first: false
-
-# WireMock port for downstream authorization service stub
-wiremock:
-  server:
-    port: 9680
-
-# Disable Kafka for integration tests — use mocks if needed
-spring.kafka.bootstrap-servers: localhost:9092
-spring.autoconfigure.exclude:
-  - org.springframework.boot.autoconfigure.kafka.KafkaAutoConfiguration
-
-logging:
-  level:
-    de.consorsbank: DEBUG
-    org.springframework.web: DEBUG
-    org.springframework.transaction: DEBUG
-    com.atomikos: WARN
-    liquibase: INFO
 ```
 
 ```
-
+testImplementation 'org.testcontainers:oracle-free'
+testImplementation 'org.testcontainers:junit-jupiter'
 ```
