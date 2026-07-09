@@ -1,67 +1,161 @@
 ```
-@TestConfiguration
-@Profile("integration-test")
-public class TestDataSourceConfig {
+package de.consorsbank.core.trauthsc.integration;
 
-    private static final String TAM_URL =
-        "jdbc:h2:mem:tam_db;" +
-        "DB_CLOSE_DELAY=-1;" +
-        "MODE=Oracle;" +
-        "DATABASE_TO_LOWER=true;" +
-        "INIT=CREATE SCHEMA IF NOT EXISTS tam";
+import com.github.tomakehurst.wiremock.WireMockServer;
+import de.consorsbank.core.trauthsc.integration.wiremock.WireMockConfig;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.autoconfigure.web.client.AutoConfigureWebClient;
+import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.boot.test.web.client.TestRestTemplate;
+import org.springframework.boot.test.web.server.LocalServerPort;
+import org.springframework.test.context.ActiveProfiles;
+import org.springframework.test.context.ContextConfiguration;
+import org.springframework.test.context.DynamicPropertyRegistry;
+import org.springframework.test.context.DynamicPropertySource;
 
-    private static final String PVM_URL =
-        "jdbc:h2:mem:pvm_db;" +
-        "DB_CLOSE_DELAY=-1;" +
-        "MODE=Oracle;" +
-        "DATABASE_TO_LOWER=true;" +
-        "INIT=CREATE SCHEMA IF NOT EXISTS pvm";
+@SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
+@ActiveProfiles("integration-test")
+@ContextConfiguration(classes = {WireMockConfig.class})
+@AutoConfigureTestRestTemplate
+public abstract class IntegrationBaseTest {
 
-    private static final String AUDIT_URL =
-        "jdbc:h2:mem:audit_db;" +
-        "DB_CLOSE_DELAY=-1;" +
-        "MODE=Oracle;" +
-        "DATABASE_TO_LOWER=true;" +
-        "INIT=CREATE SCHEMA IF NOT EXISTS public";
+    protected static final String LOCALHOST = "http://localhost:";
 
-    @Bean("tamDataSource")
-    public DataSource tamDataSource() {
-        return buildH2(TAM_URL);
+    // Singleton container — started once, shared across all test classes
+    static final GlobalPostgresContainer postgres =
+        GlobalPostgresContainer.getInstance();
+
+    @LocalServerPort
+    protected int port;
+
+    @Autowired
+    protected TestRestTemplate testRestTemplate;
+
+    @Autowired
+    protected WireMockServer mockAuthorizationService;
+
+    /**
+     * Wires the running Postgres container into Spring's datasource properties
+     * before the application context starts.
+     *
+     * Overrides both the TAM and PVM datasource configs so Atomikos XA
+     * connects to the container instead of the production DB.
+     */
+    @DynamicPropertySource
+    static void configureDataSources(DynamicPropertyRegistry registry) {
+
+        // ── TAM datasource ────────────────────────────────────────────────────
+        registry.add("spring.datasource.tam.url",
+            postgres::getJdbcUrl);
+        registry.add("spring.datasource.tam.username",
+            postgres::getUsername);
+        registry.add("spring.datasource.tam.password",
+            postgres::getPassword);
+        // Atomikos reads XA properties separately
+        registry.add("spring.datasource.tam.xa-properties.URL",
+            postgres::getJdbcUrl);
+        registry.add("spring.datasource.tam.xa-properties.user",
+            postgres::getUsername);
+        registry.add("spring.datasource.tam.xa-properties.password",
+            postgres::getPassword);
+        // Static name — Atomikos requires stable uniqueResourceName
+        registry.add("spring.datasource.tam.configuration.uniqueResourceName",
+            () -> "tam-test");
+
+        // ── PVM datasource ────────────────────────────────────────────────────
+        registry.add("spring.datasource.pvm.url",
+            postgres::getJdbcUrl);
+        registry.add("spring.datasource.pvm.username",
+            postgres::getUsername);
+        registry.add("spring.datasource.pvm.password",
+            postgres::getPassword);
+        registry.add("spring.datasource.pvm.xa-properties.URL",
+            postgres::getJdbcUrl);
+        registry.add("spring.datasource.pvm.xa-properties.user",
+            postgres::getUsername);
+        registry.add("spring.datasource.pvm.xa-properties.password",
+            postgres::getPassword);
+        registry.add("spring.datasource.pvm.configuration.uniqueResourceName",
+            () -> "pvm-test");
     }
 
-    @Bean("pvmDataSource")
-    public DataSource pvmDataSource() {
-        return buildH2(PVM_URL);
+    protected String url() {
+        return LOCALHOST + port + path();
     }
 
-    @Bean("auditRoutingDataSource")
-    public DataSource auditRoutingDataSource(
-            @Qualifier("tamDataSource") DataSource tam,
-            @Qualifier("pvmDataSource") DataSource pvm) {
-        // Replicate the routing logic from AuditDataSourceConfig
-        var routing = new AbstractRoutingDataSource() {
-            @Override
-            protected Object determineCurrentLookupKey() {
-                String key = DataSourceContext.CONTEXT.get();
-                return (key != null) ? key : "tam";
-            }
-        };
-        var sources = new HashMap<Object, Object>();
-        sources.put("tam", tam);
-        sources.put("pvm", pvm);
-        routing.setTargetDataSources(sources);
-        routing.setDefaultTargetDataSource(tam);
-        routing.afterPropertiesSet();
-        return routing;
-    }
-
-    private DataSource buildH2(String url) {
-        var ds = new HikariDataSource();
-        ds.setJdbcUrl(url);
-        ds.setUsername("sa");
-        ds.setPassword("");
-        ds.setDriverClassName("org.h2.Driver");
-        return ds;
-    }
+    protected abstract String path();
 }
+```
+
+
+```
+# ─────────────────────────────────────────────────────────────────────────────
+# Integration test profile
+# DB connection properties are injected at runtime by @DynamicPropertySource
+# in IntegrationBaseTest — no hardcoded URLs here.
+# ─────────────────────────────────────────────────────────────────────────────
+
+spring:
+
+  # Atomikos XA works fine with Postgres — no JTA override needed
+  jpa:
+    database-platform: org.hibernate.dialect.PostgreSQLDialect
+    hibernate:
+      ddl-auto: none
+    show-sql: true
+    properties:
+      hibernate:
+        format_sql: true
+
+  # Datasource pool sizing — smaller for tests
+  datasource:
+    tam:
+      configuration:
+        minPoolSize: 1
+        maxPoolSize: 5
+        idle-timeout: 60
+        borrowConnectionTimeout: 30
+      xa-data-source-class-name: org.postgresql.xa.PGXADataSource
+      driverClassName: org.postgresql.Driver
+
+    pvm:
+      configuration:
+        minPoolSize: 1
+        maxPoolSize: 5
+        idle-timeout: 60
+        borrowConnectionTimeout: 30
+      xa-data-source-class-name: org.postgresql.xa.PGXADataSource
+      driverClassName: org.postgresql.Driver
+
+liquibase:
+  tam:
+    change-log: classpath:/db/changelog/changelog-master-tam.yaml
+    enabled: true
+    drop-first: false
+  pvm:
+    change-log: classpath:/db/changelog/changelog-master-pvm.yaml
+    enabled: true
+    drop-first: false
+
+# WireMock port for downstream authorization service stub
+wiremock:
+  server:
+    port: 9680
+
+# Disable Kafka for integration tests — use mocks if needed
+spring.kafka.bootstrap-servers: localhost:9092
+spring.autoconfigure.exclude:
+  - org.springframework.boot.autoconfigure.kafka.KafkaAutoConfiguration
+
+logging:
+  level:
+    de.consorsbank: DEBUG
+    org.springframework.web: DEBUG
+    org.springframework.transaction: DEBUG
+    com.atomikos: WARN
+    liquibase: INFO
+```
+
+```
+
 ```
