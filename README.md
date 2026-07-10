@@ -1,3 +1,115 @@
+
+
+
+```
+package de.consorsbank.core.trauthsc.integration.util;
+
+import de.consorsbank.core.trauthsc.rest.api.tam.initiate.transaction.authorization.model.InitiateTransactionAuthorizationResponse;
+import org.springframework.http.HttpEntity;
+import org.springframework.http.HttpMethod;
+import org.springframework.boot.test.web.client.TestRestTemplate;
+
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.springframework.http.HttpStatus.CREATED;
+import static org.springframework.http.HttpStatus.OK;
+
+public class AuthorizationTestSteps {
+
+    private static final String BASE_PATH = "/svc/trauth/v1/authorizations";
+
+    private final TestRestTemplate testRestTemplate;
+    private final int port;
+
+    public AuthorizationTestSteps(TestRestTemplate testRestTemplate, int port) {
+        this.testRestTemplate = testRestTemplate;
+        this.port = port;
+    }
+
+    public String createAuthorization() {
+        var response = testRestTemplate.exchange(
+            baseUrl(),
+            HttpMethod.POST,
+            new HttpEntity<>(
+                TestUtils.buildInitiateAuthorizationRequest(),
+                TestUtils.getTestHttpHeaders()
+            ),
+            InitiateTransactionAuthorizationResponse.class
+        );
+        assertThat(response.getStatusCode()).isEqualTo(CREATED);
+        return response.getBody().getAuthorizationId().toString();
+    }
+
+    public void submitMethod(String authorizationId) {
+        testRestTemplate.exchange(
+            attemptsUrl(authorizationId),
+            HttpMethod.POST,
+            new HttpEntity<>(
+                TestUtils.buildSubmitAuthorizationMethodRequest(),
+                TestUtils.getTestHttpHeaders()
+            ),
+            Object.class
+        );
+    }
+
+    public String createAuthorizationWithMethod() {
+        var id = createAuthorization();
+        submitMethod(id);
+        return id;
+    }
+
+    public void submitValidCredential(String authorizationId) {
+        testRestTemplate.exchange(
+            attemptsUrl(authorizationId),
+            HttpMethod.PATCH,
+            new HttpEntity<>(
+                TestUtils.buildSubmitAuthorizationCredentialRequest(TestUtils.VALID_TAN),
+                TestUtils.getTestHttpHeaders()
+            ),
+            Object.class
+        );
+    }
+
+    public void submitInvalidCredential(String authorizationId) {
+        testRestTemplate.exchange(
+            attemptsUrl(authorizationId),
+            HttpMethod.PATCH,
+            new HttpEntity<>(
+                TestUtils.buildSubmitAuthorizationCredentialRequest(TestUtils.INVALID_TAN),
+                TestUtils.getTestHttpHeaders()
+            ),
+            Object.class
+        );
+    }
+
+    public String attemptsUrl(String authorizationId) {
+        return localhost() + BASE_PATH + "/" + authorizationId + "/attempts";
+    }
+
+    public String statusUrl(String authorizationId) {
+        return localhost() + BASE_PATH + "/" + authorizationId + "/status?detailed=false";
+    }
+
+    public String detailedStatusUrl(String authorizationId) {
+        return localhost() + BASE_PATH + "/" + authorizationId + "/status?detailed=true";
+    }
+
+    public String attemptStatusUrl(String authorizationId, String method) {
+        return localhost() + BASE_PATH + "/" + authorizationId + "/methods/" + method + "/status";
+    }
+
+    public String payloadUrl(String authorizationId) {
+        return localhost() + BASE_PATH + "/" + authorizationId + "/payload";
+    }
+
+    public String baseUrl() {
+        return localhost() + BASE_PATH;
+    }
+
+    private String localhost() {
+        return "http://localhost:" + port;
+    }
+}
+```
 ```
 package de.consorsbank.core.trauthsc.integration;
 
