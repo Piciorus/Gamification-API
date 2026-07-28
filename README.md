@@ -1,11 +1,20 @@
-docker cp ./broker.xml activemq-cnsEvent-1:/var/lib/artemis-instance/etc/broker.xml
-docker compose restart activemq-cnsEvent
-
-
 ```
+neo-simulator:
+  container_name: neo-simulator
+  image: i-ckdregistry.pro.be.xpi.net.intra/cb-authse/neo-simulator-sc:2.0.0-952927
+  ports:
+    - "8082:8080"
+  depends_on:
+    oracle:
+      condition: service_healthy
+    draas-app:
+      condition: service_healthy
   environment:
-    - ARTEMIS_USER=admin
-    - ARTEMIS_PASSWORD=admin
-    - ARTEMIS_INSTANCE=/var/lib/artemis-instance
+    SPRING_PROFILES_ACTIVE: local
+    SPRING_CONFIG_ADDITIONAL_LOCATION: file:/config/application-local-neo.yml
+  volumes:
+    - ./config/application-local-neo.yml:/config/application-local-neo.yml:ro
+  networks:
+    - consorsbank-private-nt
 
 ```
