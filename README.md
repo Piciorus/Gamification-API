@@ -7,8 +7,9 @@ docker run --rm --entrypoint sh \
 
 ```
 docker run --rm --entrypoint sh \
+  --platform linux/amd64 \
   trauth-sc-stack-transauth-kobil \
-  -c "ls -la /app/"
+  -c "find /app -type f -ls"
 ```
 
 
