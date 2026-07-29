@@ -1,3 +1,11 @@
+curl -X POST http://localhost:8090/rest/api/auth/login \
+  -H "Content-Type: application/json" \
+  -d '{
+    "username": "your-user",
+    "password": "your-password"
+  }'
+
+
 ```
 neo-simulator:
   container_name: neo-simulator
