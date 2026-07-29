@@ -9,8 +9,7 @@ RUN curl -sk \
     -u ${NEXUS_USER}:${NEXUS_PASS} \
     "https://nexus.pro.be.xpi.net.intra/repository/mvn-it-dev-classic/com/consorsbank/transauth/transauth-kobil-sc-delivery/15-0-3/transauth-kobil-sc-delivery-15-0-3.zip" \
     -o /tmp/app.zip && \
-    cd /tmp && jar xf app.zip && \
-    mv /tmp/transauth-kobil-sc*.jar /app/transauth-kobil-sc.jar && \
+    python3 -c "import zipfile; zipfile.ZipFile('/tmp/app.zip').extractall('/app')" && \
     rm /tmp/app.zip
 
 WORKDIR /app
