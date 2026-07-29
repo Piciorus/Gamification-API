@@ -1,138 +1,24 @@
 ```
-package de.consorsbank.core.trauthsc.integration.util;
+FROM i-ckdregistry.pro.be.xpi.net.intra/approved/eclipse-temurin:21-jre
 
-public class AuthorizationUrls {
+ARG NEXUS_USER
+ARG NEXUS_PASS
 
-    private static final String BASE_PATH = "/svc/trauth/v1/authorizations";
+RUN curl -sk \
+    --noproxy "*" \
+    -u ${NEXUS_USER}:${NEXUS_PASS} \
+    "https://nexus.pro.be.xpi.net.intra/repository/mvn-it-dev-classic/com/consorsbank/transauth/transauth-kobil-sc-delivery/15-0-3/transauth-kobil-sc-delivery-15-0-3.zip" \
+    -o /tmp/app.zip && \
+    cd /tmp && jar xf app.zip && \
+    mv /tmp/transauth-kobil-sc*.jar /app/transauth-kobil-sc.jar && \
+    rm /tmp/app.zip
 
-    private final int port;
-
-    public AuthorizationUrls(int port) {
-        this.port = port;
-    }
-
-    public String baseUrl() {
-        return localhost() + BASE_PATH;
-    }
-
-    public String attemptsUrl(String authorizationId) {
-        return localhost() + BASE_PATH + "/" + authorizationId + "/attempts";
-    }
-
-    public String statusUrl(String authorizationId) {
-        return localhost() + BASE_PATH + "/" + authorizationId + "/status?detailed=false";
-    }
-
-    public String detailedStatusUrl(String authorizationId) {
-        return localhost() + BASE_PATH + "/" + authorizationId + "/status?detailed=true";
-    }
-
-    public String attemptStatusUrl(String authorizationId, String method) {
-        return localhost() + BASE_PATH + "/" + authorizationId + "/methods/" + method + "/status";
-    }
-
-    public String payloadUrl(String authorizationId) {
-        return localhost() + BASE_PATH + "/" + authorizationId + "/payload";
-    }
-
-    private String localhost() {
-        return "http://localhost:" + port;
-    }
-}
+WORKDIR /app
+EXPOSE 8081
+ENTRYPOINT ["java", "-jar", "/app/transauth-kobil-sc.jar"]
 ```
 
-
 ```
-package de.consorsbank.core.trauthsc.integration.util;
-
-import de.consorsbank.core.trauthsc.rest.api.tam.initiate.transaction.authorization.model.InitiateTransactionAuthorizationResponse;
-import org.springframework.boot.test.web.client.TestRestTemplate;
-import org.springframework.http.HttpEntity;
-import org.springframework.http.HttpMethod;
-
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.springframework.http.HttpStatus.CREATED;
-
-public class AuthorizationTestSteps {
-
-    private final TestRestTemplate testRestTemplate;
-    private final AuthorizationUrls urls;
-
-    public AuthorizationTestSteps(TestRestTemplate testRestTemplate, int port) {
-        this.testRestTemplate = testRestTemplate;
-        this.urls = new AuthorizationUrls(port);
-    }
-
-    public String createAuthorization() {
-        var response = testRestTemplate.exchange(
-            urls.baseUrl(),
-            HttpMethod.POST,
-            new HttpEntity<>(
-                TestUtils.buildInitiateAuthorizationRequest(),
-                TestUtils.getTestHttpHeaders()
-            ),
-            InitiateTransactionAuthorizationResponse.class
-        );
-        assertThat(response.getStatusCode()).isEqualTo(CREATED);
-        return response.getBody().getAuthorizationId().toString();
-    }
-
-    public void submitMethod(String authorizationId) {
-        testRestTemplate.exchange(
-            urls.attemptsUrl(authorizationId),
-            HttpMethod.POST,
-            new HttpEntity<>(
-                TestUtils.buildSubmitAuthorizationMethodRequest(),
-                TestUtils.getTestHttpHeaders()
-            ),
-            Object.class
-        );
-    }
-
-    public String createAuthorizationWithMethod() {
-        var id = createAuthorization();
-        submitMethod(id);
-        return id;
-    }
-
-    public void submitValidCredential(String authorizationId) {
-        testRestTemplate.exchange(
-            urls.attemptsUrl(authorizationId),
-            HttpMethod.PATCH,
-            new HttpEntity<>(
-                TestUtils.buildSubmitAuthorizationCredentialRequest(TestUtils.VALID_TAN),
-                TestUtils.getTestHttpHeaders()
-            ),
-            Object.class
-        );
-    }
-
-    public void submitInvalidCredential(String authorizationId) {
-        testRestTemplate.exchange(
-            urls.attemptsUrl(authorizationId),
-            HttpMethod.PATCH,
-            new HttpEntity<>(
-                TestUtils.buildSubmitAuthorizationCredentialRequest(TestUtils.INVALID_TAN),
-                TestUtils.getTestHttpHeaders()
-            ),
-            Object.class
-        );
-    }
-}
-```
-
-
-```
-// Before
-private AuthorizationTestSteps steps;
-
-// After
-private AuthorizationTestSteps steps;
-private AuthorizationUrls urls;  // if tests need direct URL access
-
-@BeforeEach
-void setUp() {
-    steps = new AuthorizationTestSteps(testRestTemplate, port);
-    urls = new AuthorizationUrls(port);  // optional, only if needed directly
-}
+docker compose build --no-cache transauth-kobil
+docker compose up
 ```
