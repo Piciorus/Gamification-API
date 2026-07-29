@@ -41,3 +41,13 @@ RUN javac /tmp/unzip.java -d /tmp && \
     java -cp /tmp Unzip /tmp/app.zip /app && \
     rm /tmp/app.zip
 ```
+
+
+```
+RUN curl ... -o /tmp/app.zip && \
+    unzip -o /tmp/app.zip -d /app && \
+    find /app -name "*.war" -exec mv {} /app/app.war \; && \
+    rm /tmp/app.zip
+
+ENTRYPOINT ["java", "-jar", "/app/app.war"]
+```
