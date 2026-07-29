@@ -1,4 +1,39 @@
+transauth-kobil:
+  container_name: transauth-kobil-sc
+  build:
+    context: ./docker-compose/transauth-kobil
+    dockerfile: Dockerfile
+  ports:
+    - "8081:8081"
+  depends_on:
+    oracle:
+      condition: service_healthy
+    artemis:
+      condition: service_healthy
+    draas:
+      condition: service_started
 
+
+FROM eclipse-temurin:21-jre
+
+# Download ZIP from Nexus at build time
+RUN apt-get update && apt-get install -y curl unzip && \
+    curl -u <user>:<pass> \
+    "https://nexus.pro.be.xpi.net.intra/repository/mvn-it-dev-classic/com/consorsbank/transauth/transauth-kobil-sc-delivery/15-0-3/transauth-kobil-sc-delivery-15-0-3.zip" \
+    -o /tmp/app.zip && \
+    unzip /tmp/app.zip -d /app && \
+    rm /tmp/app.zip
+
+WORKDIR /app
+EXPOSE 8081
+
+ENTRYPOINT ["java", "-jar", "/app/transauth-kobil-sc.jar"]
+
+
+
+
+
+bbb
 FROM eclipse-temurin:21-jre
 COPY transauth-kobil-sc-15-0-3.zip /app/
 RUN cd /app && unzip transauth-kobil-sc-15-0-3.zip
