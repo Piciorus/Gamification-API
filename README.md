@@ -1,5 +1,5 @@
 ```
-FROM i-ckdregistry.pro.be.xpi.net.intra/approved/eclipse-temurin:21-jdk
+FROM i-ckdregistry.pro.be.xpi.net.intra/approved/tomcat:10-jre21
 
 ARG NEXUS_USER
 ARG NEXUS_PASS
@@ -9,13 +9,11 @@ RUN curl -sk \
     -u ${NEXUS_USER}:${NEXUS_PASS} \
     "https://nexus.pro.be.xpi.net.intra/repository/mvn-it-dev-classic/com/consorsbank/transauth/transauth-kobil-sc-delivery/15-0-3/transauth-kobil-sc-delivery-15-0-3.zip" \
     -o /tmp/app.zip && \
-    jar xf /tmp/app.zip -C /app && \
-    rm /tmp/app.zip
+    cd /tmp && unzip -o app.zip && \
+    rm -f $CATALINA_HOME/webapps/ROOT -rf && \
+    cp transauth-kobil-sc.war $CATALINA_HOME/webapps/ROOT.war && \
+    cp transauth-kobil-sc-conf.jar $CATALINA_HOME/lib/ && \
+    rm -rf /tmp/app.zip /tmp/transauth-kobil-sc*
 
-WORKDIR /app
-EXPOSE 8081
-ENTRYPOINT ["java", "-jar", "/app/transauth-kobil-sc.jar"]
+EXPOSE 8080
 ```
-
-
-docker pull i-ckdregistry.pro.be.xpi.net.intra/approved/eclipse-temurin:21-jdk
