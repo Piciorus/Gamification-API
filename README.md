@@ -16,3 +16,6 @@ WORKDIR /app
 EXPOSE 8081
 ENTRYPOINT ["java", "-jar", "/app/transauth-kobil-sc.jar"]
 ```
+
+
+docker pull i-ckdregistry.pro.be.xpi.net.intra/approved/eclipse-temurin:21-jdk
