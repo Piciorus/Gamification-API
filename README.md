@@ -1,3 +1,10 @@
+
+FROM eclipse-temurin:21-jre
+COPY transauth-kobil-sc-15-0-3.zip /app/
+RUN cd /app && unzip transauth-kobil-sc-15-0-3.zip
+ENTRYPOINT ["java", "-jar", "/app/transauth-kobil-sc.jar"]
+
+
 transauth-kobil:
   container_name: transauth-kobil-sc
   image: i-ckdregistry.pro.be.xpi.net.intra/cb-authse/transauth-kobil-sc:latest
