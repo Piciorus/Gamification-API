@@ -1,3 +1,29 @@
+transauth-kobil:
+  container_name: transauth-kobil-sc
+  image: i-ckdregistry.pro.be.xpi.net.intra/cb-authse/transauth-kobil-sc:latest
+  ports:
+    - "8081:8081"
+  depends_on:
+    oracle:
+      condition: service_healthy
+    artemis:
+      condition: service_healthy
+    draas-app:
+      condition: service_started
+  environment:
+    SPRING_PROFILES_ACTIVE: local
+    SPRING_CONFIG_ADDITIONAL_LOCATION: file:/config/application-local-kobil.yml
+    SPRING_ACTIVEMQ_BROKER_URL: tcp://artemis:61616
+    SPRING_ACTIVEMQ_USER: localUser
+    SPRING_ACTIVEMQ_PASSWORD: "12345"
+    COM_CONSORS_DRAAS_SC_REST_BASEURI: http://draas-app:8080/rest/api
+  volumes:
+    - ./config/application-local-kobil.yml:/config/application-local-kobil.yml:ro
+  networks:
+    - consorsbank-private-nt
+
+
+
 curl -X POST http://localhost:8090/rest/api/auth/login \
   -H "Content-Type: application/json" \
   -d '{
