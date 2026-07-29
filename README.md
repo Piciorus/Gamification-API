@@ -1,3 +1,23 @@
+FROM i-ckdregistry.pro.be.xpi.net.intra/approved/eclipse-temurin:21-jre
+
+# Set proxy for curl
+ENV http_proxy=http://proxy.example.com:8080
+ENV https_proxy=http://proxy.example.com:8080
+
+# Download and extract ZIP directly without apt-get
+RUN curl -sk \
+    "https://nexus.pro.be.xpi.net.intra/repository/mvn-it-dev-classic/com/consorsbank/transauth/transauth-kobil-sc-delivery/15-0-3/transauth-kobil-sc-delivery-15-0-3.zip" \
+    -o /tmp/app.zip
+
+RUN jar xf /tmp/app.zip -C /app && rm /tmp/app.zip
+
+WORKDIR /app
+EXPOSE 8081
+
+ENTRYPOINT ["java", "-jar", "/app/transauth-kobil-sc.jar"]
+
+
+
 transauth-kobil:
   container_name: transauth-kobil-sc
   build:
