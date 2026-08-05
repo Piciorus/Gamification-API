@@ -1,3 +1,148 @@
+@ParameterizedTest
+@CsvSource({
+        "request/generateSignatures/json/generateSignaturesValidRequest.json," +
+        "response/generateSignatures/json/generateSignaturesValidResponse.json,application/json",
+        "request/generateSignatures/xml/generateSignaturesValidRequest.xml," +
+        "response/generateSignatures/xml/generateSignaturesValidResponse.xml,application/xml"
+})
+void givenValidRequest_whenGenerateSignatures_thenReturnValidResponse(
+        final String requestFilePath,
+        final String responseFilePath,
+        final String mediaType) throws Exception {
+    // given
+    when(transactionService.generateBoundedSignature(TX_ID_QUERY_PARAM, Boolean.FALSE))
+            .thenReturn(BOUND_SIGNATURE);
+    when(deviceService.generateUnboundSignature(APP_INSTANCE_ID_QUERY_PARAM))
+            .thenReturn(UNBOUND_SIGNATURE);
+
+    // when
+    mvc.perform(post(GENERATE_SIGNATURES_PATH)
+                    .header(X_REQUEST_ID_HEADER, X_REQUEST_ID_HEADER_VALUE)
+                    .header(AUTHORIZATION_HEADER, AUTHORIZATION)
+                    .param("appInstanceId", APP_INSTANCE_ID_QUERY_PARAM)
+                    .param("txId", TX_ID_QUERY_PARAM)
+                    .accept(MediaType.valueOf(mediaType))
+                    .contentType(MediaType.valueOf(mediaType))
+                    .content(TestUtils.readFile(requestFilePath)))
+            .andDo(print())
+            .andExpect(status().isOk())
+            .andExpect(header().exists(X_CORRELATION_ID_HEADER))
+            .andExpect(header().string(X_CORRELATION_ID_HEADER, X_CORRELATION_ID_HEADER_VALUE))
+            .andExpect(content().contentTypeCompatibleWith(MediaType.valueOf(mediaType)))
+            .andExpect(getResultMatcher(responseFilePath, mediaType));
+
+    verify(transactionService).generateBoundedSignature(TX_ID_QUERY_PARAM, Boolean.FALSE);
+    verify(deviceService).generateUnboundSignature(APP_INSTANCE_ID_QUERY_PARAM);
+    verifyNoMoreInteractions(transactionService, deviceService);
+}
+
+@ParameterizedTest
+@CsvSource({
+        "request/generateSignatures/json/generateSignaturesEmptyTxId.json," +
+        "response/generateSignatures/json/generateSignaturesEmptyTxIdResponse.json,application/json",
+        "request/generateSignatures/xml/generateSignaturesEmptyTxId.xml," +
+        "response/generateSignatures/xml/generateSignaturesEmptyTxIdResponse.xml,application/xml"
+})
+void givenEmptyTxId_whenGenerateSignatures_thenReturnEmptyBoundSignature(
+        final String requestFilePath,
+        final String responseFilePath,
+        final String mediaType) throws Exception {
+    // given
+    when(deviceService.generateUnboundSignature(APP_INSTANCE_ID_QUERY_PARAM))
+            .thenReturn(UNBOUND_SIGNATURE);
+
+    // when
+    mvc.perform(post(GENERATE_SIGNATURES_PATH)
+                    .header(X_REQUEST_ID_HEADER, X_REQUEST_ID_HEADER_VALUE)
+                    .header(AUTHORIZATION_HEADER, AUTHORIZATION)
+                    .param("appInstanceId", APP_INSTANCE_ID_QUERY_PARAM)
+                    .param("txId", "")
+                    .accept(MediaType.valueOf(mediaType))
+                    .contentType(MediaType.valueOf(mediaType))
+                    .content(TestUtils.readFile(requestFilePath)))
+            .andDo(print())
+            .andExpect(status().isOk())
+            .andExpect(header().exists(X_CORRELATION_ID_HEADER))
+            .andExpect(header().string(X_CORRELATION_ID_HEADER, X_CORRELATION_ID_HEADER_VALUE))
+            .andExpect(content().contentTypeCompatibleWith(MediaType.valueOf(mediaType)))
+            .andExpect(getResultMatcher(responseFilePath, mediaType));
+
+    verify(deviceService).generateUnboundSignature(APP_INSTANCE_ID_QUERY_PARAM);
+    verifyNoMoreInteractions(deviceService);
+    verifyNoInteractions(transactionService);
+}
+
+@ParameterizedTest
+@CsvSource({
+        "request/generateSignatures/json/generateSignaturesEmptyAppInstanceId.json," +
+        "response/generateSignatures/json/generateSignaturesEmptyAppInstanceIdResponse.json,application/json",
+        "request/generateSignatures/xml/generateSignaturesEmptyAppInstanceId.xml," +
+        "response/generateSignatures/xml/generateSignaturesEmptyAppInstanceIdResponse.xml,application/xml"
+})
+void givenEmptyAppInstanceId_whenGenerateSignatures_thenReturnEmptyUnboundSignature(
+        final String requestFilePath,
+        final String responseFilePath,
+        final String mediaType) throws Exception {
+    // given
+    when(transactionService.generateBoundedSignature(TX_ID_QUERY_PARAM, Boolean.FALSE))
+            .thenReturn(BOUND_SIGNATURE);
+
+    // when
+    mvc.perform(post(GENERATE_SIGNATURES_PATH)
+                    .header(X_REQUEST_ID_HEADER, X_REQUEST_ID_HEADER_VALUE)
+                    .header(AUTHORIZATION_HEADER, AUTHORIZATION)
+                    .param("appInstanceId", "")
+                    .param("txId", TX_ID_QUERY_PARAM)
+                    .accept(MediaType.valueOf(mediaType))
+                    .contentType(MediaType.valueOf(mediaType))
+                    .content(TestUtils.readFile(requestFilePath)))
+            .andDo(print())
+            .andExpect(status().isOk())
+            .andExpect(header().exists(X_CORRELATION_ID_HEADER))
+            .andExpect(header().string(X_CORRELATION_ID_HEADER, X_CORRELATION_ID_HEADER_VALUE))
+            .andExpect(content().contentTypeCompatibleWith(MediaType.valueOf(mediaType)))
+            .andExpect(getResultMatcher(responseFilePath, mediaType));
+
+    verify(transactionService).generateBoundedSignature(TX_ID_QUERY_PARAM, Boolean.FALSE);
+    verifyNoMoreInteractions(transactionService);
+    verifyNoInteractions(deviceService);
+}
+
+@ParameterizedTest
+@CsvSource({
+        "request/generateSignatures/json/generateSignaturesValidRequest.json,application/json",
+        "request/generateSignatures/xml/generateSignaturesValidRequest.xml,application/xml"
+})
+void givenValidRequest_whenGenerateSignatures_thenThrowExceptionFromTransactionService(
+        final String requestFilePath,
+        final String mediaType) throws Exception {
+    // given
+    when(transactionService.generateBoundedSignature(TX_ID_QUERY_PARAM, Boolean.FALSE))
+            .thenThrow(new RuntimeException(ERROR_MESSAGE));
+
+    // when
+    mvc.perform(post(GENERATE_SIGNATURES_PATH)
+                    .header(X_REQUEST_ID_HEADER, X_REQUEST_ID_HEADER_VALUE)
+                    .header(AUTHORIZATION_HEADER, AUTHORIZATION)
+                    .param("appInstanceId", APP_INSTANCE_ID_QUERY_PARAM)
+                    .param("txId", TX_ID_QUERY_PARAM)
+                    .accept(MediaType.valueOf(mediaType))
+                    .contentType(MediaType.valueOf(mediaType))
+                    .content(TestUtils.readFile(requestFilePath)))
+            .andDo(print())
+            .andExpect(status().isInternalServerError());
+
+    verify(transactionService).generateBoundedSignature(TX_ID_QUERY_PARAM, Boolean.FALSE);
+    verifyNoMoreInteractions(transactionService);
+}private static final String GENERATE_SIGNATURES_PATH = "/generate-signatures";request/generateSignatures/json/generateSignaturesValidRequest.json      → {}
+response/generateSignatures/json/generateSignaturesValidResponse.json    → {"boundSignature":"test-bound-signature","unboundSignature":"test-unbound-signature"}
+response/generateSignatures/json/generateSignaturesEmptyTxIdResponse.json → {"boundSignature":"","unboundSignature":"test-unbound-signature"}
+response/generateSignatures/json/generateSignaturesEmptyAppInstanceIdResponse.json → {"boundSignature":"test-bound-signature","unboundSignature":""}
+
+
+
+
+
 private static final String TX_ID_QUERY_PARAM = "test-tx-id";
 private static final String APP_INSTANCE_ID_QUERY_PARAM = "test-app-instance-id";
 private static final String BOUND_SIGNATURE = "test-bound-signature";
