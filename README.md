@@ -1,3 +1,60 @@
+// AFTER — program to DataSource interface, no Atomikos coupling at all
+public class DbHealthCheckIndicator 
+        extends AbstractHealthIndicator 
+        implements InitializingBean {
+
+    private final DataSource dataSource; // ← interface, not Atomikos class
+    private final int connectionTimeout;
+    private String databaseVendor;
+
+    public DbHealthCheckIndicator(
+            @Qualifier("brkprcDataSource") DataSource brkprcDataSource) {
+        super("DataSource health check failed");
+        this.dataSource = brkprcDataSource; // ← no cast needed
+        this.connectionTimeout = 5;
+    }
+
+    @Override
+    protected void doHealthCheck(Health.Builder builder) throws Exception {
+        int errorCode = check();
+        if (errorCode != 1) {
+            builder.down()
+                   .withDetail("database", databaseVendor)
+                   .withDetail("time", LocalDateTime.now())
+                   .build();
+        } else {
+            builder.up()
+                   .withDetail("database", databaseVendor)
+                   .withDetail("time", LocalDateTime.now())
+                   .build();
+        }
+    }
+
+    protected int check() {
+        Connection conn = null;
+        try {
+            conn = dataSource.getConnection(); // ← standard JDBC, no Atomikos
+            databaseVendor = conn.getMetaData().getDatabaseProductName();
+            if (!conn.isValid(this.connectionTimeout)) {
+                return 0;
+            }
+            return 1;
+        } catch (SQLException e) {
+            return 0;
+        } finally {
+            JdbcUtils.closeConnection(conn);
+        }
+    }
+
+    @Override
+    public void afterPropertiesSet() throws Exception {
+        Assert.state(this.dataSource != null,
+            "DataSource for DbHealthCheck must be specified");
+    }
+}
+
+
+
 @ParameterizedTest
 @CsvSource({
         "request/generateSignatures/json/generateSignaturesValidRequest.json," +
