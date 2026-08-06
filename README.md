@@ -1,3 +1,73 @@
+package de.consorsbank.trading.brkprcsc.config;
+
+import org.springframework.boot.actuate.endpoint.annotation.Endpoint;
+import org.springframework.boot.actuate.endpoint.annotation.ReadOperation;
+import org.springframework.boot.actuate.endpoint.web.WebEndpointResponse;
+import org.springframework.boot.jdbc.DataSourceUnwrapper;
+import org.springframework.jdbc.datasource.DataSourceUtils;
+import org.springframework.stereotype.Component;
+
+import jakarta.sql.DataSource;  // ⚠️ jakarta, not javax — you're on Boot 3+
+import java.util.HashMap;
+import java.util.Map;
+
+import static org.springframework.boot.actuate.endpoint.web.WebEndpointResponse.STATUS_NOT_FOUND;
+
+@Endpoint(id = "dbMonitor")
+@Component
+public class DataSourceActuator {
+
+    private final DataSource dataSource;
+
+    public DataSourceActuator(
+            @Qualifier("brkprcDataSource") DataSource dataSource) {
+        this.dataSource = dataSource;
+    }
+
+    @ReadOperation
+    public WebEndpointResponse<Map<String, Object>> getDataSourceInfo() {
+        if (dataSource == null) {
+            return new WebEndpointResponse<>(
+                getExceptionMap("DataSource not found."), STATUS_NOT_FOUND);
+        }
+        return new WebEndpointResponse<>(getDBInfo());
+    }
+
+    private Map<String, Object> getDBInfo() {
+        Map<String, Object> info = new HashMap<>();
+
+        // Try to unwrap to Atomikos if available, but don't hard-depend on it
+        try {
+            var atomikos = DataSourceUnwrapper.unwrap(
+                dataSource,
+                com.atomikos.jdbc.AtomikosNonXADataSourceBean.class);
+
+            if (atomikos != null) {
+                info.put("MaxPoolSize",       atomikos.getMaxPoolSize());
+                info.put("MinPoolSize",       atomikos.getMinPoolSize());
+                info.put("ConnectionTimeout", atomikos.getBorrowConnectionTimeout());
+                info.put("MaxIdleTimeout",    atomikos.getMaxIdleTime());
+                // poolTotalSize/poolAvailableSize removed in Atomikos 6.x
+                // omit or implement via JMX if needed
+            }
+        } catch (Exception e) {
+            info.put("poolMetrics", "unavailable: " + e.getMessage());
+        }
+
+        info.put("DataSourceClass", dataSource.getClass().getName());
+        return info;
+    }
+
+    private Map<String, Object> getExceptionMap(String message) {
+        Map<String, Object> map = new HashMap<>();
+        map.put("message", message);
+        return map;
+    }
+}
+
+
+
+
 // AFTER — program to DataSource interface, no Atomikos coupling at all
 public class DbHealthCheckIndicator 
         extends AbstractHealthIndicator 
