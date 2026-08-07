@@ -2,90 +2,60 @@
 package de.consorsbank.trading.brkprcsc.config;
 
 import com.atomikos.jdbc.AtomikosNonXADataSourceBean;
-import org.springframework.beans.factory.annotation.Autowired;
+import lombok.RequiredArgsConstructor;
 import org.springframework.boot.actuate.endpoint.annotation.Endpoint;
 import org.springframework.boot.actuate.endpoint.annotation.ReadOperation;
 import org.springframework.boot.actuate.endpoint.web.WebEndpointResponse;
+import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Component;
 
-import javax.management.MBeanServer;
-import javax.management.ObjectName;
 import javax.sql.DataSource;
-import java.lang.management.ManagementFactory;
 import java.util.HashMap;
 import java.util.Map;
 
-import static org.springframework.boot.actuate.endpoint.web.WebEndpointResponse.STATUS_NOT_FOUND;
-
-@Endpoint(id = "dbMonitor")
 @Component
+@Endpoint(id = "dbMonitor")
+@RequiredArgsConstructor
 public class DataSourceActuator {
 
-    private final BrkprcDataSourceConfig brkprcDataSourceConfig;
-
-    @Autowired
-    public DataSourceActuator(BrkprcDataSourceConfig brkprcDataSourceConfig) {
-        this.brkprcDataSourceConfig = brkprcDataSourceConfig;
-    }
+    private final DataSource brkprcDataSource;
 
     @ReadOperation
     public WebEndpointResponse<Map<String, Object>> getDataSourceInfo() {
-        AtomikosNonXADataSourceBean ds = getAtomikosDataSource();
+        var ds = getBrkprcDataSource();
         if (ds != null) {
             return new WebEndpointResponse<>(getDBInfo(ds));
         }
         return new WebEndpointResponse<>(
-            getExceptionMap("Atomikos DataSource not found."), STATUS_NOT_FOUND);
+            getExceptionMap(),
+            HttpStatus.NOT_FOUND.value());
     }
 
-    private Map<String, Object> getDBInfo(AtomikosNonXADataSourceBean dataSource) {
-        Map<String, Object> monitorInfos = new HashMap<>();
-
-        // Config properties — still available in 6.x
-        int maxPoolSize = dataSource.getMaxPoolSize();
-        monitorInfos.put("MaxPoolSize",        maxPoolSize);
-        monitorInfos.put("MinPoolSize",        dataSource.getMinPoolSize());
-        monitorInfos.put("ConnectionTimeout",  dataSource.getBorrowConnectionTimeout());
-        monitorInfos.put("MaxIdleTimeout",     dataSource.getMaxIdleTime());
-
-        // Pool runtime stats — moved to JMX in Atomikos 6.x
-        try {
-            MBeanServer mbs = ManagementFactory.getPlatformMBeanServer();
-            String name = dataSource.getUniqueResourceName();
-            ObjectName on = new ObjectName(
-                "com.atomikos:type=ConnectionPool,name=" + name);
-
-            int total     = ((Number) mbs.getAttribute(on, "PoolSize")).intValue();
-            int available = ((Number) mbs.getAttribute(on, "AvailableSize")).intValue();
-            int inUse     = total - available;
-
-            monitorInfos.put("ConnectionCount",          total);
-            monitorInfos.put("AvailableConnectionCount", available);
-            monitorInfos.put("MaxConnectionsInUseCount", maxPoolSize);
-            monitorInfos.put("InUseConnectionCount",     inUse);
-        } catch (Exception e) {
-            // JMX not yet registered (pool not yet initialized) or name mismatch
-            monitorInfos.put("ConnectionCount",          "unavailable");
-            monitorInfos.put("AvailableConnectionCount", "unavailable");
-            monitorInfos.put("MaxConnectionsInUseCount", maxPoolSize);
-            monitorInfos.put("InUseConnectionCount",     "unavailable");
-        }
-
-        return monitorInfos;
+    private static Map<String, Object> getDBInfo(AtomikosNonXADataSourceBean dataSource) {
+        var info = new HashMap<String, Object>();
+        info.put("MaxPoolSize",              dataSource.getMaxPoolSize());
+        info.put("MinPoolSize",              dataSource.getMinPoolSize());
+        info.put("ConnectionTimeout",        dataSource.getBorrowConnectionTimeout());
+        info.put("MaxIdleTimeout",           dataSource.getMaxIdleTime());
+        info.put("ConnectionCount",          dataSource.poolTotalSize());
+        info.put("AvailableConnectionCount", dataSource.poolAvailableSize());
+        info.put("MaxConnectionsInUseCount", dataSource.getMaxPoolSize());
+        info.put("InUseConnectionCount",     dataSource.poolTotalSize() - dataSource.poolAvailableSize());
+        return info;
     }
 
-    private AtomikosNonXADataSourceBean getAtomikosDataSource() {
-        DataSource ds = brkprcDataSourceConfig.brkprcDataSource();
-        if (ds instanceof AtomikosNonXADataSourceBean atomikos) {
-            return atomikos;
+    private AtomikosNonXADataSourceBean getBrkprcDataSource() {
+        if (brkprcDataSource instanceof AtomikosNonXADataSourceBean ds) {
+            return ds;
         }
         return null;
     }
 
-    private Map<String, Object> getExceptionMap(String message) {
-        Map<String, Object> notFoundMap = new HashMap<>();
-        notFoundMap.put("message", message);
-        return notFoundMap;
+    private static Map<String, Object> getExceptionMap() {
+        var map = new HashMap<String, Object>();
+        map.put("error", "DataSource not found.");
+        return map;
     }
 }
+
 ```
