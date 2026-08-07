@@ -1,7 +1,6 @@
 ```
 package de.consorsbank.trading.brkprcsc.config;
 
-import com.atomikos.jdbc.AtomikosNonXADataSourceBean;
 import lombok.RequiredArgsConstructor;
 import org.springframework.boot.actuate.endpoint.annotation.Endpoint;
 import org.springframework.boot.actuate.endpoint.annotation.ReadOperation;
@@ -10,6 +9,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Component;
 
 import javax.sql.DataSource;
+import java.lang.reflect.Method;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -22,33 +22,36 @@ public class DataSourceActuator {
 
     @ReadOperation
     public WebEndpointResponse<Map<String, Object>> getDataSourceInfo() {
-        var ds = getBrkprcDataSource();
-        if (ds != null) {
-            return new WebEndpointResponse<>(getDBInfo(ds));
+        if (brkprcDataSource == null) {
+            return new WebEndpointResponse<>(
+                getExceptionMap(), HttpStatus.NOT_FOUND.value());
         }
-        return new WebEndpointResponse<>(
-            getExceptionMap(),
-            HttpStatus.NOT_FOUND.value());
+        return new WebEndpointResponse<>(getDBInfo());
     }
 
-    private static Map<String, Object> getDBInfo(AtomikosNonXADataSourceBean dataSource) {
+    private Map<String, Object> getDBInfo() {
         var info = new HashMap<String, Object>();
-        info.put("MaxPoolSize",              dataSource.getMaxPoolSize());
-        info.put("MinPoolSize",              dataSource.getMinPoolSize());
-        info.put("ConnectionTimeout",        dataSource.getBorrowConnectionTimeout());
-        info.put("MaxIdleTimeout",           dataSource.getMaxIdleTime());
-        info.put("ConnectionCount",          dataSource.poolTotalSize());
-        info.put("AvailableConnectionCount", dataSource.poolAvailableSize());
-        info.put("MaxConnectionsInUseCount", dataSource.getMaxPoolSize());
-        info.put("InUseConnectionCount",     dataSource.poolTotalSize() - dataSource.poolAvailableSize());
+        int total     = invokeInt("poolTotalSize");
+        int available = invokeInt("poolAvailableSize");
+        info.put("MaxPoolSize",              invokeInt("getMaxPoolSize"));
+        info.put("MinPoolSize",              invokeInt("getMinPoolSize"));
+        info.put("ConnectionTimeout",        invokeInt("getBorrowConnectionTimeout"));
+        info.put("MaxIdleTimeout",           invokeInt("getMaxIdleTime"));
+        info.put("ConnectionCount",          total);
+        info.put("AvailableConnectionCount", available);
+        info.put("MaxConnectionsInUseCount", invokeInt("getMaxPoolSize"));
+        info.put("InUseConnectionCount",     total - available);
         return info;
     }
 
-    private AtomikosNonXADataSourceBean getBrkprcDataSource() {
-        if (brkprcDataSource instanceof AtomikosNonXADataSourceBean ds) {
-            return ds;
+    private int invokeInt(String methodName) {
+        try {
+            Method m = brkprcDataSource.getClass().getMethod(methodName);
+            m.setAccessible(true);
+            return ((Number) m.invoke(brkprcDataSource)).intValue();
+        } catch (Exception e) {
+            return -1;
         }
-        return null;
     }
 
     private static Map<String, Object> getExceptionMap() {
@@ -57,5 +60,4 @@ public class DataSourceActuator {
         return map;
     }
 }
-
 ```
