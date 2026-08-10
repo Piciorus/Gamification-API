@@ -1,3 +1,49 @@
+package de.consorsbank.trading.brkprcsc.config;
+
+import jakarta.sql.DataSource;           // ← jakarta, not javax
+import java.sql.Connection;
+import java.sql.SQLException;
+import java.time.LocalDateTime;
+import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.boot.actuate.health.AbstractHealthIndicator;
+import org.springframework.boot.actuate.health.Health;
+import org.springframework.jdbc.support.JdbcUtils;
+import org.springframework.util.Assert;
+
+public class DbHealthCheckIndicator 
+    extends AbstractHealthIndicator {
+
+    private final DataSource dataSource;
+    private final int connectionTimeout = 5;
+
+    public DbHealthCheckIndicator(
+        @Qualifier("brkprcDataSource") DataSource dataSource) {
+        super("DataSource health check failed");
+        Assert.state(dataSource != null, 
+            "DataSource for DbHealthCheck must be specified");
+        this.dataSource = dataSource;
+    }
+
+    @Override
+    protected void doHealthCheck(Health.Builder builder) throws Exception {
+        try (Connection conn = dataSource.getConnection()) {
+            if (!conn.isValid(connectionTimeout)) {
+                builder.down()
+                    .withDetail("time", LocalDateTime.now())
+                    .build();
+                return;
+            }
+            String vendor = conn.getMetaData().getDatabaseProductName();
+            builder.up()
+                .withDetail("database", vendor)
+                .withDetail("time", LocalDateTime.now())
+                .build();
+        }
+    }
+}
+
+
+
 ```
 package de.consorsbank.trading.brkprcsc.config;
 
