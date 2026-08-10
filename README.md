@@ -1,3 +1,34 @@
+-- See all indexes on your authorization tables
+SELECT
+    tablename,
+    indexname,
+    indexdef
+FROM pg_indexes
+WHERE tablename IN (
+    'authorization_attempt',
+    'authorization',
+    'service'
+)
+ORDER BY tablename, indexname;
+
+-- 1. Check if authorization_id queries are slow (most frequent FK lookup)
+EXPLAIN ANALYZE
+SELECT * FROM authorization_attempt
+WHERE authorization_entity_id = '<some-uuid>';
+
+-- 2. Check status filter (existsByAuthorizationEntityIdAndStatus)
+EXPLAIN ANALYZE
+SELECT * FROM authorization_attempt
+WHERE authorization_entity_id = '<some-uuid>'
+AND status = 'INITIATED';
+
+-- 3. Check transactionId on authorization table
+EXPLAIN ANALYZE
+SELECT * FROM authorization
+WHERE transaction_id = '<some-uuid>';
+
+
+
 package de.consorsbank.trading.brkprcsc.config;
 
 import org.springframework.beans.factory.annotation.Qualifier;
