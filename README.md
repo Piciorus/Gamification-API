@@ -1,5 +1,66 @@
 package de.consorsbank.trading.brkprcsc.config;
 
+import com.atomikos.jdbc.AtomikosNonXADataSourceBean;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.actuate.endpoint.annotation.Endpoint;
+import org.springframework.boot.actuate.endpoint.annotation.ReadOperation;
+import org.springframework.boot.actuate.endpoint.web.WebEndpointResponse;
+import org.springframework.stereotype.Component;
+
+import javax.sql.DataSource;
+import java.util.HashMap;
+import java.util.Map;
+
+import static org.springframework.boot.actuate.endpoint.web.WebEndpointResponse.STATUS_NOT_FOUND;
+
+@Endpoint(id = "dbMonitor")
+@Component
+public class DataSourceActuator {
+
+    private final BrkprcDataSourceConfig brkprcDataSourceConfig;
+
+    @Autowired
+    public DataSourceActuator(BrkprcDataSourceConfig brkprcDataSourceConfig) {
+        this.brkprcDataSourceConfig = brkprcDataSourceConfig;
+    }
+
+    @ReadOperation
+    public WebEndpointResponse<Map<String, Object>> getDataSourceInfo() {
+        DataSource ds = brkprcDataSourceConfig.brkprcDataSource();
+        
+        if (ds instanceof AtomikosNonXADataSourceBean atomikosDS) {
+            return new WebEndpointResponse<>(getDBInfo(atomikosDS));
+        }
+        
+        return new WebEndpointResponse<>(
+            getExceptionMap("Atomikos DataSource not found."), 
+            STATUS_NOT_FOUND
+        );
+    }
+
+    private Map<String, Object> getDBInfo(AtomikosNonXADataSourceBean dataSource) {
+        Map<String, Object> monitorInfos = new HashMap<>();
+
+        // Atomikos 6.x — access via bean properties, not ConnectionPoolProperties
+        monitorInfos.put("MaxPoolSize",            dataSource.getMaxPoolSize());
+        monitorInfos.put("MinPoolSize",            dataSource.getMinPoolSize());
+        monitorInfos.put("BorrowConnectionTimeout", dataSource.getBorrowConnectionTimeout());
+        monitorInfos.put("MaxIdleTimeout",         dataSource.getMaxIdleTime());
+        monitorInfos.put("LoginTimeout",           dataSource.getLoginTimeout());
+
+        return monitorInfos;
+    }
+
+    private Map<String, Object> getExceptionMap(String message) {
+        return Map.of("message", message);  // Java 9+ immutable map
+    }
+}
+
+
+
+
+package de.consorsbank.trading.brkprcsc.config;
+
 import jakarta.sql.DataSource;           // ← jakarta, not javax
 import java.sql.Connection;
 import java.sql.SQLException;
