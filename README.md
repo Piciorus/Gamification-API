@@ -1,3 +1,19 @@
+SELECT
+    relname AS table_name,
+    seq_scan,        -- number of sequential scans (BAD if high)
+    seq_tup_read,    -- rows read via seq scan
+    idx_scan,        -- number of index scans (GOOD)
+    idx_tup_fetch,   -- rows fetched via index
+    n_live_tup AS total_rows
+FROM pg_stat_user_tables
+WHERE relname IN (
+    'authorization_attempt',
+    'authorization'
+)
+ORDER BY seq_scan DESC;
+
+
+
 -- Shows all indexes on your tables + which columns they cover
 SELECT
     t.relname AS table_name,
