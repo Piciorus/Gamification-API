@@ -1,5 +1,105 @@
 package de.consorsbank.trading.brkprcsc.config;
 
+import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.boot.actuate.endpoint.annotation.Endpoint;
+import org.springframework.boot.actuate.endpoint.annotation.ReadOperation;
+import org.springframework.boot.actuate.endpoint.web.WebEndpointResponse;
+import org.springframework.stereotype.Component;
+
+import javax.sql.DataSource;
+import java.sql.Connection;
+import java.sql.DatabaseMetaData;
+import java.sql.SQLException;
+import java.util.HashMap;
+import java.util.Map;
+
+import static org.springframework.boot.actuate.endpoint.web
+        .WebEndpointResponse.STATUS_NOT_FOUND;
+import static org.springframework.boot.actuate.endpoint.web
+        .WebEndpointResponse.STATUS_OK;
+
+@Endpoint(id = "dbMonitor")
+@Component
+public class DataSourceActuator {
+
+    private final DataSource dataSource;
+
+    public DataSourceActuator(
+            @Qualifier("brkprcDataSource") DataSource dataSource) {
+        this.dataSource = dataSource;
+    }
+
+    @ReadOperation
+    public WebEndpointResponse<Map<String, Object>> getDataSourceInfo() {
+        if (dataSource == null) {
+            return new WebEndpointResponse<>(
+                Map.of("message", "DataSource not found."),
+                STATUS_NOT_FOUND
+            );
+        }
+
+        Map<String, Object> info = new HashMap<>();
+
+        // 1. Pool config via reflection — works with ANY pool impl
+        info.putAll(getPoolMetricsViaReflection());
+
+        // 2. DB metadata via actual connection
+        try (Connection conn = dataSource.getConnection()) {
+            DatabaseMetaData meta = conn.getMetaData();
+            info.put("databaseProduct", meta.getDatabaseProductName());
+            info.put("databaseVersion", meta.getDatabaseProductVersion());
+            info.put("driverName",      meta.getDriverName());
+            info.put("url",             meta.getURL());
+            info.put("connectionValid",  conn.isValid(3));
+        } catch (SQLException e) {
+            info.put("connectionError", e.getMessage());
+        }
+
+        return new WebEndpointResponse<>(info, STATUS_OK);
+    }
+
+    /**
+     * Reads pool config via reflection — no compile-time dep on Atomikos API.
+     * Works across Atomikos 5.x, 6.x, and any other pool (HikariCP, DBCP2).
+     */
+    private Map<String, Object> getPoolMetricsViaReflection() {
+        Map<String, Object> metrics = new HashMap<>();
+        Object target = dataSource; // unwrap proxy if needed
+
+        String[] getters = {
+            "getMaxPoolSize",
+            "getMinPoolSize",
+            "getBorrowConnectionTimeout",
+            "getMaxIdleTime",
+            "getLoginTimeout",
+            "getUniqueResourceName",
+            "getXaDataSourceClassName"
+        };
+
+        for (String getter : getters) {
+            try {
+                var method = target.getClass().getMethod(getter);
+                Object value = method.invoke(target);
+                // strip "get" → camelCase key
+                String key = Character.toLowerCase(getter.charAt(3))
+                    + getter.substring(4);
+                metrics.put(key, value);
+            } catch (NoSuchMethodException e) {
+                // method doesn't exist on this pool impl — skip silently
+            } catch (Exception e) {
+                metrics.put(getter, "unavailable: " + e.getMessage());
+            }
+        }
+
+        return metrics;
+    }
+}
+
+
+
+
+package de.consorsbank.trading.brkprcsc.config;
+
 import com.atomikos.jdbc.AtomikosNonXADataSourceBean;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.actuate.endpoint.annotation.Endpoint;
