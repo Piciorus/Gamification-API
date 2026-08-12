@@ -1,3 +1,24 @@
+public GenerateSignaturesResponse generateSignatures(
+        String appInstanceId, 
+        String txId) {
+    
+    String boundSignature = Strings.isEmpty(txId) 
+        ? "" 
+        : transactionService.generateBoundedSignature(txId, Boolean.FALSE);
+    
+    String unboundSignature = deviceService
+        .generateUnboundSignature(appInstanceId);
+    
+    GenerateSignaturesResponse generateSignaturesResponse = 
+        new GenerateSignaturesResponse();
+    generateSignaturesResponse.setBoundSignature(boundSignature);
+    generateSignaturesResponse.setUnboundSignature(unboundSignature);
+    
+    return generateSignaturesResponse;
+}
+
+
+
 SELECT
     relname AS table_name,
     seq_scan,        -- number of sequential scans (BAD if high)
