@@ -1,312 +1,281 @@
 ```
-openapi: 3.0.0
-security:
-  - BearerAuthentication: [ ]
-info:
-  title: Cash Transfer Restrictions Inquiry API
-  description: REST API endpoint to inquire about cash transfer restrictions like online transfer limits and reference accounts.
-  version: 1.0.0
+import javax.swing.*;
+import java.awt.*;
+import java.awt.event.*;
+import java.util.concurrent.*;
 
-servers:
-  - url: ""
-    description: Server url + baseUrl
+public class MouseMover {
 
-paths:
-  /v1/cash-transfer-restrictions/validate:
-    post:
-      tags:
-        - Cash Transfer Restrictions Inquiry
-      summary: Validates the cash transfer restrictions inquiry
-      description: Validates the cash transfer restrictions inquiry.
-      operationId: validateCashTransResInq
-      parameters:
-        - $ref: "../authorization/authorization-headers.yaml#/components/parameters/Authorization"
-        - $ref: "../authorization/authorization-headers.yaml#/components/parameters/FeId"
-        - $ref: "../authorization/authorization-headers.yaml#/components/parameters/Language"
-        - $ref: "../authorization/authorization-headers.yaml#/components/parameters/TraceId"
-        - $ref: "../common/common-headers.yaml#/components/parameters/userAgent"
-        - $ref: "../common/common-headers.yaml#/components/parameters/x-source-service"
-        - $ref: "../common/common-headers.yaml#/components/parameters/x-request-id"
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: "#/components/schemas/ValidateCashTransResInqRequest"
-      responses:
-        '204':
-          description: Successful Validation.
-          headers:
-            x-correlation-id:
-              $ref: "../common/common-headers.yaml#/components/parameters/x-correlation-id"
-        "401":
-          description: Unauthorized
-          headers:
-            x-correlation-id:
-              $ref: "../common/common-headers.yaml#/components/parameters/x-correlation-id"
-          content:
-            application/json:
-              schema:
-                $ref: "../common/schemas.yaml#/components/schemas/ApiError"
-        "403":
-          description: Forbidden
-          headers:
-            x-correlation-id:
-              $ref: "../common/common-headers.yaml#/components/parameters/x-correlation-id"
-          content:
-            application/json:
-              schema:
-                $ref: "../common/schemas.yaml#/components/schemas/ApiError"
-        "404":
-          description: Not found
-          headers:
-            x-correlation-id:
-              $ref: "../common/common-headers.yaml#/components/parameters/x-correlation-id"
-          content:
-            application/json:
-              schema:
-                $ref: "../common/schemas.yaml#/components/schemas/ApiError"
-        "500":
-          description: Internal server error
-          headers:
-            x-correlation-id:
-              $ref: "../common/common-headers.yaml#/components/parameters/x-correlation-id"
-          content:
-            application/json:
-              schema:
-                $ref: "../common/schemas.yaml#/components/schemas/ApiError"
+    private ScheduledExecutorService scheduler;
+    private Robot robot;
+    private boolean running = false;
+    private int direction = 1;
 
-  /v1/cash-transfer-restrictions/inquire:
-    post:
-      tags:
-        - Cash Transfer Restrictions Inquiry
-      summary: Initiates the cash transfer restrictions inquiry
-      description: Initiates the cash transfer restrictions inquiry and returns transfer limits and reference accounts.
-      operationId: initiateCashTransResInq
-      parameters:
-        - $ref: "../authorization/authorization-headers.yaml#/components/parameters/Authorization"
-        - $ref: "../authorization/authorization-headers.yaml#/components/parameters/FeId"
-        - $ref: "../authorization/authorization-headers.yaml#/components/parameters/Language"
-        - $ref: "../authorization/authorization-headers.yaml#/components/parameters/TraceId"
-        - $ref: "../common/common-headers.yaml#/components/parameters/userAgent"
-        - $ref: "../common/common-headers.yaml#/components/parameters/x-source-service"
-        - $ref: "../common/common-headers.yaml#/components/parameters/x-request-id"
-        - $ref: "../common/common-headers.yaml#/components/parameters/idempotency-key"
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: "#/components/schemas/InitiateCashTransResInqRequest"
-      responses:
-        "200":
-          description: Returns the cash transfer restrictions for the given account
-          headers:
-            x-correlation-id:
-              $ref: "../common/common-headers.yaml#/components/parameters/x-correlation-id"
-          content:
-            application/json:
-              schema:
-                $ref: "../common/schemas.yaml#/components/schemas/CashTransResInqResponse"
-        "401":
-          description: Unauthorized
-          headers:
-            x-correlation-id:
-              $ref: "../common/common-headers.yaml#/components/parameters/x-correlation-id"
-          content:
-            application/json:
-              schema:
-                $ref: "../common/schemas.yaml#/components/schemas/ApiError"
-        "403":
-          description: Forbidden
-          headers:
-            x-correlation-id:
-              $ref: "../common/common-headers.yaml#/components/parameters/x-correlation-id"
-          content:
-            application/json:
-              schema:
-                $ref: "../common/schemas.yaml#/components/schemas/ApiError"
-        "404":
-          description: Not found
-          headers:
-            x-correlation-id:
-              $ref: "../common/common-headers.yaml#/components/parameters/x-correlation-id"
-          content:
-            application/json:
-              schema:
-                $ref: "../common/schemas.yaml#/components/schemas/ApiError"
-        "500":
-          description: Internal server error
-          headers:
-            x-correlation-id:
-              $ref: "../common/common-headers.yaml#/components/parameters/x-correlation-id"
-          content:
-            application/json:
-              schema:
-                $ref: "../common/schemas.yaml#/components/schemas/ApiError"
+    // GUI components
+    private JFrame frame;
+    private JLabel statusLabel;
+    private JButton startButton;
+    private JButton stopButton;
+    private JSpinner intervalSpinner;
+    private JSpinner durationSpinner;
+    private JProgressBar progressBar;
+    private JLabel timeLeftLabel;
+    private Timer countdownTimer;
+    private int secondsLeft;
 
-components:
-  securitySchemes:
-    BearerAuthentication:
-      $ref: '../authorization/authorization-headers.yaml#/components/securitySchemes/BearerAuthentication'
+    public MouseMover() {
+        try {
+            robot = new Robot();
+        } catch (AWTException e) {
+            JOptionPane.showMessageDialog(null,
+                "Eroare: Nu s-a putut initializa Robot-ul pentru control mouse.\n" + e.getMessage(),
+                "Eroare", JOptionPane.ERROR_MESSAGE);
+            System.exit(1);
+        }
+        buildUI();
+    }
 
-  schemas:
-    # ── Validate request ──────────────────────────────────────────────────────
-    ValidateCashTransResInqRequest:
-      type: object
-      properties:
-        transactionPayload:
-          $ref: "#/components/schemas/CashTransResInqRequest"
-      required:
-        - transactionPayload
+    private void buildUI() {
+        // Look and feel
+        try {
+            UIManager.setLookAndFeel(UIManager.getSystemLookAndFeelClassName());
+        } catch (Exception ignored) {}
 
-    # ── Initiate request ──────────────────────────────────────────────────────
-    InitiateCashTransResInqRequest:
-      type: object
-      properties:
-        transactionIntentId:
-          type: string
-          format: uuid
-          example: "11019087-5800-4000-8000-000000000000"
-          description: The transaction intent id
-        authorization:
-          $ref: "../common/schemas.yaml#/components/schemas/AuthorizationCredentials"
-        transactionPayload:
-          $ref: "#/components/schemas/CashTransResInqRequest"
-      required:
-        - transactionIntentId
-        - transactionPayload
+        frame = new JFrame("Teams Stay Active 🟢");
+        frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
+        frame.setSize(420, 380);
+        frame.setLocationRelativeTo(null);
+        frame.setResizable(false);
 
-    # ── Core inquiry request payload ──────────────────────────────────────────
-    CashTransResInqRequest:
-      type: object
-      description: "The cash transfer restrictions inquiry request payload."
-      properties:
-        crmCustomerNumber:
-          type: string
-          description: "The CRM customer number of the customer to inquire restrictions for."
-        accountNumber:
-          $ref: '../common/schemas.yaml#/components/schemas/ClearingAccountNumber'
-          description: "The account number to inquire restrictions for. If not specified, all accounts accessible in this session are returned."
+        // Main panel
+        JPanel mainPanel = new JPanel();
+        mainPanel.setLayout(new BoxLayout(mainPanel, BoxLayout.Y_AXIS));
+        mainPanel.setBorder(BorderFactory.createEmptyBorder(20, 25, 20, 25));
+        mainPanel.setBackground(new Color(245, 247, 250));
 
-    # ── Reference account (nested in response) ────────────────────────────────
-    ReferenceAccount:
-      type: object
-      description: "A predefined reference account for cash transfers."
-      properties:
-        ibanOpponent:
-          $ref: '../common/schemas.yaml#/components/schemas/Iban'
-          description: "Account number of the external bank the transaction uses."
-        bicOpponent:
-          $ref: '../common/schemas.yaml#/components/schemas/Bic'
-          description: "BLZ of the external bank."
-        bankNameOpponent:
-          type: string
-          description: "Name of an external bank."
-        accountingOpponent:
-          $ref: '../common/schemas.yaml#/components/schemas/ReceiverSepa'
-          description: "Name of the external receiver."
-        addressOpponent:
-          type: string
-          description: "The address of the opponent."
-        countryCodeOpponent:
-          $ref: '../common/schemas.yaml#/components/schemas/CountryCode'
-          description: "The country code of the opponents address."
-        createdAt:
-          type: string
-          format: date
-          description: "The day when this was created (no time). Note: for older entries this info may not be available."
-      required:
-        - ibanOpponent
-        - bicOpponent
-        - accountingOpponent
+        // Title
+        JLabel titleLabel = new JLabel("Teams Stay Active");
+        titleLabel.setFont(new Font("Segoe UI", Font.BOLD, 20));
+        titleLabel.setForeground(new Color(50, 50, 150));
+        titleLabel.setAlignmentX(Component.CENTER_ALIGNMENT);
 
-    # ── Per-account restrictions block ────────────────────────────────────────
-    CashTransResInqAccount:
-      type: object
-      description: "Cash transfer restriction details for a single account."
-      properties:
-        accountno:
-          type: string
-          description: "Account number."
-        accountTypeDescription:
-          type: string
-          description: "A technical account type."
-        dailyTransferLimit:
-          type: number
-          format: bigdecimal
-          minimum: -9999999.99
-          maximum: 9999999.99
-          description: "A daily limit for online cash transfers."
-        usedTransferLimit:
-          type: number
-          format: bigdecimal
-          minimum: -9999999.99
-          maximum: 9999999.99
-          description: "An amount of the daily cash transfer limit which was already used today."
-        availableSingleTransferAmount:
-          type: number
-          format: bigdecimal
-          minimum: -9999999.99
-          maximum: 9999999.99
-          description: "The currently available amount for a single cash transfer. NOTE: this amount is only derived from the limit settings of the user and has nothing to do with the cash on the user's account."
-        currentLimitIsUserLimit:
-          type: boolean
-          description: "Indicates whether the current limit is a user-defined limit."
-        currentLimitType:
-          type: string
-          description: "The type of the current limit."
-          enum:
-            - NONE
-            - LIMIT_UNSECURE_ACCOUNT
-            - GLOBAL_LIMIT
-            - SINGLE_LIMIT
-            - DAILY_LIMIT
-            - DAILY_LIMIT_REDUCED
-        referenceAccounts:
-          type: array
-          items:
-            $ref: "#/components/schemas/ReferenceAccount"
-          description: "List of predefined reference accounts."
-        instantDailyTransferLimit:
-          type: number
-          format: bigdecimal
-          minimum: -9999999.99
-          maximum: 9999999.99
-          description: "An instant daily limit for online cash transfers."
-        instantSingleTransferLimit:
-          type: number
-          format: bigdecimal
-          minimum: -9999999.99
-          maximum: 9999999.99
-          description: "An instant single transfer limit (pro transaction) for online cash transfers."
-        usedInstantTransferLimit:
-          type: number
-          format: bigdecimal
-          minimum: -9999999.99
-          maximum: 9999999.99
-          description: "An amount of the instant daily cash transfer limit which was already used today."
-        availableInstantTransferAmount:
-          type: number
-          format: bigdecimal
-          minimum: -9999999.99
-          maximum: 9999999.99
-          description: "An available amount of the instant cash transfer."
-      required:
-        - accountno
-        - accountTypeDescription
-        - availableSingleTransferAmount
-        - currentLimitIsUserLimit
+        JLabel subtitleLabel = new JLabel("Muta mouse-ul automat pentru a ramane online");
+        subtitleLabel.setFont(new Font("Segoe UI", Font.PLAIN, 12));
+        subtitleLabel.setForeground(Color.GRAY);
+        subtitleLabel.setAlignmentX(Component.CENTER_ALIGNMENT);
 
-    # ── Top-level response ────────────────────────────────────────────────────
-    CashTransResInqResponse:
-      type: object
-      description: "Response containing cash transfer restriction details per account."
-      properties:
-        account:
-          type: array
-          items:
-            $ref: "#/components/schemas/CashTransResInqAccount"
-          description: "List of account restriction details. Empty if no restrictions or accounts are found."
+        mainPanel.add(titleLabel);
+        mainPanel.add(Box.createVerticalStrut(4));
+        mainPanel.add(subtitleLabel);
+        mainPanel.add(Box.createVerticalStrut(20));
+
+        // Settings panel
+        JPanel settingsPanel = new JPanel(new GridBagLayout());
+        settingsPanel.setBackground(new Color(245, 247, 250));
+        GridBagConstraints gbc = new GridBagConstraints();
+        gbc.insets = new Insets(6, 5, 6, 5);
+        gbc.anchor = GridBagConstraints.WEST;
+
+        // Interval setting
+        gbc.gridx = 0; gbc.gridy = 0;
+        JLabel intervalLabel = new JLabel("Interval miscare (secunde):");
+        intervalLabel.setFont(new Font("Segoe UI", Font.PLAIN, 13));
+        settingsPanel.add(intervalLabel, gbc);
+
+        gbc.gridx = 1;
+        intervalSpinner = new JSpinner(new SpinnerNumberModel(30, 5, 300, 5));
+        intervalSpinner.setFont(new Font("Segoe UI", Font.PLAIN, 13));
+        ((JSpinner.DefaultEditor) intervalSpinner.getEditor()).getTextField().setColumns(5);
+        settingsPanel.add(intervalSpinner, gbc);
+
+        // Duration setting
+        gbc.gridx = 0; gbc.gridy = 1;
+        JLabel durationLabel = new JLabel("Oprire automata dupa (minute):");
+        durationLabel.setFont(new Font("Segoe UI", Font.PLAIN, 13));
+        settingsPanel.add(durationLabel, gbc);
+
+        gbc.gridx = 1;
+        // 0 = fara limita
+        durationSpinner = new JSpinner(new SpinnerNumberModel(0, 0, 480, 5));
+        durationSpinner.setFont(new Font("Segoe UI", Font.PLAIN, 13));
+        ((JSpinner.DefaultEditor) durationSpinner.getEditor()).getTextField().setColumns(5);
+        settingsPanel.add(durationSpinner, gbc);
+
+        gbc.gridx = 0; gbc.gridy = 2; gbc.gridwidth = 2;
+        JLabel hint = new JLabel("  ℹ️  0 minute = fara oprire automata");
+        hint.setFont(new Font("Segoe UI", Font.ITALIC, 11));
+        hint.setForeground(Color.GRAY);
+        settingsPanel.add(hint, gbc);
+
+        mainPanel.add(settingsPanel);
+        mainPanel.add(Box.createVerticalStrut(15));
+
+        // Status label
+        statusLabel = new JLabel("⏸  Oprit");
+        statusLabel.setFont(new Font("Segoe UI", Font.BOLD, 14));
+        statusLabel.setForeground(new Color(150, 50, 50));
+        statusLabel.setAlignmentX(Component.CENTER_ALIGNMENT);
+        mainPanel.add(statusLabel);
+        mainPanel.add(Box.createVerticalStrut(8));
+
+        // Time left label
+        timeLeftLabel = new JLabel(" ");
+        timeLeftLabel.setFont(new Font("Segoe UI", Font.PLAIN, 12));
+        timeLeftLabel.setForeground(new Color(80, 80, 80));
+        timeLeftLabel.setAlignmentX(Component.CENTER_ALIGNMENT);
+        mainPanel.add(timeLeftLabel);
+        mainPanel.add(Box.createVerticalStrut(8));
+
+        // Progress bar
+        progressBar = new JProgressBar(0, 100);
+        progressBar.setStringPainted(false);
+        progressBar.setForeground(new Color(70, 130, 180));
+        progressBar.setBackground(new Color(220, 225, 235));
+        progressBar.setMaximumSize(new Dimension(Integer.MAX_VALUE, 12));
+        progressBar.setVisible(false);
+        mainPanel.add(progressBar);
+        mainPanel.add(Box.createVerticalStrut(15));
+
+        // Buttons
+        JPanel buttonPanel = new JPanel(new FlowLayout(FlowLayout.CENTER, 15, 0));
+        buttonPanel.setBackground(new Color(245, 247, 250));
+
+        startButton = new JButton("▶  Porneste");
+        startButton.setFont(new Font("Segoe UI", Font.BOLD, 13));
+        startButton.setBackground(new Color(70, 160, 80));
+        startButton.setForeground(Color.WHITE);
+        startButton.setFocusPainted(false);
+        startButton.setBorderPainted(false);
+        startButton.setPreferredSize(new Dimension(140, 38));
+        startButton.setCursor(new Cursor(Cursor.HAND_CURSOR));
+
+        stopButton = new JButton("⏹  Opreste");
+        stopButton.setFont(new Font("Segoe UI", Font.BOLD, 13));
+        stopButton.setBackground(new Color(200, 70, 70));
+        stopButton.setForeground(Color.WHITE);
+        stopButton.setFocusPainted(false);
+        stopButton.setBorderPainted(false);
+        stopButton.setPreferredSize(new Dimension(140, 38));
+        stopButton.setCursor(new Cursor(Cursor.HAND_CURSOR));
+        stopButton.setEnabled(false);
+
+        buttonPanel.add(startButton);
+        buttonPanel.add(stopButton);
+        mainPanel.add(buttonPanel);
+
+        // Hover effects
+        startButton.addMouseListener(new MouseAdapter() {
+            public void mouseEntered(MouseEvent e) { if (startButton.isEnabled()) startButton.setBackground(new Color(50, 140, 60)); }
+            public void mouseExited(MouseEvent e) { if (startButton.isEnabled()) startButton.setBackground(new Color(70, 160, 80)); }
+        });
+        stopButton.addMouseListener(new MouseAdapter() {
+            public void mouseEntered(MouseEvent e) { if (stopButton.isEnabled()) stopButton.setBackground(new Color(180, 50, 50)); }
+            public void mouseExited(MouseEvent e) { if (stopButton.isEnabled()) stopButton.setBackground(new Color(200, 70, 70)); }
+        });
+
+        // Actions
+        startButton.addActionListener(e -> startMoving());
+        stopButton.addActionListener(e -> stopMoving());
+
+        frame.add(mainPanel);
+        frame.setVisible(true);
+    }
+
+    private void startMoving() {
+        int intervalSec = (int) intervalSpinner.getValue();
+        int durationMin = (int) durationSpinner.getValue();
+
+        running = true;
+        startButton.setEnabled(false);
+        stopButton.setEnabled(true);
+        intervalSpinner.setEnabled(false);
+        durationSpinner.setEnabled(false);
+        statusLabel.setText("🟢  Activ - mutand mouse-ul...");
+        statusLabel.setForeground(new Color(30, 130, 60));
+
+        // Schedule mouse movements
+        scheduler = Executors.newScheduledThreadPool(1);
+        scheduler.scheduleAtFixedRate(this::moveMouseSlightly, 0, intervalSec, TimeUnit.SECONDS);
+
+        // Handle duration countdown
+        if (durationMin > 0) {
+            secondsLeft = durationMin * 60;
+            progressBar.setMaximum(secondsLeft);
+            progressBar.setValue(secondsLeft);
+            progressBar.setVisible(true);
+
+            countdownTimer = new Timer(1000, null);
+            countdownTimer.addActionListener(e -> {
+                secondsLeft--;
+                progressBar.setValue(secondsLeft);
+
+                int mLeft = secondsLeft / 60;
+                int sLeft = secondsLeft % 60;
+                timeLeftLabel.setText(String.format("Timp ramas: %d min %02d sec", mLeft, sLeft));
+
+                if (secondsLeft <= 0) {
+                    countdownTimer.stop();
+                    stopMoving();
+                    JOptionPane.showMessageDialog(frame,
+                        "Programul s-a oprit dupa " + durationMin + " minute.\nAcum vei intra in Away pe Teams.",
+                        "Timp expirat", JOptionPane.INFORMATION_MESSAGE);
+                }
+            });
+            countdownTimer.start();
+        } else {
+            timeLeftLabel.setText("Fara oprire automata");
+            progressBar.setVisible(false);
+        }
+    }
+
+    private void stopMoving() {
+        running = false;
+        if (scheduler != null && !scheduler.isShutdown()) {
+            scheduler.shutdownNow();
+        }
+        if (countdownTimer != null && countdownTimer.isRunning()) {
+            countdownTimer.stop();
+        }
+        SwingUtilities.invokeLater(() -> {
+            startButton.setEnabled(true);
+            stopButton.setEnabled(false);
+            intervalSpinner.setEnabled(true);
+            durationSpinner.setEnabled(true);
+            statusLabel.setText("⏸  Oprit");
+            statusLabel.setForeground(new Color(150, 50, 50));
+            timeLeftLabel.setText(" ");
+            progressBar.setVisible(false);
+        });
+    }
+
+    private void moveMouseSlightly() {
+        if (!running) return;
+        Point currentPos = MouseInfo.getPointerInfo().getLocation();
+        // Misca 1 pixel alternativ stanga-dreapta (aproape invizibil)
+        int newX = currentPos.x + direction;
+        robot.mouseMove(newX, currentPos.y);
+        direction = -direction;
+    }
+
+    public static void main(String[] args) {
+        SwingUtilities.invokeLater(MouseMover::new);
+    }
+}
+
+```
+
+
+```
+@echo off
+echo Compilare MouseMover...
+javac MouseMover.java
+if %errorlevel% neq 0 (
+    echo EROARE: Compilarea a esuat. Asigura-te ca ai Java JDK instalat.
+    pause
+    exit /b 1
+)
+echo Pornire aplicatie...
+java MouseMover
+pause
 
 ```
