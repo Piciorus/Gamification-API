@@ -1,3 +1,5 @@
+
+./gradlew :de.consorsbank.core.trauthsc.Application.main() --stacktrace --info
 ```
 openapi: 3.0.0
 security:
