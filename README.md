@@ -1,4 +1,216 @@
 ```
+openapi: 3.0.0
+security:
+  - BearerAuthentication: [ ]
+info:
+  title: Cash Transfer Reference Account Delete API
+  description: >
+    REST API endpoint to delete a reference account from the internal list of accounts.
+  version: 1.0.0
+
+servers:
+  - url: ""
+    description: Server url + baseUrl
+
+paths:
+  /v1/cash-transfer-account-references/delete/validate:
+    post:
+      tags:
+        - Cash Transfer Reference Account Delete
+      summary: Validates the cash transfer reference account delete
+      description: Validates the cash transfer reference account delete.
+      operationId: validateDeleteCashTransferReferenceAccount
+      parameters:
+        - $ref: "../authorization/authorization-headers.yaml#/components/parameters/Authorization"
+        - $ref: "../authorization/authorization-headers.yaml#/components/parameters/FeId"
+        - $ref: "../authorization/authorization-headers.yaml#/components/parameters/Language"
+        - $ref: "../authorization/authorization-headers.yaml#/components/parameters/TraceId"
+        - $ref: "../common/common-headers.yaml#/components/parameters/userAgent"
+        - $ref: "../common/common-headers.yaml#/components/parameters/x-source-service"
+        - $ref: "../common/common-headers.yaml#/components/parameters/x-request-id"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ValidateDeleteCashTransferReferenceAccountRequest"
+      responses:
+        '204':
+          description: Successful Validation.
+          headers:
+            x-correlation-id:
+              $ref: "../common/common-headers.yaml#/components/parameters/x-correlation-id"
+        "401":
+          description: Unauthorized
+          headers:
+            x-correlation-id:
+              $ref: "../common/common-headers.yaml#/components/parameters/x-correlation-id"
+          content:
+            application/json:
+              schema:
+                $ref: "../common/schemas.yaml#/components/schemas/ApiError"
+        "403":
+          description: Forbidden
+          headers:
+            x-correlation-id:
+              $ref: "../common/common-headers.yaml#/components/parameters/x-correlation-id"
+          content:
+            application/json:
+              schema:
+                $ref: "../common/schemas.yaml#/components/schemas/ApiError"
+        "404":
+          description: Not found
+          headers:
+            x-correlation-id:
+              $ref: "../common/common-headers.yaml#/components/parameters/x-correlation-id"
+          content:
+            application/json:
+              schema:
+                $ref: "../common/schemas.yaml#/components/schemas/ApiError"
+        "500":
+          description: Internal server error
+          headers:
+            x-correlation-id:
+              $ref: "../common/common-headers.yaml#/components/parameters/x-correlation-id"
+          content:
+            application/json:
+              schema:
+                $ref: "../common/schemas.yaml#/components/schemas/ApiError"
+
+  /v1/cash-transfer-account-references/delete/initiate-transaction:
+    post:
+      tags:
+        - Cash Transfer Reference Account Delete
+      summary: Initiates the cash transfer reference account delete
+      description: Initiates the cash transfer reference account delete.
+      operationId: initiateDeleteCashTransferReferenceAccount
+      parameters:
+        - $ref: "../authorization/authorization-headers.yaml#/components/parameters/Authorization"
+        - $ref: "../authorization/authorization-headers.yaml#/components/parameters/FeId"
+        - $ref: "../authorization/authorization-headers.yaml#/components/parameters/Language"
+        - $ref: "../authorization/authorization-headers.yaml#/components/parameters/TraceId"
+        - $ref: "../common/common-headers.yaml#/components/parameters/userAgent"
+        - $ref: "../common/common-headers.yaml#/components/parameters/x-source-service"
+        - $ref: "../common/common-headers.yaml#/components/parameters/x-request-id"
+        - $ref: "../common/common-headers.yaml#/components/parameters/idempotency-key"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/InitiateDeleteCashTransferReferenceAccountRequest"
+      responses:
+        "200":
+          description: Returns status of the cash transfer reference account delete
+          headers:
+            x-correlation-id:
+              $ref: "../common/common-headers.yaml#/components/parameters/x-correlation-id"
+          content:
+            application/json:
+              schema:
+                $ref: "../common/schemas.yaml#/components/schemas/InitiateTransactionResponse"
+        "401":
+          description: Unauthorized
+          headers:
+            x-correlation-id:
+              $ref: "../common/common-headers.yaml#/components/parameters/x-correlation-id"
+          content:
+            application/json:
+              schema:
+                $ref: "../common/schemas.yaml#/components/schemas/ApiError"
+        "403":
+          description: Forbidden
+          headers:
+            x-correlation-id:
+              $ref: "../common/common-headers.yaml#/components/parameters/x-correlation-id"
+          content:
+            application/json:
+              schema:
+                $ref: "../common/schemas.yaml#/components/schemas/ApiError"
+        "404":
+          description: Not found
+          headers:
+            x-correlation-id:
+              $ref: "../common/common-headers.yaml#/components/parameters/x-correlation-id"
+          content:
+            application/json:
+              schema:
+                $ref: "../common/schemas.yaml#/components/schemas/ApiError"
+        "500":
+          description: Internal server error
+          headers:
+            x-correlation-id:
+              $ref: "../common/common-headers.yaml#/components/parameters/x-correlation-id"
+          content:
+            application/json:
+              schema:
+                $ref: "../common/schemas.yaml#/components/schemas/ApiError"
+
+components:
+  securitySchemes:
+    BearerAuthentication:
+      $ref: '../authorization/authorization-headers.yaml#/components/securitySchemes/BearerAuthentication'
+
+  schemas:
+
+    # ── Validate request ──────────────────────────────────────────────────────
+    ValidateDeleteCashTransferReferenceAccountRequest:
+      type: object
+      properties:
+        transactionPayload:
+          $ref: "#/components/schemas/DeleteCashTransferReferenceAccountRequest"
+      required:
+        - transactionPayload
+
+    # ── Initiate request ──────────────────────────────────────────────────────
+    InitiateDeleteCashTransferReferenceAccountRequest:
+      type: object
+      properties:
+        transactionIntentId:
+          type: string
+          format: uuid
+          example: "11019087-5800-4000-8000-000000000000"
+          description: The transaction intent id
+        authorization:
+          $ref: "../common/schemas.yaml#/components/schemas/AuthorizationCredentials"
+        transactionPayload:
+          $ref: "#/components/schemas/DeleteCashTransferReferenceAccountRequest"
+      required:
+        - transactionIntentId
+        - transactionPayload
+
+    # ── Core payload ──────────────────────────────────────────────────────────
+    DeleteCashTransferReferenceAccountRequest:
+      type: object
+      description: "The delete cash transfer reference account request payload."
+      properties:
+        crmCustomerNumber:
+          type: string
+          description: "The CRM customer number of the customer for whom to delete this reference account."
+        accountno:
+          $ref: '../common/schemas.yaml#/components/schemas/ClearingAccountNumber'
+          description: "Account number of the source account."
+        ibanOpponent:
+          $ref: '../common/schemas.yaml#/components/schemas/Iban'
+          description: "IBAN of the reference account to delete."
+        bicOpponent:
+          $ref: '../common/schemas.yaml#/components/schemas/Bic'
+          description: "International Bank code of the receiver's bank."
+        bankNameOpponent:
+          type: string
+          description: "Name of the external bank."
+        accountingOpponent:
+          $ref: '../common/schemas.yaml#/components/schemas/ReceiverSepa'
+          description: "Receiver name."
+      required:
+        - accountno
+        - ibanOpponent
+        - accountingOpponent
+
+```
+
+
+```
 package contracts
 
 import org.springframework.cloud.contract.spec.Contract
@@ -6,17 +218,17 @@ import org.springframework.cloud.contract.spec.Contract
 [Contract.make {
     priority(1)
     description("""
-        Represents a successful scenario for validate add cash transfer reference account.
+        Represents a successful scenario for validate delete cash transfer reference account.
 
         when:
-            api request to validate add cash transfer reference account.
+            api request to validate delete cash transfer reference account.
         then:
             return 204 with Successful Validation
     """)
 
     request {
         method 'POST'
-        urlPath($(consumer('/v1/cash-transfer-account-references/add/validate'), producer('/v1/cash-transfer-account-references/add/validate')))
+        urlPath($(consumer('/v1/cash-transfer-account-references/delete/validate'), producer('/v1/cash-transfer-account-references/delete/validate')))
         headers {
             contentType applicationJson()
             header 'Authorization': value(consumer(regex('.+')), producer('aSessionId'))
@@ -34,9 +246,7 @@ import org.springframework.cloud.contract.spec.Contract
                 "ibanOpponent"       : value(consumer(regex('[A-Z]{2}[0-9]{2}[0-9A-Z]{1,30}')), producer('DE89370400440532013000')),
                 "bicOpponent"        : value(consumer(regex('[0-9A-Z]{4}[A-Z]{2}[0-9A-Z]{2}$|^[0-9A-Z]{4}[A-Z]{2}[0-9A-Z]{5}')), producer('COBADEFFXXX')),
                 "bankNameOpponent"   : value(consumer(regex('.+')), producer('Deutsche Bank AG')),
-                "accountingOpponent" : value(consumer(regex('[a-zA-Z0-9 /\\|\\-?:().,\'\\+]{0,35}')), producer('Test Receiver')),
-                "addressOpponent"    : value(consumer(regex('.+')), producer('Test address opponent')),
-                "countryCodeOpponent": value(consumer(regex('[^;#]{2,3}')), producer('DE'))
+                "accountingOpponent" : value(consumer(regex('[a-zA-Z0-9 /\\|\\-?:().,\'\\+]{0,35}')), producer('Test Receiver'))
             ]
         ])
     }
@@ -60,17 +270,17 @@ import org.springframework.cloud.contract.spec.Contract
 [Contract.make {
     priority(2)
     description("""
-        Represents a successful scenario for validate add cash transfer reference account with only required parameters.
+        Represents a successful scenario for validate delete cash transfer reference account with only required parameters.
 
         when:
-            api request to validate add cash transfer reference account with only required parameters.
+            api request to validate delete cash transfer reference account with only required parameters.
         then:
             return 204 with Successful Validation
     """)
 
     request {
         method 'POST'
-        urlPath($(consumer('/v1/cash-transfer-account-references/add/validate'), producer('/v1/cash-transfer-account-references/add/validate')))
+        urlPath($(consumer('/v1/cash-transfer-account-references/delete/validate'), producer('/v1/cash-transfer-account-references/delete/validate')))
         headers {
             contentType applicationJson()
             header 'Authorization': value(consumer(regex('.+')), producer('aSessionId'))
@@ -101,7 +311,9 @@ import org.springframework.cloud.contract.spec.Contract
 ```
 
 
+
 ```
+
 package contracts
 
 import org.springframework.cloud.contract.spec.Contract
@@ -109,17 +321,17 @@ import org.springframework.cloud.contract.spec.Contract
 [Contract.make {
     priority(10)
     description("""
-        Represents an unsuccessful scenario for validate add cash transfer reference account.
+        Represents an unsuccessful scenario for validate delete cash transfer reference account.
 
         when:
-            api request to validate add cash transfer reference account.
+            api request to validate delete cash transfer reference account.
         then:
             return 400 with Bad Request
     """)
 
     request {
         method 'POST'
-        urlPath($(consumer('/v1/cash-transfer-account-references/add/validate'), producer('/v1/cash-transfer-account-references/add/validate')))
+        urlPath($(consumer('/v1/cash-transfer-account-references/delete/validate'), producer('/v1/cash-transfer-account-references/delete/validate')))
         headers {
             contentType applicationJson()
             header 'Authorization': value(consumer(regex('.+')), producer('aSessionId'))
@@ -136,9 +348,7 @@ import org.springframework.cloud.contract.spec.Contract
                 "ibanOpponent"       : value(consumer(regex('[A-Z]{2}[0-9]{2}[0-9A-Z]{1,30}')), producer('DE89370400440532013000')),
                 "bicOpponent"        : value(consumer(regex('[0-9A-Z]{4}[A-Z]{2}[0-9A-Z]{2}$|^[0-9A-Z]{4}[A-Z]{2}[0-9A-Z]{5}')), producer('COBADEFFXXX')),
                 "bankNameOpponent"   : value(consumer(regex('.+')), producer('Deutsche Bank AG')),
-                "accountingOpponent" : value(consumer(regex('[a-zA-Z0-9 /\\|\\-?:().,\'\\+]{0,35}')), producer('Test Receiver')),
-                "addressOpponent"    : value(consumer(regex('.+')), producer('Test address opponent')),
-                "countryCodeOpponent": value(consumer(regex('[^;#]{2,3}')), producer('DE'))
+                "accountingOpponent" : value(consumer(regex('[a-zA-Z0-9 /\\|\\-?:().,\'\\+]{0,35}')), producer('Test Receiver'))
             ]
         ])
     }
@@ -162,7 +372,6 @@ import org.springframework.cloud.contract.spec.Contract
 
 ```
 
-
 ```
 package contracts
 
@@ -171,17 +380,17 @@ import org.springframework.cloud.contract.spec.Contract
 [Contract.make {
     priority(1)
     description("""
-        Represents a successful scenario for initiate add cash transfer reference account transaction.
+        Represents a successful scenario for initiate delete cash transfer reference account transaction.
 
         when:
-            api request to initiate add cash transfer reference account transaction.
+            api request to initiate delete cash transfer reference account transaction.
         then:
             return 200 with successful transaction
     """)
 
     request {
         method 'POST'
-        urlPath($(consumer('/v1/cash-transfer-account-references/add/initiate-transaction'), producer('/v1/cash-transfer-account-references/add/initiate-transaction')))
+        urlPath($(consumer('/v1/cash-transfer-account-references/delete/initiate-transaction'), producer('/v1/cash-transfer-account-references/delete/initiate-transaction')))
         headers {
             contentType applicationJson()
             header 'Authorization': value(consumer(regex('.+')), producer('aSessionId'))
@@ -205,9 +414,7 @@ import org.springframework.cloud.contract.spec.Contract
                 "ibanOpponent"       : value(consumer(regex('[A-Z]{2}[0-9]{2}[0-9A-Z]{1,30}')), producer('DE89370400440532013000')),
                 "bicOpponent"        : value(consumer(regex('[0-9A-Z]{4}[A-Z]{2}[0-9A-Z]{2}$|^[0-9A-Z]{4}[A-Z]{2}[0-9A-Z]{5}')), producer('COBADEFFXXX')),
                 "bankNameOpponent"   : value(consumer(regex('.+')), producer('Deutsche Bank AG')),
-                "accountingOpponent" : value(consumer(regex('[a-zA-Z0-9 /\\|\\-?:().,\'\\+]{0,35}')), producer('Test Receiver')),
-                "addressOpponent"    : value(consumer(regex('.+')), producer('Test address opponent')),
-                "countryCodeOpponent": value(consumer(regex('[^;#]{2,3}')), producer('DE'))
+                "accountingOpponent" : value(consumer(regex('[a-zA-Z0-9 /\\|\\-?:().,\'\\+]{0,35}')), producer('Test Receiver'))
             ]
         ])
     }
@@ -224,7 +431,9 @@ import org.springframework.cloud.contract.spec.Contract
         ])
     }
 }]
+
 ```
+
 
 ```
 package contracts
@@ -234,17 +443,17 @@ import org.springframework.cloud.contract.spec.Contract
 [Contract.make {
     priority(2)
     description("""
-        Represents a successful scenario for initiate add cash transfer reference account transaction with only required parameters.
+        Represents a successful scenario for initiate delete cash transfer reference account transaction with only required parameters.
 
         when:
-            api request to initiate add cash transfer reference account transaction with only required parameters.
+            api request to initiate delete cash transfer reference account transaction with only required parameters.
         then:
             return 200 with successful transaction
     """)
 
     request {
         method 'POST'
-        urlPath($(consumer('/v1/cash-transfer-account-references/add/initiate-transaction'), producer('/v1/cash-transfer-account-references/add/initiate-transaction')))
+        urlPath($(consumer('/v1/cash-transfer-account-references/delete/initiate-transaction'), producer('/v1/cash-transfer-account-references/delete/initiate-transaction')))
         headers {
             contentType applicationJson()
             header 'Authorization': value(consumer(regex('.+')), producer('aSessionId'))
@@ -282,8 +491,8 @@ import org.springframework.cloud.contract.spec.Contract
         ])
     }
 }]
-```
 
+```
 
 
 ```
@@ -294,17 +503,17 @@ import org.springframework.cloud.contract.spec.Contract
 [Contract.make {
     priority(10)
     description("""
-        Represents an unsuccessful scenario for initiate add cash transfer reference account transaction.
+        Represents an unsuccessful scenario for initiate delete cash transfer reference account transaction.
 
         when:
-            api request to initiate add cash transfer reference account transaction.
+            api request to initiate delete cash transfer reference account transaction.
         then:
             return 400 with Bad Request
     """)
 
     request {
         method 'POST'
-        urlPath($(consumer('/v1/cash-transfer-account-references/add/initiate-transaction'), producer('/v1/cash-transfer-account-references/add/initiate-transaction')))
+        urlPath($(consumer('/v1/cash-transfer-account-references/delete/initiate-transaction'), producer('/v1/cash-transfer-account-references/delete/initiate-transaction')))
         headers {
             contentType applicationJson()
             header 'Authorization': value(consumer(regex('.+')), producer('aSessionId'))
@@ -327,9 +536,7 @@ import org.springframework.cloud.contract.spec.Contract
                 "ibanOpponent"       : value(consumer(regex('[A-Z]{2}[0-9]{2}[0-9A-Z]{1,30}')), producer('DE89370400440532013000')),
                 "bicOpponent"        : value(consumer(regex('[0-9A-Z]{4}[A-Z]{2}[0-9A-Z]{2}$|^[0-9A-Z]{4}[A-Z]{2}[0-9A-Z]{5}')), producer('COBADEFFXXX')),
                 "bankNameOpponent"   : value(consumer(regex('.+')), producer('Deutsche Bank AG')),
-                "accountingOpponent" : value(consumer(regex('[a-zA-Z0-9 /\\|\\-?:().,\'\\+]{0,35}')), producer('Test Receiver')),
-                "addressOpponent"    : value(consumer(regex('.+')), producer('Test address opponent')),
-                "countryCodeOpponent": value(consumer(regex('[^;#]{2,3}')), producer('DE'))
+                "accountingOpponent" : value(consumer(regex('[a-zA-Z0-9 /\\|\\-?:().,\'\\+]{0,35}')), producer('Test Receiver'))
             ]
         ])
     }
@@ -350,5 +557,204 @@ import org.springframework.cloud.contract.spec.Contract
         ])
     }
 }]
+
+
+```
+
+
+
+```
+
+package de.consorsbank.banking.payments.rest.adapter.controller;
+
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.when;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
+
+import de.consorsbank.banking.payments.rest.adapter.controller.model.DeleteCashTransferReferenceAccountRequest;
+import de.consorsbank.banking.payments.rest.adapter.controller.service.DeleteCashTransferReferenceAccountService;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
+import org.springframework.boot.test.mock.mockito.MockBean;
+import org.springframework.context.annotation.Import;
+import org.springframework.http.MediaType;
+import org.springframework.test.context.ActiveProfiles;
+import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.test.web.servlet.request.MockMvcRequestBuilders;
+
+@ExtendWith(MockitoExtension.class)
+@WebMvcTest(controllers = DeleteCashTransferReferenceAccountController.class)
+@Import({SecurityConfiguration.class})
+@ActiveProfiles("test")
+class DeleteCashTransferReferenceAccountControllerTest extends ControllerUnitTestConfig {
+
+    @Autowired
+    private MockMvc mockMvc;
+
+    @MockBean
+    private DeleteCashTransferReferenceAccountService deleteService;
+
+    @Test
+    void should_ReturnNoContent_When_ValidateDeleteReferenceAccountWithAllParameters() throws Exception {
+        // when
+        mockMvc.perform(
+                MockMvcRequestBuilders.post("/v1/cash-transfer-account-references/delete/validate")
+                        .contentType(MediaType.APPLICATION_JSON_VALUE)
+                        .headers(TestUtils.getAllHttpHeadersWithoutOwner("delete-cash-transfer-reference-account"))
+                        .content(CashTransferReferenceAccountUtils.buildValidateDeleteRequestAsJson()))
+
+                // then
+                .andExpect(status().isNoContent());
+    }
+
+    @Test
+    void should_ReturnNoContent_When_ValidateDeleteReferenceAccountWithRequiredParametersOnly() throws Exception {
+        // when
+        mockMvc.perform(
+                MockMvcRequestBuilders.post("/v1/cash-transfer-account-references/delete/validate")
+                        .contentType(MediaType.APPLICATION_JSON_VALUE)
+                        .headers(TestUtils.getAllHttpHeadersWithoutOwner("delete-cash-transfer-reference-account"))
+                        .content(CashTransferReferenceAccountUtils.buildValidateDeleteRequestRequiredParamsAsJson()))
+
+                // then
+                .andExpect(status().isNoContent());
+    }
+
+    @Test
+    void should_ReturnBadRequest_When_ValidateDeleteReferenceAccountRequiredHeadersNotPassed() throws Exception {
+        // when
+        mockMvc.perform(
+                MockMvcRequestBuilders.post("/v1/cash-transfer-account-references/delete/validate")
+                        .contentType(MediaType.APPLICATION_JSON_VALUE)
+                        .headers(TestUtils.getMissingHttpHeadersWithoutOwnerAndAuthorization())
+                        .content(CashTransferReferenceAccountUtils.buildValidateDeleteRequestAsJson()))
+
+                // then
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void should_ReturnOk_When_InitiateDeleteReferenceAccountWithAllParameters() throws Exception {
+        // given
+        when(deleteService.initiateDeleteCashTransferReferenceAccount(any()))
+                .thenReturn(CashTransferReferenceAccountUtils.buildInitiateTransactionResponse());
+
+        // when
+        mockMvc.perform(
+                MockMvcRequestBuilders.post("/v1/cash-transfer-account-references/delete/initiate-transaction")
+                        .contentType(MediaType.APPLICATION_JSON_VALUE)
+                        .headers(TestUtils.getAllHttpHeadersWithoutOwner("delete-cash-transfer-reference-account"))
+                        .content(CashTransferReferenceAccountUtils.buildInitiateDeleteRequestAsJson()))
+
+                // then
+                .andExpect(status().isOk());
+    }
+
+    @Test
+    void should_ReturnOk_When_InitiateDeleteReferenceAccountWithRequiredParametersOnly() throws Exception {
+        // given
+        when(deleteService.initiateDeleteCashTransferReferenceAccount(any()))
+                .thenReturn(CashTransferReferenceAccountUtils.buildInitiateTransactionResponse());
+
+        // when
+        mockMvc.perform(
+                MockMvcRequestBuilders.post("/v1/cash-transfer-account-references/delete/initiate-transaction")
+                        .contentType(MediaType.APPLICATION_JSON_VALUE)
+                        .headers(TestUtils.getAllHttpHeadersWithoutOwner("delete-cash-transfer-reference-account"))
+                        .content(CashTransferReferenceAccountUtils.buildInitiateDeleteRequestRequiredParamsAsJson()))
+
+                // then
+                .andExpect(status().isOk());
+    }
+
+    @Test
+    void should_ReturnBadRequest_When_InitiateDeleteReferenceAccountRequiredHeadersNotPassed() throws Exception {
+        // when
+        mockMvc.perform(
+                MockMvcRequestBuilders.post("/v1/cash-transfer-account-references/delete/initiate-transaction")
+                        .contentType(MediaType.APPLICATION_JSON_VALUE)
+                        .headers(TestUtils.getMissingHttpHeadersWithoutOwnerAndAuthorization())
+                        .content(CashTransferReferenceAccountUtils.buildInitiateDeleteRequestAsJson()))
+
+                // then
+                .andExpect(status().isBadRequest());
+    }
+}
+
+```
+
+
+```
+package de.consorsbank.banking.payments.rest.adapter.controller;
+
+import de.consorsbank.banking.payments.rest.adapter.controller.model.DeleteCashTransferReferenceAccountRequest;
+import de.consorsbank.banking.payments.rest.adapter.controller.model.InitiateDeleteCashTransferReferenceAccountRequest;
+import de.consorsbank.banking.payments.rest.adapter.controller.model.InitiateTransactionResponse;
+import de.consorsbank.banking.payments.rest.adapter.controller.model.ValidateDeleteCashTransferReferenceAccountRequest;
+
+public class CashTransferReferenceAccountUtils {
+
+    public static ValidateDeleteCashTransferReferenceAccountRequest buildValidateDeleteRequest() {
+        return ValidateDeleteCashTransferReferenceAccountRequest.builder()
+                .transactionPayload(buildDeletePayloadAllParams())
+                .build();
+    }
+
+    public static ValidateDeleteCashTransferReferenceAccountRequest buildValidateDeleteRequestRequiredParams() {
+        return ValidateDeleteCashTransferReferenceAccountRequest.builder()
+                .transactionPayload(buildDeletePayloadRequiredParams())
+                .build();
+    }
+
+    public static InitiateDeleteCashTransferReferenceAccountRequest buildInitiateDeleteRequest() {
+        return InitiateDeleteCashTransferReferenceAccountRequest.builder()
+                .transactionIntentId("11019087-5800-4000-8000-000000000000")
+                .transactionPayload(buildDeletePayloadAllParams())
+                .build();
+    }
+
+    public static InitiateDeleteCashTransferReferenceAccountRequest buildInitiateDeleteRequestRequiredParams() {
+        return InitiateDeleteCashTransferReferenceAccountRequest.builder()
+                .transactionIntentId("11019087-5800-4000-8000-000000000000")
+                .transactionPayload(buildDeletePayloadRequiredParams())
+                .build();
+    }
+
+    public static InitiateTransactionResponse buildInitiateTransactionResponse() {
+        return InitiateTransactionResponse.builder()
+                .transactionId("b0589506-65eb-4fb9-9747-f023b5101b5a")
+                .status("TX_EXEC_SUCCESS")
+                .build();
+    }
+
+    private static DeleteCashTransferReferenceAccountRequest buildDeletePayloadAllParams() {
+        return DeleteCashTransferReferenceAccountRequest.builder()
+                .crmCustomerNumber("1234567")
+                .accountno("1234567")
+                .ibanOpponent("DE89370400440532013000")
+                .bicOpponent("COBADEFFXXX")
+                .bankNameOpponent("Deutsche Bank AG")
+                .accountingOpponent("Test Receiver")
+                .build();
+    }
+
+    private static DeleteCashTransferReferenceAccountRequest buildDeletePayloadRequiredParams() {
+        return DeleteCashTransferReferenceAccountRequest.builder()
+                .accountno("1234567")
+                .ibanOpponent("DE89370400440532013000")
+                .accountingOpponent("Test Receiver")
+                .build();
+    }
+}
+
+```
+
+
+```
+
+
 
 ```
