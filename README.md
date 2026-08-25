@@ -1,3 +1,22 @@
+@Named("parseBirthDateToXmlGregorianCalendar")
+default XMLGregorianCalendar parseBirthDateToXmlGregorianCalendar(String birthDate) {
+    if (birthDate == null) return null;
+    try {
+        OffsetDateTime odt = OffsetDateTime.parse(birthDate);
+        GregorianCalendar gc = GregorianCalendar.from(
+            odt.atZoneSameInstant(ZoneOffset.UTC)
+        );
+        return DatatypeFactory.newInstance()
+                              .newXMLGregorianCalendar(gc);
+    } catch (DatatypeConfigurationException e) {
+        throw new CommonException(CustpmExceptionCode.CREATE_LEADS_INVALID_DATE_TIME);
+    }
+}
+parseBirthDateToXmlGregorianCalendar
+
+
+
+
 XMLGregorianCalendar offsetDateTimeToXmlGregorianCalendar(OffsetDateTime offsetDateTime) {
     if (offsetDateTime == null) {
         return null;
