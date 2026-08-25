@@ -1,3 +1,23 @@
+XMLGregorianCalendar offsetDateTimeToXmlGregorianCalendar(OffsetDateTime offsetDateTime) {
+    if (offsetDateTime == null) {
+        return null;
+    }
+
+    var gregorianCalendar = GregorianCalendar.from(
+        offsetDateTime.atZoneSameInstant(ZoneOffset.UTC)
+    );
+
+    try {
+        XMLGregorianCalendar xmlCal = DatatypeFactory.newInstance()
+            .newXMLGregorianCalendar(gregorianCalendar);
+
+        xmlCal.setTimezone(DatatypeConstants.FIELD_UNDEFINED); // ← key line
+
+        return xmlCal;
+    } catch (DatatypeConfigurationException e) {
+        throw new CommonException(CustpmExceptionCode.CREATE_LEADS_INVALID_DATE_TIME);
+    }
+}
 ```
 openapi: 3.0.0
 security:
