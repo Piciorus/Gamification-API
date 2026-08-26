@@ -2,6 +2,35 @@
 default XMLGregorianCalendar parseBirthDateToXmlGregorianCalendar(String birthDate) {
     if (birthDate == null) return null;
     try {
+        // Handle both "...Z", "...+00:00", and "...00" (no timezone)
+        OffsetDateTime odt;
+        try {
+            odt = OffsetDateTime.parse(birthDate);
+        } catch (DateTimeParseException e) {
+            // No timezone info — assume UTC
+            LocalDateTime ldt = LocalDateTime.parse(birthDate);
+            odt = ldt.atOffset(ZoneOffset.UTC);
+        }
+        
+        GregorianCalendar gc = GregorianCalendar.from(
+            odt.atZoneSameInstant(ZoneOffset.UTC)
+        );
+        return DatatypeFactory.newInstance()
+                              .newXMLGregorianCalendar(gc);
+    } catch (DatatypeConfigurationException e) {
+        throw new CommonException(
+            CustpmExceptionCode.CREATE_LEADS_INVALID_DATE_TIME
+        );
+    }
+}
+
+
+
+
+@Named("parseBirthDateToXmlGregorianCalendar")
+default XMLGregorianCalendar parseBirthDateToXmlGregorianCalendar(String birthDate) {
+    if (birthDate == null) return null;
+    try {
         OffsetDateTime odt = OffsetDateTime.parse(birthDate);
         GregorianCalendar gc = GregorianCalendar.from(
             odt.atZoneSameInstant(ZoneOffset.UTC)
