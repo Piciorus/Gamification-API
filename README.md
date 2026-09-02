@@ -1,3 +1,36 @@
+FROM gvenzl/oracle-xe:21-slim-faststart AS extractor
+
+ARG NEXUS_USER
+ARG NEXUS_PASS
+
+# Create dir first, then curl
+RUN mkdir -p /app && \
+    curl -fsk --noproxy "*" \
+    -u ${NEXUS_USER}:${NEXUS_PASS} \
+    "https://nexus.pro.be.xpi.net.intra/repository/mvn-it-dev-servicelibs/com/consorsbank/transauth/transauth-kobil-sc-impl/16.0.0-SNAPSHOT/transauth-kobil-sc-impl-16.0.0-20260730.090113-3.war" \
+    -o /app/app.war
+
+FROM i-ckdregistry.pro.be.xpi.net.intra/approved/eclipse-temurin:21-jre
+
+COPY --from=extractor /app/app.war /app/app.war
+COPY cacerts /app/security/cacerts
+COPY keystore-local /app/security/keystore
+
+WORKDIR /app
+EXPOSE 8081
+
+ENTRYPOINT ["java", \
+    "-Djavax.net.ssl.trustStore=/app/security/cacerts", \
+    "-Djavax.net.ssl.trustStorePassword=changeit", \
+    "-Djavax.net.ssl.trustStoreType=JKS", \
+    "-jar", "/app/app.war"]
+
+
+
+
+
+
+
 // Constants to add at top
 private static final String TX_ID = "tx-123";
 private static final String BOUND_SIGNATURE = "bound-sig-abc";
