@@ -1,3 +1,88 @@
+// Constants to add at top
+private static final String UNBOUND_SIGNATURE = "unbound-sig-xyz";
+private static final ECPrivateKey EC_PRIVATE_KEY_LV9 = mock(ECPrivateKey.class);
+
+@Test
+void givenValidContext_whenGenerateUnboundSignature_thenReturnExpectedSignature() {
+    // given
+    when(deviceMapperMock.buildCustomerAuthInfo(
+            CUSTOMER_ID, SESSION_ID, DEVICE_AUTH_TOKEN_JWT, APP_INSTANCE_ID))
+        .thenReturn(CUSTOMER_AUTH_INFO);
+    when(virtualDeviceDataServiceMock.getVirtualDeviceWithUserByAppInstanceId(APP_INSTANCE_ID))
+        .thenReturn(VIRTUAL_DEVICE);
+    when(encryptionKeysServiceMock.extractClientPrivateKeyLvl9ForDecryption(VIRTUAL_DEVICE))
+        .thenReturn(EC_PRIVATE_KEY_LV9);
+    when(encryptionServiceMock.generateUnboundSignature(
+            CUSTOMER_AUTH_INFO.getAppInstanceId(),
+            CUSTOMER_AUTH_INFO.getCustomerId(),
+            VIRTUAL_DEVICE.getUserDataEntity().getAppPin(),
+            EC_PRIVATE_KEY_LV9))
+        .thenReturn(UNBOUND_SIGNATURE);
+
+    // when
+    final String result = underTest.generateUnboundSignature();
+
+    // then
+    assertThat(result).isEqualTo(UNBOUND_SIGNATURE);
+}
+
+@Test
+void givenVirtualDeviceServiceThrowsException_whenGenerateUnboundSignature_thenThrowException() {
+    // given
+    when(deviceMapperMock.buildCustomerAuthInfo(
+            CUSTOMER_ID, SESSION_ID, DEVICE_AUTH_TOKEN_JWT, APP_INSTANCE_ID))
+        .thenReturn(CUSTOMER_AUTH_INFO);
+    when(virtualDeviceDataServiceMock.getVirtualDeviceWithUserByAppInstanceId(APP_INSTANCE_ID))
+        .thenThrow(new RuntimeException(ERROR_MESSAGE));
+
+    // when
+    final RuntimeException exception = assertThrows(RuntimeException.class,
+        () -> underTest.generateUnboundSignature());
+
+    // then
+    assertThat(exception.getMessage()).isEqualTo(ERROR_MESSAGE);
+    verifyNoInteractions(encryptionServiceMock);
+}
+
+@Test
+void givenEncryptionServiceThrowsException_whenGenerateUnboundSignature_thenThrowException() {
+    // given
+    when(deviceMapperMock.buildCustomerAuthInfo(
+            CUSTOMER_ID, SESSION_ID, DEVICE_AUTH_TOKEN_JWT, APP_INSTANCE_ID))
+        .thenReturn(CUSTOMER_AUTH_INFO);
+    when(virtualDeviceDataServiceMock.getVirtualDeviceWithUserByAppInstanceId(APP_INSTANCE_ID))
+        .thenReturn(VIRTUAL_DEVICE);
+    when(encryptionKeysServiceMock.extractClientPrivateKeyLvl9ForDecryption(VIRTUAL_DEVICE))
+        .thenReturn(EC_PRIVATE_KEY_LV9);
+    when(encryptionServiceMock.generateUnboundSignature(any(), any(), any(), any()))
+        .thenThrow(new RuntimeException(ERROR_MESSAGE));
+
+    // when
+    final RuntimeException exception = assertThrows(RuntimeException.class,
+        () -> underTest.generateUnboundSignature());
+
+    // then
+    assertThat(exception.getMessage()).isEqualTo(ERROR_MESSAGE);
+}
+
+@Test
+void givenBuildCustomerAuthInfoThrowsException_whenGenerateUnboundSignature_thenThrowException() {
+    // given
+    when(deviceMapperMock.buildCustomerAuthInfo(
+            CUSTOMER_ID, SESSION_ID, DEVICE_AUTH_TOKEN_JWT, APP_INSTANCE_ID))
+        .thenThrow(new RuntimeException(ERROR_MESSAGE));
+
+    // when
+    final RuntimeException exception = assertThrows(RuntimeException.class,
+        () -> underTest.generateUnboundSignature());
+
+    // then
+    assertThat(exception.getMessage()).isEqualTo(ERROR_MESSAGE);
+    verifyNoInteractions(virtualDeviceDataServiceMock, encryptionServiceMock);
+}
+
+
+
 @Named("parseBirthDateToXmlGregorianCalendar")
 default XMLGregorianCalendar parseBirthDateToXmlGregorianCalendar(String birthDate) {
     if (birthDate == null) return null;
