@@ -1,3 +1,16 @@
+
+docker build --no-cache --target extractor -t test-extractor \
+  --build-arg NEXUS_USER=JKmr1DNp \
+  --build-arg NEXUS_PASS=5gcBLciH0wmiNsj3duOwzli5ovW2ZR1lDi02K0E0L0hH \
+  -f docker-compose/transauth-kobil/Dockerfile \
+  docker-compose/transauth-kobil/
+
+docker run --rm test-extractor ls -la /app/
+
+
+
+
+
 FROM gvenzl/oracle-xe:21-slim-faststart AS extractor
 
 ARG NEXUS_USER
