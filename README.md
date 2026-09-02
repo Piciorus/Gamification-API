@@ -1,4 +1,129 @@
 // Constants to add at top
+private static final String TX_ID = "tx-123";
+private static final String BOUND_SIGNATURE = "bound-sig-abc";
+private static final RSAPrivateKey RSA_PRIVATE_KEY_LV1 = mock(RSAPrivateKey.class);
+private static final ECPrivateKey EC_PRIVATE_KEY_LV9 = mock(ECPrivateKey.class);
+private static final TransactionDataResponse TRANSACTION_DATA_RESPONSE = 
+    new TransactionDataResponse(/* txData, etc. */);
+private static final DraasEncryptedRequestResponseModel ENCRYPTED_RESPONSE = 
+    new DraasEncryptedRequestResponseModel(/* payload */);
+
+@Test
+void givenValidTxId_whenGenerateBoundedSignature_thenReturnExpectedSignature() {
+    // given
+    when(transactionMapperMock.buildCustomerAuthInfo(
+            CUSTOMER_ID, SESSION_ID, DEVICE_AUTH_TOKEN_JWT, APP_INSTANCE_ID))
+        .thenReturn(CUSTOMER_AUTH_INFO);
+    when(virtualDeviceDataServiceMock.getVirtualDeviceWithUserByAppInstanceId(APP_INSTANCE_ID))
+        .thenReturn(VIRTUAL_DEVICE);
+    when(encryptionKeysServiceMock.extractClientPrivateKeyLvl1ForDecryption(VIRTUAL_DEVICE))
+        .thenReturn(RSA_PRIVATE_KEY_LV1);
+    when(draasGetTransactionDataServiceMock.getTransactionData(TX_ID, CUSTOMER_AUTH_INFO))
+        .thenReturn(ENCRYPTED_RESPONSE);
+    when(encryptionServiceMock.decryptJwe(ENCRYPTED_RESPONSE.getPayload(), 
+            TransactionDataResponse.class))
+        .thenReturn(TRANSACTION_DATA_RESPONSE);
+    when(encryptionKeysServiceMock.extractClientPrivateKeyLvl9ForDecryption(VIRTUAL_DEVICE))
+        .thenReturn(EC_PRIVATE_KEY_LV9);
+    when(encryptionServiceMock.generateBoundSignature(
+            CUSTOMER_AUTH_INFO.getAppInstanceId(),
+            CUSTOMER_AUTH_INFO.getCustomerId(),
+            VIRTUAL_DEVICE.getUserDataEntity().getAppPin(),
+            TRANSACTION_DATA_RESPONSE.getTxData(),
+            EC_PRIVATE_KEY_LV9))
+        .thenReturn(BOUND_SIGNATURE);
+
+    // when
+    final String result = underTest.generateBoundedSignature(TX_ID, Boolean.FALSE);
+
+    // then
+    assertThat(result).isEqualTo(BOUND_SIGNATURE);
+}
+
+@Test
+void givenVirtualDeviceServiceThrowsException_whenGenerateBoundedSignature_thenThrowException() {
+    // given
+    when(transactionMapperMock.buildCustomerAuthInfo(
+            CUSTOMER_ID, SESSION_ID, DEVICE_AUTH_TOKEN_JWT, APP_INSTANCE_ID))
+        .thenReturn(CUSTOMER_AUTH_INFO);
+    when(virtualDeviceDataServiceMock.getVirtualDeviceWithUserByAppInstanceId(APP_INSTANCE_ID))
+        .thenThrow(new RuntimeException(ERROR_MESSAGE));
+
+    // when
+    final RuntimeException exception = assertThrows(RuntimeException.class,
+        () -> underTest.generateBoundedSignature(TX_ID, Boolean.FALSE));
+
+    // then
+    assertThat(exception.getMessage()).isEqualTo(ERROR_MESSAGE);
+    verifyNoInteractions(draasGetTransactionDataServiceMock, encryptionServiceMock);
+}
+
+@Test
+void givenDraasServiceThrowsException_whenGenerateBoundedSignature_thenThrowException() {
+    // given
+    when(transactionMapperMock.buildCustomerAuthInfo(
+            CUSTOMER_ID, SESSION_ID, DEVICE_AUTH_TOKEN_JWT, APP_INSTANCE_ID))
+        .thenReturn(CUSTOMER_AUTH_INFO);
+    when(virtualDeviceDataServiceMock.getVirtualDeviceWithUserByAppInstanceId(APP_INSTANCE_ID))
+        .thenReturn(VIRTUAL_DEVICE);
+    when(encryptionKeysServiceMock.extractClientPrivateKeyLvl1ForDecryption(VIRTUAL_DEVICE))
+        .thenReturn(RSA_PRIVATE_KEY_LV1);
+    when(draasGetTransactionDataServiceMock.getTransactionData(TX_ID, CUSTOMER_AUTH_INFO))
+        .thenThrow(new RuntimeException(ERROR_MESSAGE));
+
+    // when
+    final RuntimeException exception = assertThrows(RuntimeException.class,
+        () -> underTest.generateBoundedSignature(TX_ID, Boolean.FALSE));
+
+    // then
+    assertThat(exception.getMessage()).isEqualTo(ERROR_MESSAGE);
+    verifyNoInteractions(encryptionServiceMock);
+}
+
+@Test
+void givenEncryptionServiceThrowsOnDecrypt_whenGenerateBoundedSignature_thenThrowException() {
+    // given
+    when(transactionMapperMock.buildCustomerAuthInfo(
+            CUSTOMER_ID, SESSION_ID, DEVICE_AUTH_TOKEN_JWT, APP_INSTANCE_ID))
+        .thenReturn(CUSTOMER_AUTH_INFO);
+    when(virtualDeviceDataServiceMock.getVirtualDeviceWithUserByAppInstanceId(APP_INSTANCE_ID))
+        .thenReturn(VIRTUAL_DEVICE);
+    when(encryptionKeysServiceMock.extractClientPrivateKeyLvl1ForDecryption(VIRTUAL_DEVICE))
+        .thenReturn(RSA_PRIVATE_KEY_LV1);
+    when(draasGetTransactionDataServiceMock.getTransactionData(TX_ID, CUSTOMER_AUTH_INFO))
+        .thenReturn(ENCRYPTED_RESPONSE);
+    when(encryptionServiceMock.decryptJwe(ENCRYPTED_RESPONSE.getPayload(),
+            TransactionDataResponse.class))
+        .thenThrow(new RuntimeException(ERROR_MESSAGE));
+
+    // when
+    final RuntimeException exception = assertThrows(RuntimeException.class,
+        () -> underTest.generateBoundedSignature(TX_ID, Boolean.FALSE));
+
+    // then
+    assertThat(exception.getMessage()).isEqualTo(ERROR_MESSAGE);
+}
+
+@Test
+void givenBuildCustomerAuthInfoThrowsException_whenGenerateBoundedSignature_thenThrowException() {
+    // given
+    when(transactionMapperMock.buildCustomerAuthInfo(
+            CUSTOMER_ID, SESSION_ID, DEVICE_AUTH_TOKEN_JWT, APP_INSTANCE_ID))
+        .thenThrow(new RuntimeException(ERROR_MESSAGE));
+
+    // when
+    final RuntimeException exception = assertThrows(RuntimeException.class,
+        () -> underTest.generateBoundedSignature(TX_ID, Boolean.FALSE));
+
+    // then
+    assertThat(exception.getMessage()).isEqualTo(ERROR_MESSAGE);
+    verifyNoInteractions(virtualDeviceDataServiceMock, draasGetTransactionDataServiceMock,
+        encryptionServiceMock);
+}
+
+
+
+// Constants to add at top
 private static final String UNBOUND_SIGNATURE = "unbound-sig-xyz";
 private static final ECPrivateKey EC_PRIVATE_KEY_LV9 = mock(ECPrivateKey.class);
 
