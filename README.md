@@ -1,3 +1,18 @@
+FROM i-ckdregistry.pro.be.xpi.net.intra/approved/eclipse-temurin:21-jre
+COPY app.war /app/app.war
+COPY cacerts /app/security/cacerts
+COPY keystore-local /app/security/keystore
+WORKDIR /app
+EXPOSE 8081
+ENTRYPOINT ["java", \
+  "-Djavax.net.ssl.trustStore=/app/security/cacerts", \
+  "-Djavax.net.ssl.trustStorePassword=changeit", \
+  "-Djavax.net.ssl.trustStoreType=JKS", \
+  "-jar", "/app/app.war"]
+
+
+
+
 curl -sS --noproxy "*" \
   -u "JKmr1DNp:5gcBLciH0wmiNsj3duOwzli5ovW2ZR1lDi02K0E0L0hH" \
   "https://nexus.pro.be.xpi.net.intra/repository/mvn-it-dev-servicelibs/com/consorsbank/transauth/transauth-kobil-sc-impl/16.0.0-SNAPSHOT/transauth-kobil-sc-impl-16.0.0-20260730.090113-3.war" \
