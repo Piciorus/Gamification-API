@@ -1,3 +1,12 @@
+# Test from your Mac directly
+curl -sk --noproxy "*" \
+  -u ${NEXUS_USER}:${NEXUS_PASS} \
+  -w "\nHTTP: %{http_code}\n" \
+  "https://nexus.pro.be.xpi.net.intra/..." \
+  -o /tmp/test.war && file /tmp/test.war
+
+
+
 FROM i-ckdregistry.pro.be.xpi.net.intra/approved/eclipse-temurin:21-jre
 
 ARG NEXUS_USER
