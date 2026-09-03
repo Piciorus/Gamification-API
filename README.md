@@ -1,3 +1,10 @@
+curl -sS --noproxy "*" \
+  -u "JKmr1DNp:5gcBLciH0wmiNsj3duOwzli5ovW2ZR1lDi02K0E0L0hH" \
+  "https://nexus.pro.be.xpi.net.intra/repository/mvn-it-dev-servicelibs/com/consorsbank/transauth/transauth-kobil-sc-impl/16.0.0-SNAPSHOT/transauth-kobil-sc-impl-16.0.0-20260730.090113-3.war" \
+  -o docker-compose/transauth-kobil/app.war
+
+
+
 docker run --rm --entrypoint sh \
   $(docker compose images -q transauth-kobil) \
   -c "ls -lh /app/app.war && file /app/app.war"
