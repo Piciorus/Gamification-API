@@ -1,3 +1,16 @@
+docker run --rm --entrypoint sh \
+  $(docker compose images -q transauth-kobil) \
+  -c "ls -lh /app/app.war && file /app/app.war"
+
+docker inspect transauth-kobil-sc \
+  --format '{{json .Mounts}}' | python3 -m json.tool
+
+docker image inspect \
+  $(docker compose images -q transauth-kobil) \
+  --format '{{.Created}}'
+
+
+
 '''
 # AFTER
 FROM i-ckdregistry.pro.be.xpi.net.intra/approved/curl:latest AS extractor
