@@ -1,3 +1,9 @@
+docker run --rm --entrypoint sh \
+  $(docker compose images -q transauth-kobil) \
+  -c "ls -lh /app/app.war && file /app/app.war"
+
+
+
 FROM i-ckdregistry.pro.be.xpi.net.intra/approved/eclipse-temurin:21-jre
 COPY app.war /app/app.war
 COPY cacerts /app/security/cacerts
