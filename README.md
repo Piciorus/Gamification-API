@@ -1,3 +1,106 @@
+databaseChangeLog:
+  - changeSet:
+      id: 010-create-promotion-history-table
+      author: piciorus.alexandru@externe.bnpparibas.com
+      # IMMUTABLE, APPEND-ONLY — records environment promotion events.
+      # No soft delete / version column: promotion events are facts, never mutated.
+      changes:
+        - createTable:
+            tableName: promotion_history
+            schemaName: tam
+            columns:
+              - column:
+                  name: id
+                  type: UUID
+                  defaultValueComputed: gen_random_uuid()
+                  constraints:
+                    nullable: false
+              - column:
+                  name: template_id
+                  type: UUID
+                  constraints:
+                    nullable: false
+              - column:
+                  name: version_id
+                  type: UUID
+                  constraints:
+                    nullable: false
+              - column:
+                  name: source_environment
+                  type: VARCHAR2(50)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: target_environment
+                  type: VARCHAR2(50)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: promoted_by
+                  type: VARCHAR2(100)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: promoted_at
+                  type: TIMESTAMP WITH TIME ZONE
+                  defaultValueComputed: CURRENT_TIMESTAMP
+                  constraints:
+                    nullable: false
+              - column:
+                  name: status
+                  type: VARCHAR2(20)
+                  constraints:
+                    nullable: false
+        - addPrimaryKey:
+            tableName: promotion_history
+            schemaName: tam
+            columnNames: id
+            primaryKeyName: pk_tam_promotion_history_id
+        - addForeignKeyConstraint:
+            baseTableSchemaName: tam
+            baseTableName: promotion_history
+            baseColumnNames: template_id
+            referencedTableSchemaName: tam
+            referencedTableName: template
+            referencedColumnNames: id
+            constraintName: fk_tam_promotion_history_template
+            onDelete: RESTRICT
+        - addForeignKeyConstraint:
+            baseTableSchemaName: tam
+            baseTableName: promotion_history
+            baseColumnNames: version_id
+            referencedTableSchemaName: tam
+            referencedTableName: template_version
+            referencedColumnNames: id
+            constraintName: fk_tam_promotion_history_version
+            onDelete: RESTRICT
+        - sql:
+            sql: >
+              ALTER TABLE tam.promotion_history ADD CONSTRAINT chk_tam_promotion_history_status
+              CHECK (status IN ('SUCCESS', 'FAILED', 'PENDING'));
+        - createIndex:
+            indexName: idx_tam_promotion_history_template
+            tableName: promotion_history
+            schemaName: tam
+            columns:
+              - column:
+                  name: template_id
+        - createIndex:
+            indexName: idx_tam_promotion_history_version
+            tableName: promotion_history
+            schemaName: tam
+            columns:
+              - column:
+                  name: version_id
+        - createIndex:
+            indexName: idx_tam_promotion_history_promoted_at
+            tableName: promotion_history
+            schemaName: tam
+            columns:
+              - column:
+                  name: promoted_at
+
+
 ```
 Looking at your images, I can see:
 
