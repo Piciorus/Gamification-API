@@ -1,3 +1,33 @@
+@Configuration
+public class HealthConfig {
+
+    private static final Set<String> NON_CRITICAL = Set.of(
+        "kobilHealthCheckIndicator",
+        "draasHealthCheckIndicator"
+    );
+
+    @Bean
+    @Primary
+    public HealthContributorRegistry healthContributorRegistry(
+            Map<String, HealthContributor> healthContributors) {
+        
+        // Create empty registry first
+        DefaultHealthContributorRegistry registry = 
+            new DefaultHealthContributorRegistry();
+        
+        // Add only CRITICAL contributors
+        healthContributors.forEach((name, contributor) -> {
+            if (!NON_CRITICAL.contains(name)) {
+                registry.registerContributor(name, contributor);
+            }
+        });
+        
+        return registry;
+    }
+}
+
+
+
 databaseChangeLog:
   - changeSet:
       id: 010-create-promotion-history-table
