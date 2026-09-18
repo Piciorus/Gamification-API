@@ -1,3 +1,38 @@
+Problem:
+RestExceptionTranslationHandler resolves both the main error code and all 
+messageArgs through the translation service. This is correct when messageArgs 
+contain secondary error codes (e.g. "CUSTPM_108"), but incorrect when they 
+contain placeholder values such as entity IDs (e.g. "12345" in 
+"Customer not found for Id: {0}").
+
+Actual behaviour:
+When a messageArg is a plain ID (e.g. "12345"), the translation service 
+returns an empty messages list (size=0) but the handler still attempts to 
+resolve it, resulting in a fallback httpStatusCode (500 or incorrect status) 
+being added to msgsMap. Since resolveHttpStatusCode() takes the second entry 
+from msgsMap when size=2, the wrong HTTP status is returned to the caller 
+(e.g. 400/500 instead of the correct 404).
+
+Expected behaviour:
+Only messageArgs that have a valid translation (non-empty response from 
+msgsInqService) should be added to msgsMap. If the translation service 
+returns an empty messages list for a messageArg, it should be silently 
+skipped — preserving the correct HTTP status from the main error code 
+resolution.
+
+Root cause:
+resolveMessage() puts a CachedMessage into msgsMap regardless of whether 
+the translation service found anything, using a fallback 500 status when 
+messages list is empty.
+
+Fix:
+In resolveMessageIfTranslatable(), check CollectionUtils.isEmpty(response.getMessages()) 
+before adding to msgsMap — skip silently if empty.
+
+
+
+
+
 @Configuration
 public class HealthConfig {
 
