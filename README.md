@@ -1,11 +1,14 @@
 ```
 script:pre-request {
-  const certsPath = bru.cwd() + '/../../../.certs/bruno';
+  const { readFileSync } = require('node:fs');
+  const { resolve } = require('node:path');
+
+  const certsPath = resolve(bru.cwd(), '../../../.certs/bruno');
 
   try {
-    bru.setVar("certificate", bru.readFile(certsPath + '/x-client-cert.txt').trim());
-    bru.setVar("clientsignature", bru.readFile(certsPath + '/x-client-signature.txt').trim());
-    bru.setVar("clientnonce", bru.readFile(certsPath + '/x-client-nonce.txt').trim());
+    bru.setVar("certificate", readFileSync(certsPath + '/x-client-cert.txt', 'utf8').trim());
+    bru.setVar("clientsignature", readFileSync(certsPath + '/x-client-signature.txt', 'utf8').trim());
+    bru.setVar("clientnonce", readFileSync(certsPath + '/x-client-nonce.txt', 'utf8').trim());
   } catch (e) {
     console.error('ERROR:', e.message);
   }
