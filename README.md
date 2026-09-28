@@ -1,36 +1,15 @@
 ```
-script:pre-request {
-  const axios = require('axios');
-  const certsPath = bru.cwd() + '/../../../.certs/bruno';
-
-  try {
-    const cert = await axios.get('file://' + certsPath + '/x-client-cert.txt');
-    const sig = await axios.get('file://' + certsPath + '/x-client-signature.txt');
-    const nonce = await axios.get('file://' + certsPath + '/x-client-nonce.txt');
-
-    bru.setVar("certificate", cert.data.trim());
-    bru.setVar("clientsignature", sig.data.trim());
-    bru.setVar("clientnonce", nonce.data.trim());
-    console.log('SUCCESS');
-  } catch (e) {
-    console.error('ERROR:', e.message);
-  }
+vars {
+  trauth-url: ...
+  certsFolder: d0
 }
 
 ```
 
 ```
-script:pre-request {
-  const got = require('got');
-  const certsPath = bru.cwd() + '/../../../.certs/bruno';
-
-  try {
-    const cert = await got('file://' + certsPath + '/x-client-cert.txt');
-    bru.setVar("certificate", cert.body.trim());
-    console.log('SUCCESS');
-  } catch (e) {
-    console.error('ERROR:', e.message);
-  }
+vars {
+  trauth-url: ...
+  certsFolder: x0
 }
 
 ```
@@ -38,14 +17,23 @@ script:pre-request {
 
 ```
 script:pre-request {
+  const fs = require('fs');
+  const folder = bru.getEnvVar('certsFolder');
+
+  if (!folder) {
+    console.warn('certsFolder not set for this environment — skipping cert load');
+    return;
+  }
+
+  const certsPath = bru.cwd() + '/../../../.certs/bruno/' + folder;
+
   try {
-    const certsPath = bru.cwd() + '/../../../.certs/bruno';
-    const cert = await fetch('file://' + certsPath + '/x-client-cert.txt');
-    const text = await cert.text();
-    bru.setVar("certificate", text.trim());
-    console.log('SUCCESS:', text.substring(0, 20));
+    bru.setVar("certificate", fs.readFileSync(certsPath + '/x-client-cert.txt', 'utf8').trim());
+    bru.setVar("clientsignature", fs.readFileSync(certsPath + '/x-client-signature.txt', 'utf8').trim());
+    bru.setVar("clientnonce", fs.readFileSync(certsPath + '/x-client-nonce.txt', 'utf8').trim());
+    console.log('SUCCESS - loaded certs from:', folder);
   } catch (e) {
-    console.error('ERROR:', e.message);
+    console.error('ERROR reading certs:', e.message);
   }
 }
 
