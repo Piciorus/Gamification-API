@@ -1,17 +1,17 @@
 ```
-server:
-  ssl:
-    certificate: file:.certs/ssl/tls.crt
-    certificate-private-key: file:.certs/ssl/tls.key
+script:pre-request {
+  const fs = require('fs');
+  const path = require('path');
 
-application:
-  truststore-ca: file:.certs/ssl/ca.crt
-  truststore-service-ca: file:.certs/ssl/service-ca.crt
+  const certsPath = path.resolve(__dirname, '../../../.certs/bruno');
 
-management:
-  server:
-    ssl:
-      certificate: file:.certs/ssl/tls.crt
-      certificate-private-key: file:.certs/ssl/tls.key
+  try {
+    bru.setVar("certificate", fs.readFileSync(path.join(certsPath, 'x-client-cert.txt'), 'utf8').trim());
+    bru.setVar("clientsignature", fs.readFileSync(path.join(certsPath, 'x-client-signature.txt'), 'utf8').trim());
+    bru.setVar("clientnonce", fs.readFileSync(path.join(certsPath, 'x-client-nonce.txt'), 'utf8').trim());
+  } catch (e) {
+    console.warn('Could not read cert files from .certs/bruno/:', e.message);
+  }
+}
 
 ```
