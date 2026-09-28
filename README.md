@@ -1,16 +1,13 @@
 ```
 script:pre-request {
-  const certFilePath = bru.cwd() + '/.certs/bruno/x-client-cert.txt';
-  const signatureFilePath = bru.cwd() + '/.certs/bruno/x-client-signature.txt';
-  const nonceFilePath = bru.cwd() + '/.certs/bruno/x-client-nonce.txt';
+  const certsPath = bru.cwd() + '/../../../.certs/bruno';
 
   try {
-    bru.setVar("certificate", bru.readFile(certFilePath).trim());
-    bru.setVar("clientsignature", bru.readFile(signatureFilePath).trim());
-    bru.setVar("clientnonce", bru.readFile(nonceFilePath).trim());
+    bru.setEnvVar("certificate", bru.readFile(certsPath + '/x-client-cert.txt').trim());
+    bru.setEnvVar("clientsignature", bru.readFile(certsPath + '/x-client-signature.txt').trim());
+    bru.setEnvVar("clientnonce", bru.readFile(certsPath + '/x-client-nonce.txt').trim());
   } catch (e) {
     console.warn('Could not read cert files:', e.message);
   }
 }
-
 ```
