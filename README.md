@@ -1,3 +1,43 @@
+package de.consorsbank.core.trautnsc.rest.api.tam.template.materialization;
+
+import de.consorsbank.core.trautnsc.rest.api.tam.template.materialization.model.TemplateMaterializationRequest;
+import de.consorsbank.core.trautnsc.rest.api.tam.template.materialization.model.TemplateMaterializationResponse;
+import lombok.RequiredArgsConstructor;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.RestController;
+
+@RestController
+@RequiredArgsConstructor
+public class TemplateMaterializationController implements TemplateMaterializationApi {
+
+    private final TemplateMaterializationService templateMaterializationService;
+
+    @Override
+    public ResponseEntity<TemplateMaterializationResponse> materializeTemplate(
+            String authorization,
+            String feId,
+            String language,
+            String traceId,
+            String userAgent,
+            String xSourceService,
+            String xRequestId,
+            String code,
+            String lang,
+            TemplateMaterializationRequest templateMaterializationRequest) {
+
+        if (templateMaterializationRequest.getParameters() == null
+                || templateMaterializationRequest.getParameters().isEmpty()) {
+            return ResponseEntity.ok()
+                    .body(templateMaterializationService.materializeTemplate(code, lang));
+        }
+
+        return ResponseEntity.ok()
+                .body(templateMaterializationService.materializeTemplate(
+                        code, lang, templateMaterializationRequest.getParameters()));
+    }
+}
+
+
 ```
 databaseChangeLog:
   - changeSet:
