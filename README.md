@@ -1,3 +1,10 @@
+openssl s_client -connect localhost:8323 \
+  -cert .certs/local-ssl/x0/taxsrv.tls.crt \
+  -key  .certs/local-ssl/x0/taxsrv.tls.key </dev/null 2>&1 \
+  | grep -A5 "Acceptable client certificate CA names"
+
+
+
 sudo security add-trusted-cert -d -r trustRoot \
   -k /Library/Keychains/System.keychain \
   ~/development/trauth-sc/.certs/local-ssl/ca.crt
