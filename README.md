@@ -1,3 +1,10 @@
+sudo security add-trusted-cert -d -r trustRoot \
+  -k /Library/Keychains/System.keychain \
+  ~/development/trauth-sc/.certs/local-ssl/ca.crt
+
+
+
+
 package de.consorsbank.core.trautnsc.rest.api.tam.template.materialization;
 
 import de.consorsbank.core.trautnsc.rest.api.tam.template.materialization.model.TemplateMaterializationRequest;
