@@ -28,3 +28,18 @@ public ErrorDecoder kycErrorDecoder() {
     };
 }
 ```
+```
+@Override
+public KycRiskAndMdcInqResponse getRiskAndMdcInquiry(String personNumber) {
+    try {
+        final RiskAndMdcResponse riskAndMdcInqResponse = kycRestApi.getRiskAndMdcInquiry(personNumber, SourceSystem.COBRA.name());
+        return riskAndMdcInquiryMapper.mapResponseFromKyc(riskAndMdcInqResponse);
+    } catch (CommonException e) {
+        if (CustpmExceptionCode.KYC_PERSON_NOT_FOUND.getErrorCode().equals(e.getCode())) {
+            LOG.warn("Person not found in KYC for personNumber: {}", personNumber);
+            return null; // or throw a domain-specific exception, or return empty response
+        }
+        throw e;
+    }
+}
+```
