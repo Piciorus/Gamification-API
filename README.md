@@ -1,42 +1,30 @@
 ```
-@RequiredArgsConstructor
-public class KycRestErrorDecoder {
+@Bean
+public ErrorDecoder kycErrorDecoder() {
+    return (String methodKey, Response response) -> {
+        int status = response.status();
+        LOG.error("Received HTTP response code {} from {}", status, kycRestProperties.getLoggingServiceName());
 
-    private static final Logger LOG = LoggerFactory.getLogger(KycRestErrorDecoder.class);
-    private final com.fasterxml.jackson.databind.ObjectMapper objectMapper;
-    private final KYCRestProperties kycRestProperties;
+        KycRestApiError apiError = extractError(response);
+        String errorMessage = apiError != null && apiError.message() != null
+                ? apiError.message()
+                : "KYC service error (HTTP " + status + ")";
 
-    @Bean
-    public ErrorDecoder kycErrorDecoder() {
-        return (String methodKey, Response response) -> {
-            int status = response.status();
-            LOG.error("Received HTTP response code {} from {}",
-                    status, kycRestProperties.getLoggingServiceName());
-
-            KycRestApiError apiError = extractError(response);
-
-            if (apiError != null && apiError.code() != null) {
-                throw new CommonException(
-                        CommonExceptionCode.SERVER_ERROR,
-                        List.of(apiError.message()));
+        return switch (status) {
+            case 404 -> new CommonException(CustpmExceptionCode.KYC_PERSON_NOT_FOUND, List.of(errorMessage));
+            default -> {
+                HttpStatus httpStatus = HttpStatus.resolve(status);
+                if (httpStatus != null && httpStatus.is4xxClientError()) {
+                    yield new CommonException(CustpmExceptionCode.KWS_INVALID_REQ_BODY, List.of(errorMessage));
+                }
+                yield new CommonException(CommonExceptionCode.SERVER_ERROR, List.of(errorMessage));
             }
-
-            throw new CommonException(CustpmExceptionCode.KWS_INVALID_REQ_BODY);
         };
-    }
-
-    private KycRestApiError extractError(Response response) {
-        try {
-            if (response.body() == null) {
-                return null;
-            }
-            try (InputStream is = response.body().asInputStream()) {
-                return objectMapper.readValue(is, KycRestApiError.class);
-            }
-        } catch (Exception e) {
-            LOG.warn("Could not parse KYC error response body: {}", e.getMessage());
-            return null;
-        }
-    }
+    };
 }
+```
+
+
+```
+KYC_PERSON_NOT_FOUND(errorCode: 141, NOT_FOUND, message: "Person not found in KYC system: {0}"),
 ```
