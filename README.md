@@ -1,4 +1,99 @@
 ```
+package com.consorsbank.custpm.kyc.rest.adapter.interceptor;
+
+import com.consorsbank.common.error.handling.exception.CommonException;
+import com.consorsbank.common.error.handling.exception.authorization.CommonExceptionCode;
+import com.consorsbank.custpm.kyc.rest.adapter.token.KycTokenManager;
+import feign.RequestTemplate;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.Mock;
+import org.mockito.junit.jupiter.MockitoExtension;
+
+import java.util.Collection;
+import java.util.List;
+import java.util.Map;
+
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.Mockito.*;
+
+@ExtendWith(MockitoExtension.class)
+class KycAuthRequestInterceptorTest {
+
+    private static final String VALID_TOKEN = "Bearer eyJhbGciOiJIUzI1NiJ9.dGVzdA.test";
+    private static final String AUTHORIZATION_HEADER = "Authorization";
+
+    @Mock
+    private KycTokenManager kycTokenManager;
+
+    private KycAuthRequestInterceptor underTest;
+
+    @BeforeEach
+    void setUp() {
+        underTest = new KycAuthRequestInterceptor(kycTokenManager);
+    }
+
+    @Test
+    void givenValidToken_whenApply_thenAuthorizationHeaderIsSet() throws CommonException {
+        // given
+        var requestTemplate = new RequestTemplate();
+        when(kycTokenManager.retrieveToken()).thenReturn(VALID_TOKEN);
+
+        // when
+        underTest.apply(requestTemplate);
+
+        // then
+        Map<String, Collection<String>> headers = requestTemplate.headers();
+        assertThat(headers).containsKey(AUTHORIZATION_HEADER);
+        assertThat(headers.get(AUTHORIZATION_HEADER)).containsExactly(VALID_TOKEN);
+        verify(kycTokenManager).retrieveToken();
+    }
+
+    @Test
+    void givenTokenManagerThrowsCommonException_whenApply_thenCommonExceptionIsThrown() throws CommonException {
+        // given
+        var requestTemplate = new RequestTemplate();
+        var originalMessage = "Token retrieval failed";
+        var originalException = new CommonException(CommonExceptionCode.SERVER_ERROR, List.of(originalMessage));
+        when(kycTokenManager.retrieveToken()).thenThrow(originalException);
+
+        // when / then
+        assertThatThrownBy(() -> underTest.apply(requestTemplate))
+                .isInstanceOf(CommonException.class)
+                .satisfies(thrown -> {
+                    var commonException = (CommonException) thrown;
+                    assertThat(commonException.getErrorCode()).isEqualTo(CommonExceptionCode.SERVER_ERROR.getErrorCode());
+                    assertThat(commonException.getMessageArgs()).contains(originalMessage);
+                });
+
+        verify(kycTokenManager).retrieveToken();
+    }
+
+    @Test
+    void givenTokenManagerThrowsCommonException_whenApply_thenRequestTemplateHasNoAuthorizationHeader() throws CommonException {
+        // given
+        var requestTemplate = new RequestTemplate();
+        when(kycTokenManager.retrieveToken()).thenThrow(
+                new CommonException(CommonExceptionCode.SERVER_ERROR, List.of("error")));
+
+        // when
+        try {
+            underTest.apply(requestTemplate);
+        } catch (CommonException ignored) {
+            // expected
+        }
+
+        // then
+        assertThat(requestTemplate.headers()).doesNotContainKey(AUTHORIZATION_HEADER);
+    }
+}
+
+```
+
+
+```
 @Test
 void should_ThrowKycPersonNotFoundException_When_ServiceCallsThrowsExceptionContainingPersonNotFound() {
     // given
