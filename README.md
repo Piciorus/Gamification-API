@@ -1,320 +1,95 @@
 ```
-openapi: 3.0.3
-info:
-  title: Risk Strategy Update API
-  description: API for updating the risk strategy of a managed account
-  version: 1.0.0
-
-paths:
-  /v1/risk-strategy/validate:
-    post:
-      summary: Validate risk strategy update
-      description: |
-        Validates the risk strategy update for a managed account.
-        Returns 204 No Content on successful validation.
-      operationId: validateRiskStrategyUpdate
-      tags:
-        - Risk Strategy Update
-      parameters:
-        - $ref: '../authorization/authorization-headers.yaml#/components/parameters/Authorization'
-        - $ref: '../authorization/authorization-headers.yaml#/components/parameters/FeId'
-        - $ref: '../authorization/authorization-headers.yaml#/components/parameters/Language'
-        - $ref: '../authorization/authorization-headers.yaml#/components/parameters/TraceId'
-        - $ref: '../authorization/authorization-headers.yaml#/components/parameters/UserAgent'
-        - $ref: '../common/common-headers.yaml#/components/parameters/XSourceService'
-        - $ref: '../common/common-headers.yaml#/components/parameters/XRequestId'
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/ValidateRiskStrategyUpdateRequest'
-            example:
-              transactionPayload:
-                accountno: "1234567"
-                portfolioId: "P-987654"
-                portfolioDescription: "Conservative Portfolio"
-                suggestedRiskStrategy: "LOW"
-                selectedRiskStrategy: "MEDIUM"
-                investmentDuration: "5Y"
-                investmentAmount: 50000
-      responses:
-        '204':
-          description: Validation successful
-          headers:
-            x-correlation-id:
-              description: Correlation ID echoed from x-request-id
-              schema:
-                type: string
-        '400':
-          description: Bad Request - missing or invalid required fields
-          headers:
-            x-correlation-id:
-              description: Correlation ID echoed from x-request-id
-              schema:
-                type: string
-          content:
-            application/json:
-              schema:
-                $ref: '../common/schemas.yaml#/components/schemas/ErrorResponse'
-
-  /v1/risk-strategy/initiate-transaction:
-    post:
-      summary: Initiate risk strategy update transaction
-      description: |
-        Initiates the risk strategy update transaction for a managed account.
-        Returns 200 OK with the updated risk strategy data.
-      operationId: initiateRiskStrategyUpdate
-      tags:
-        - Risk Strategy Update
-      parameters:
-        - $ref: '../authorization/authorization-headers.yaml#/components/parameters/Authorization'
-        - $ref: '../authorization/authorization-headers.yaml#/components/parameters/FeId'
-        - $ref: '../authorization/authorization-headers.yaml#/components/parameters/Language'
-        - $ref: '../authorization/authorization-headers.yaml#/components/parameters/TraceId'
-        - $ref: '../authorization/authorization-headers.yaml#/components/parameters/UserAgent'
-        - $ref: '../common/common-headers.yaml#/components/parameters/XSourceService'
-        - $ref: '../common/common-headers.yaml#/components/parameters/XRequestId'
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/InitiateRiskStrategyUpdateRequest'
-            example:
-              validateOnly: false
-              tan: "123456"
-              txId: "TX-abc123"
-              authorizationType: "TAN"
-              serviceOperationMode: "REAL"
-              tanAuthType: "SMS_TAN"
-              transactionPayload:
-                accountno: "1234567"
-                portfolioId: "P-987654"
-                portfolioDescription: "Conservative Portfolio"
-                suggestedRiskStrategy: "LOW"
-                selectedRiskStrategy: "MEDIUM"
-                investmentDuration: "5Y"
-                investmentAmount: 50000
-      responses:
-        '200':
-          description: Risk strategy update transaction initiated successfully
-          headers:
-            x-correlation-id:
-              description: Correlation ID echoed from x-request-id
-              schema:
-                type: string
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/RiskStrategyUpdateResponse'
-              example:
-                portfolioId: "P-987654"
-                portfolioDescription: "Conservative Portfolio"
-                suggestedRiskStrategy: "LOW"
-                selectedRiskStrategy: "MEDIUM"
-                investmentDuration: "5Y"
-                investmentAmount: 50000
-        '400':
-          description: Bad Request - missing or invalid required fields
-          headers:
-            x-correlation-id:
-              description: Correlation ID echoed from x-request-id
-              schema:
-                type: string
-          content:
-            application/json:
-              schema:
-                $ref: '../common/schemas.yaml#/components/schemas/ErrorResponse'
-
-components:
-  schemas:
-    RiskStrategyUpdateTransactionPayload:
-      type: object
-      required:
-        - portfolioId
-        - portfolioDescription
-      properties:
-        accountno:
-          type: string
-          description: Account number of the managed account
-          example: "1234567"
-        portfolioId:
-          type: string
-          description: Portfolio identifier
-          example: "P-987654"
-        portfolioDescription:
-          type: string
-          description: Portfolio description
-          example: "Conservative Portfolio"
-        suggestedRiskStrategy:
-          type: string
-          description: Suggested risk strategy
-          example: "LOW"
-        selectedRiskStrategy:
-          type: string
-          description: Selected risk strategy chosen by the customer
-          example: "MEDIUM"
-        investmentDuration:
-          type: string
-          description: Investment duration
-          example: "5Y"
-        investmentAmount:
-          type: integer
-          description: Investment amount
-          example: 50000
-
-    ValidateRiskStrategyUpdateRequest:
-      type: object
-      required:
-        - transactionPayload
-      properties:
-        transactionPayload:
-          $ref: '#/components/schemas/RiskStrategyUpdateTransactionPayload'
-
-    InitiateRiskStrategyUpdateRequest:
-      type: object
-      required:
-        - transactionPayload
-      properties:
-        validateOnly:
-          type: string
-          description: Flag indicating validate-only mode
-          example: "false"
-        tan:
-          type: string
-          description: Transaction authentication number
-          example: "123456"
-        txId:
-          type: string
-          description: Transaction ID from previous validation step
-          example: "TX-abc123"
-        authorizationType:
-          type: string
-          description: Authorization type
-          example: "TAN"
-        serviceOperationMode:
-          type: string
-          description: Service operation mode
-          example: "REAL"
-        tanAuthType:
-          type: string
-          description: TAN authorization type
-          example: "SMS_TAN"
-        transactionPayload:
-          $ref: '#/components/schemas/RiskStrategyUpdateTransactionPayload'
-
-    RiskStrategyUpdateResponse:
-      type: object
-      required:
-        - portfolioId
-        - portfolioDescription
-        - suggestedRiskStrategy
-        - selectedRiskStrategy
-        - investmentDuration
-        - investmentAmount
-      properties:
-        portfolioId:
-          type: string
-          description: Portfolio identifier
-          example: "P-987654"
-        portfolioDescription:
-          type: string
-          description: Portfolio description
-          example: "Conservative Portfolio"
-        suggestedRiskStrategy:
-          type: string
-          description: Suggested risk strategy
-          example: "LOW"
-        selectedRiskStrategy:
-          type: string
-          description: Selected risk strategy
-          example: "MEDIUM"
-        investmentDuration:
-          type: string
-          description: Investment duration
-          example: "5Y"
-        investmentAmount:
-          type: integer
-          description: Investment amount
-          example: 50000
-
-```
-
-
-```
 import org.springframework.cloud.contract.spec.Contract
 
 Contract.make {
-    description "should return 204 when validating risk strategy update with all parameters"
+    priority(priority: 1)
+    description(description: """
+        Represents a successful scenario for validate risk strategy update.
+
+        when:
+            api request to validate risk strategy update with all parameters.
+
+        then:
+            return 204 with successful validation
+    """)
+
     request {
-        method POST()
-        url "/v1/risk-strategy/validate"
+        method method: 'POST'
+        urlPath($(consumer(regex('/v1/risk-strategy/validate')), producer(serverValue: '/v1/risk-strategy/validate')))
         headers {
-            header("Authorization", consumer(regex('.+')), producer("Bearer eyJhbGciOiJSUzI1NiJ9"))
-            header("fe-id", consumer(regex('.+')), producer("fe-001"))
-            header("language", consumer(regex('.+')), producer("DE"))
-            header("trace-id", consumer(regex('.+')), producer("trace-abc123"))
-            header("User-Agent", consumer(regex('.+')), producer("Mozilla/5.0"))
-            header("x-source-service", consumer(regex('.+')), producer("risk-strategy-service"))
-            header("x-request-id", consumer(regex('[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}')), producer("a1b2c3d4-e5f6-7890-abcd-ef1234567890"))
-            contentType(applicationJson())
+            contentType applicationJson()
+            header 'Authorization': value(consumer(regex('.+')), producer(serverValue: 'aSessionId'))
+            header 'FeId': value(consumer(regex('.+')), producer(serverValue: 'WEB'))
+            header 'Language': value(consumer(regex('.+')), producer(serverValue: 'DE'))
+            header 'TraceId': value(consumer(regex('.+')), producer(serverValue: 'traceId'))
+            header 'User-Agent': value(consumer(regex('.*')), producer(serverValue: 'User-Agent'))
+            header 'x-source-service': value(consumer(regex('.+')), producer(serverValue: 'xSourceService'))
+            header 'x-request-id': value(consumer(regex('.+')), producer(serverValue: 'b0589506-65eb-4fb9-9747-f023b5example'))
         }
         body([
-            transactionPayload: [
-                accountno           : "1234567",
-                portfolioId         : "P-987654",
-                portfolioDescription: "Conservative Portfolio",
-                suggestedRiskStrategy: "LOW",
-                selectedRiskStrategy : "MEDIUM",
-                investmentDuration  : "5Y",
-                investmentAmount    : 50000
+            "transactionPayload": [
+                "accountNumber"       : value(consumer(regex('[0-9]{7,10}')), producer(serverValue: '1234567')),
+                "portfolioId"         : value(consumer(regex('.+')), producer(serverValue: '1234567')),
+                "portfolioDescription": value(consumer(regex('.+')), producer(serverValue: 'MA (defensiv kurzfristig)')),
+                "suggestedRiskStrategy": value(consumer(regex('[A-E]')), producer(serverValue: 'A')),
+                "selectedRiskStrategy" : value(consumer(regex('[A-E]')), producer(serverValue: 'B')),
+                "investmentDuration"  : value(consumer(regex('^SHORT_TERM$|^MIDDLE_TERM$|^LONG_TERM$')), producer(serverValue: 'SHORT_TERM')),
+                "investmentAmount"    : value(consumer(regex('[0-9]+')), producer(serverValue: 50000))
             ]
         ])
     }
+
     response {
         status 204
         headers {
-            header("x-correlation-id", fromRequest().header("x-request-id"))
+            header 'x-correlation-id': fromRequest().header('x-request-id')
         }
     }
-}  
+}
 ```
-
-
 ```
 import org.springframework.cloud.contract.spec.Contract
 
 Contract.make {
-    description "should return 204 when validating risk strategy update with only required parameters"
+    priority(priority: 1)
+    description(description: """
+        Represents a successful scenario for validate risk strategy update with only required parameters.
+
+        when:
+            api request to validate risk strategy update with required parameters only.
+
+        then:
+            return 204 with successful validation
+    """)
+
     request {
-        method POST()
-        url "/v1/risk-strategy/validate"
+        method method: 'POST'
+        urlPath($(consumer(regex('/v1/risk-strategy/validate')), producer(serverValue: '/v1/risk-strategy/validate')))
         headers {
-            header("Authorization", consumer(regex('.+')), producer("Bearer eyJhbGciOiJSUzI1NiJ9"))
-            header("fe-id", consumer(regex('.+')), producer("fe-001"))
-            header("language", consumer(regex('.+')), producer("DE"))
-            header("trace-id", consumer(regex('.+')), producer("trace-abc123"))
-            header("User-Agent", consumer(regex('.+')), producer("Mozilla/5.0"))
-            header("x-source-service", consumer(regex('.+')), producer("risk-strategy-service"))
-            header("x-request-id", consumer(regex('[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}')), producer("a1b2c3d4-e5f6-7890-abcd-ef1234567890"))
-            contentType(applicationJson())
+            contentType applicationJson()
+            header 'Authorization': value(consumer(regex('.+')), producer(serverValue: 'aSessionId'))
+            header 'FeId': value(consumer(regex('.+')), producer(serverValue: 'WEB'))
+            header 'Language': value(consumer(regex('.+')), producer(serverValue: 'DE'))
+            header 'TraceId': value(consumer(regex('.+')), producer(serverValue: 'traceId'))
+            header 'User-Agent': value(consumer(regex('.*')), producer(serverValue: 'User-Agent'))
+            header 'x-source-service': value(consumer(regex('.+')), producer(serverValue: 'xSourceService'))
+            header 'x-request-id': value(consumer(regex('.+')), producer(serverValue: 'b0589506-65eb-4fb9-9747-f023b5example'))
         }
         body([
-            transactionPayload: [
-                portfolioId         : "P-111222",
-                portfolioDescription: "Growth Portfolio"
+            "transactionPayload": [
+                "portfolioId"         : value(consumer(regex('.+')), producer(serverValue: '1112222')),
+                "portfolioDescription": value(consumer(regex('.+')), producer(serverValue: 'MA (solide mittelfristig)'))
             ]
         ])
     }
+
     response {
         status 204
         headers {
-            header("x-correlation-id", fromRequest().header("x-request-id"))
+            header 'x-correlation-id': fromRequest().header('x-request-id')
         }
     }
 }
-
 ```
 
 
@@ -322,168 +97,218 @@ Contract.make {
 import org.springframework.cloud.contract.spec.Contract
 
 Contract.make {
-    description "should return 400 when required header x-source-service is missing"
+    priority(priority: 1)
+    description(description: """
+        Represents a failed scenario for validate risk strategy update when required header is missing.
+
+        when:
+            api request to validate risk strategy update without x-source-service header.
+
+        then:
+            return 400 bad request
+    """)
+
     request {
-        method POST()
-        url "/v1/risk-strategy/validate"
+        method method: 'POST'
+        urlPath($(consumer(regex('/v1/risk-strategy/validate')), producer(serverValue: '/v1/risk-strategy/validate')))
         headers {
-            header("Authorization", consumer(regex('.+')), producer("Bearer eyJhbGciOiJSUzI1NiJ9"))
-            header("fe-id", consumer(regex('.+')), producer("fe-001"))
-            header("language", consumer(regex('.+')), producer("DE"))
-            header("trace-id", consumer(regex('.+')), producer("trace-abc123"))
-            header("User-Agent", consumer(regex('.+')), producer("Mozilla/5.0"))
-            header("x-request-id", consumer(regex('[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}')), producer("a1b2c3d4-e5f6-7890-abcd-ef1234567890"))
-            contentType(applicationJson())
+            contentType applicationJson()
+            header 'Authorization': value(consumer(regex('.+')), producer(serverValue: 'aSessionId'))
+            header 'FeId': value(consumer(regex('.+')), producer(serverValue: 'WEB'))
+            header 'Language': value(consumer(regex('.+')), producer(serverValue: 'DE'))
+            header 'TraceId': value(consumer(regex('.+')), producer(serverValue: 'traceId'))
+            header 'User-Agent': value(consumer(regex('.*')), producer(serverValue: 'User-Agent'))
+            header 'x-request-id': value(consumer(regex('.+')), producer(serverValue: 'b0589506-65eb-4fb9-9747-f023b5example'))
         }
         body([
-            transactionPayload: [
-                portfolioId         : "P-987654",
-                portfolioDescription: "Conservative Portfolio"
+            "transactionPayload": [
+                "portfolioId"         : value(consumer(regex('.+')), producer(serverValue: '1234567')),
+                "portfolioDescription": value(consumer(regex('.+')), producer(serverValue: 'MA (defensiv kurzfristig)'))
             ]
         ])
     }
+
     response {
         status 400
         headers {
-            header("x-correlation-id", fromRequest().header("x-request-id"))
-            contentType(applicationJson())
+            contentType applicationJson()
+            header 'x-correlation-id': fromRequest().header('x-request-id')
         }
     }
 }
-
 ```
 
 ```
 import org.springframework.cloud.contract.spec.Contract
 
 Contract.make {
-    description "should return 200 with full response when initiating risk strategy update transaction with all parameters"
+    priority(priority: 1)
+    description(description: """
+        Represents a successful scenario for initiate risk strategy update transaction with all parameters.
+
+        when:
+            api request to initiate risk strategy update transaction.
+
+        then:
+            return 200 with successful transaction
+    """)
+
     request {
-        method POST()
-        url "/v1/risk-strategy/initiate-transaction"
+        method method: 'POST'
+        urlPath($(consumer(regex('/v1/risk-strategy/initiate-transaction')), producer(serverValue: '/v1/risk-strategy/initiate-transaction')))
         headers {
-            header("Authorization", consumer(regex('.+')), producer("Bearer eyJhbGciOiJSUzI1NiJ9"))
-            header("fe-id", consumer(regex('.+')), producer("fe-001"))
-            header("language", consumer(regex('.+')), producer("DE"))
-            header("trace-id", consumer(regex('.+')), producer("trace-abc123"))
-            header("User-Agent", consumer(regex('.+')), producer("Mozilla/5.0"))
-            header("x-source-service", consumer(regex('.+')), producer("risk-strategy-service"))
-            header("x-request-id", consumer(regex('[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}')), producer("a1b2c3d4-e5f6-7890-abcd-ef1234567890"))
-            contentType(applicationJson())
+            contentType applicationJson()
+            header 'Authorization': value(consumer(regex('.+')), producer(serverValue: 'aSessionId'))
+            header 'FeId': value(consumer(regex('.+')), producer(serverValue: 'WEB'))
+            header 'Language': value(consumer(regex('.+')), producer(serverValue: 'DE'))
+            header 'TraceId': value(consumer(regex('.+')), producer(serverValue: 'traceId'))
+            header 'User-Agent': value(consumer(regex('.*')), producer(serverValue: 'User-Agent'))
+            header 'x-source-service': value(consumer(regex('.+')), producer(serverValue: 'xSourceService'))
+            header 'x-request-id': value(consumer(regex('.+')), producer(serverValue: 'b0589506-65eb-4fb9-9747-f023b5example'))
+            header 'idempotency-key': value(consumer(regex('.+')), producer(serverValue: 'b0589506-65eb-4fb9-9747-f023b5example'))
         }
         body([
-            validateOnly          : "false",
-            tan                   : "123456",
-            txId                  : "TX-abc123",
-            authorizationType     : "TAN",
-            serviceOperationMode  : "REAL",
-            tanAuthType           : "SMS_TAN",
-            transactionPayload    : [
-                accountno           : "1234567",
-                portfolioId         : "P-987654",
-                portfolioDescription: "Conservative Portfolio",
-                suggestedRiskStrategy: "LOW",
-                selectedRiskStrategy : "MEDIUM",
-                investmentDuration  : "5Y",
-                investmentAmount    : 50000
+            "transactionIntentId": value(consumer(regex('.+')), producer(serverValue: '4866044f-c630-4678-9a17-faf0example')),
+            "transactionPayload" : [
+                "accountNumber"       : value(consumer(regex('[0-9]{7,10}')), producer(serverValue: '1234567')),
+                "portfolioId"         : value(consumer(regex('.+')), producer(serverValue: '1234567')),
+                "portfolioDescription": value(consumer(regex('.+')), producer(serverValue: 'MA (defensiv kurzfristig)')),
+                "suggestedRiskStrategy": value(consumer(regex('[A-E]')), producer(serverValue: 'A')),
+                "selectedRiskStrategy" : value(consumer(regex('[A-E]')), producer(serverValue: 'B')),
+                "investmentDuration"  : value(consumer(regex('^SHORT_TERM$|^MIDDLE_TERM$|^LONG_TERM$')), producer(serverValue: 'SHORT_TERM')),
+                "investmentAmount"    : value(consumer(regex('[0-9]+')), producer(serverValue: 50000))
             ]
         ])
     }
+
     response {
         status 200
         headers {
-            header("x-correlation-id", fromRequest().header("x-request-id"))
-            contentType(applicationJson())
+            contentType applicationJson()
+            header 'x-correlation-id': fromRequest().header('x-request-id')
         }
         body([
-            portfolioId          : "P-987654",
-            portfolioDescription : "Conservative Portfolio",
-            suggestedRiskStrategy: "LOW",
-            selectedRiskStrategy : "MEDIUM",
-            investmentDuration   : "5Y",
-            investmentAmount     : 50000
+            "portfolioId"          : value(producer(regex('.+')), consumer(serverValue: '1234567')),
+            "portfolioDescription" : value(producer(regex('.+')), consumer(serverValue: 'MA (defensiv kurzfristig)')),
+            "suggestedRiskStrategy": value(producer(regex('[A-E]')), consumer(serverValue: 'A')),
+            "selectedRiskStrategy" : value(producer(regex('[A-E]')), consumer(serverValue: 'B')),
+            "investmentDuration"   : value(producer(regex('.+')), consumer(serverValue: 'SHORT_TERM')),
+            "investmentAmount"     : value(producer(regex('[0-9]+')), consumer(serverValue: 50000))
         ])
     }
 }
 
 ```
 
+
 ```
 import org.springframework.cloud.contract.spec.Contract
 
 Contract.make {
-    description "should return 200 with full response when initiating risk strategy update transaction with only required parameters"
+    priority(priority: 1)
+    description(description: """
+        Represents a successful scenario for initiate risk strategy update transaction with required parameters only.
+
+        when:
+            api request to initiate risk strategy update transaction with required parameters only.
+
+        then:
+            return 200 with successful transaction
+    """)
+
     request {
-        method POST()
-        url "/v1/risk-strategy/initiate-transaction"
+        method method: 'POST'
+        urlPath($(consumer(regex('/v1/risk-strategy/initiate-transaction')), producer(serverValue: '/v1/risk-strategy/initiate-transaction')))
         headers {
-            header("Authorization", consumer(regex('.+')), producer("Bearer eyJhbGciOiJSUzI1NiJ9"))
-            header("fe-id", consumer(regex('.+')), producer("fe-001"))
-            header("language", consumer(regex('.+')), producer("DE"))
-            header("trace-id", consumer(regex('.+')), producer("trace-abc123"))
-            header("User-Agent", consumer(regex('.+')), producer("Mozilla/5.0"))
-            header("x-source-service", consumer(regex('.+')), producer("risk-strategy-service"))
-            header("x-request-id", consumer(regex('[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}')), producer("a1b2c3d4-e5f6-7890-abcd-ef1234567890"))
-            contentType(applicationJson())
+            contentType applicationJson()
+            header 'Authorization': value(consumer(regex('.+')), producer(serverValue: 'aSessionId'))
+            header 'FeId': value(consumer(regex('.+')), producer(serverValue: 'WEB'))
+            header 'Language': value(consumer(regex('.+')), producer(serverValue: 'DE'))
+            header 'TraceId': value(consumer(regex('.+')), producer(serverValue: 'traceId'))
+            header 'User-Agent': value(consumer(regex('.*')), producer(serverValue: 'User-Agent'))
+            header 'x-source-service': value(consumer(regex('.+')), producer(serverValue: 'xSourceService'))
+            header 'x-request-id': value(consumer(regex('.+')), producer(serverValue: 'b0589506-65eb-4fb9-9747-f023b5example'))
+            header 'idempotency-key': value(consumer(regex('.+')), producer(serverValue: 'b0589506-65eb-4fb9-9747-f023b5example'))
         }
         body([
-            transactionPayload: [
-                portfolioId         : "P-111222",
-                portfolioDescription: "Growth Portfolio"
+            "transactionIntentId": value(consumer(regex('.+')), producer(serverValue: '4866044f-c630-4678-9a17-faf0example')),
+            "transactionPayload" : [
+                "portfolioId"         : value(consumer(regex('.+')), producer(serverValue: '1112222')),
+                "portfolioDescription": value(consumer(regex('.+')), producer(serverValue: 'MA (solide mittelfristig)'))
             ]
         ])
     }
+
     response {
         status 200
         headers {
-            header("x-correlation-id", fromRequest().header("x-request-id"))
-            contentType(applicationJson())
+            contentType applicationJson()
+            header 'x-correlation-id': fromRequest().header('x-request-id')
         }
         body([
-            portfolioId          : "P-111222",
-            portfolioDescription : "Growth Portfolio",
-            suggestedRiskStrategy: "HIGH",
-            selectedRiskStrategy : "HIGH",
-            investmentDuration   : "10Y",
-            investmentAmount     : 100000
+            "portfolioId"          : value(producer(regex('.+')), consumer(serverValue: '1112222')),
+            "portfolioDescription" : value(producer(regex('.+')), consumer(serverValue: 'MA (solide mittelfristig)')),
+            "suggestedRiskStrategy": value(producer(regex('[A-E]')), consumer(serverValue: 'C')),
+            "selectedRiskStrategy" : value(producer(regex('[A-E]')), consumer(serverValue: 'C')),
+            "investmentDuration"   : value(producer(regex('.+')), consumer(serverValue: 'LONG_TERM')),
+            "investmentAmount"     : value(producer(regex('[0-9]+')), consumer(serverValue: 100000))
         ])
     }
 }
+
 ```
+
+
 ```
 import org.springframework.cloud.contract.spec.Contract
 
 Contract.make {
-    description "should return 400 when required header x-source-service is missing on initiate transaction"
+    priority(priority: 1)
+    description(description: """
+        Represents a failed scenario for initiate risk strategy update transaction when required header is missing.
+
+        when:
+            api request to initiate risk strategy update transaction without x-source-service header.
+
+        then:
+            return 400 bad request
+    """)
+
     request {
-        method POST()
-        url "/v1/risk-strategy/initiate-transaction"
+        method method: 'POST'
+        urlPath($(consumer(regex('/v1/risk-strategy/initiate-transaction')), producer(serverValue: '/v1/risk-strategy/initiate-transaction')))
         headers {
-            header("Authorization", consumer(regex('.+')), producer("Bearer eyJhbGciOiJSUzI1NiJ9"))
-            header("fe-id", consumer(regex('.+')), producer("fe-001"))
-            header("language", consumer(regex('.+')), producer("DE"))
-            header("trace-id", consumer(regex('.+')), producer("trace-abc123"))
-            header("User-Agent", consumer(regex('.+')), producer("Mozilla/5.0"))
-            header("x-request-id", consumer(regex('[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}')), producer("a1b2c3d4-e5f6-7890-abcd-ef1234567890"))
-            contentType(applicationJson())
+            contentType applicationJson()
+            header 'Authorization': value(consumer(regex('.+')), producer(serverValue: 'aSessionId'))
+            header 'FeId': value(consumer(regex('.+')), producer(serverValue: 'WEB'))
+            header 'Language': value(consumer(regex('.+')), producer(serverValue: 'DE'))
+            header 'TraceId': value(consumer(regex('.+')), producer(serverValue: 'traceId'))
+            header 'User-Agent': value(consumer(regex('.*')), producer(serverValue: 'User-Agent'))
+            header 'x-request-id': value(consumer(regex('.+')), producer(serverValue: 'b0589506-65eb-4fb9-9747-f023b5example'))
+            header 'idempotency-key': value(consumer(regex('.+')), producer(serverValue: 'b0589506-65eb-4fb9-9747-f023b5example'))
         }
         body([
-            transactionPayload: [
-                portfolioId         : "P-987654",
-                portfolioDescription: "Conservative Portfolio"
+            "transactionIntentId": value(consumer(regex('.+')), producer(serverValue: '4866044f-c630-4678-9a17-faf0example')),
+            "transactionPayload" : [
+                "portfolioId"         : value(consumer(regex('.+')), producer(serverValue: '1234567')),
+                "portfolioDescription": value(consumer(regex('.+')), producer(serverValue: 'MA (defensiv kurzfristig)'))
             ]
         ])
     }
+
     response {
         status 400
         headers {
-            header("x-correlation-id", fromRequest().header("x-request-id"))
-            contentType(applicationJson())
+            contentType applicationJson()
+            header 'x-correlation-id': fromRequest().header('x-request-id')
         }
     }
 }
 
 ```
+
+
+
 
 
 ```
@@ -494,13 +319,13 @@ public class RiskStrategyUpdateUtils {
     private RiskStrategyUpdateUtils() {}
 
     public static ValidateRiskStrategyUpdateRequest buildValidateRequest() {
-        var payload = new RiskStrategyUpdateTransactionPayload();
-        payload.setAccountno("1234567");
-        payload.setPortfolioId("P-987654");
-        payload.setPortfolioDescription("Conservative Portfolio");
-        payload.setSuggestedRiskStrategy("LOW");
-        payload.setSelectedRiskStrategy("MEDIUM");
-        payload.setInvestmentDuration("5Y");
+        var payload = new RiskStrategyUpdateTransactionRequest();
+        payload.setAccountNumber("1234567");
+        payload.setPortfolioId("1234567");
+        payload.setPortfolioDescription("MA (defensiv kurzfristig)");
+        payload.setSuggestedRiskStrategy("A");
+        payload.setSelectedRiskStrategy("B");
+        payload.setInvestmentDuration("SHORT_TERM");
         payload.setInvestmentAmount(50000);
 
         var request = new ValidateRiskStrategyUpdateRequest();
@@ -509,9 +334,9 @@ public class RiskStrategyUpdateUtils {
     }
 
     public static ValidateRiskStrategyUpdateRequest buildValidateRequestRequiredOnly() {
-        var payload = new RiskStrategyUpdateTransactionPayload();
-        payload.setPortfolioId("P-111222");
-        payload.setPortfolioDescription("Growth Portfolio");
+        var payload = new RiskStrategyUpdateTransactionRequest();
+        payload.setPortfolioId("1112222");
+        payload.setPortfolioDescription("MA (solide mittelfristig)");
 
         var request = new ValidateRiskStrategyUpdateRequest();
         request.setTransactionPayload(payload);
@@ -519,43 +344,39 @@ public class RiskStrategyUpdateUtils {
     }
 
     public static InitiateRiskStrategyUpdateRequest buildInitiateRequest() {
-        var payload = new RiskStrategyUpdateTransactionPayload();
-        payload.setAccountno("1234567");
-        payload.setPortfolioId("P-987654");
-        payload.setPortfolioDescription("Conservative Portfolio");
-        payload.setSuggestedRiskStrategy("LOW");
-        payload.setSelectedRiskStrategy("MEDIUM");
-        payload.setInvestmentDuration("5Y");
+        var payload = new RiskStrategyUpdateTransactionRequest();
+        payload.setAccountNumber("1234567");
+        payload.setPortfolioId("1234567");
+        payload.setPortfolioDescription("MA (defensiv kurzfristig)");
+        payload.setSuggestedRiskStrategy("A");
+        payload.setSelectedRiskStrategy("B");
+        payload.setInvestmentDuration("SHORT_TERM");
         payload.setInvestmentAmount(50000);
 
         var request = new InitiateRiskStrategyUpdateRequest();
-        request.setValidateOnly("false");
-        request.setTan("123456");
-        request.setTxId("TX-abc123");
-        request.setAuthorizationType("TAN");
-        request.setServiceOperationMode("REAL");
-        request.setTanAuthType("SMS_TAN");
+        request.setTransactionIntentId("4866044f-c630-4678-9a17-faf0example");
         request.setTransactionPayload(payload);
         return request;
     }
 
     public static InitiateRiskStrategyUpdateRequest buildInitiateRequestRequiredOnly() {
-        var payload = new RiskStrategyUpdateTransactionPayload();
-        payload.setPortfolioId("P-111222");
-        payload.setPortfolioDescription("Growth Portfolio");
+        var payload = new RiskStrategyUpdateTransactionRequest();
+        payload.setPortfolioId("1112222");
+        payload.setPortfolioDescription("MA (solide mittelfristig)");
 
         var request = new InitiateRiskStrategyUpdateRequest();
+        request.setTransactionIntentId("4866044f-c630-4678-9a17-faf0example");
         request.setTransactionPayload(payload);
         return request;
     }
 
     public static RiskStrategyUpdateResponse buildRiskStrategyUpdateResponse() {
         return RiskStrategyUpdateResponse.builder()
-                .portfolioId("P-987654")
-                .portfolioDescription("Conservative Portfolio")
-                .suggestedRiskStrategy("LOW")
-                .selectedRiskStrategy("MEDIUM")
-                .investmentDuration("5Y")
+                .portfolioId("1234567")
+                .portfolioDescription("MA (defensiv kurzfristig)")
+                .suggestedRiskStrategy("A")
+                .selectedRiskStrategy("B")
+                .investmentDuration("SHORT_TERM")
                 .investmentAmount(50000)
                 .build();
     }
@@ -564,12 +385,12 @@ public class RiskStrategyUpdateUtils {
         return """
                 {
                     "transactionPayload": {
-                        "accountno": "1234567",
-                        "portfolioId": "P-987654",
-                        "portfolioDescription": "Conservative Portfolio",
-                        "suggestedRiskStrategy": "LOW",
-                        "selectedRiskStrategy": "MEDIUM",
-                        "investmentDuration": "5Y",
+                        "accountNumber": "1234567",
+                        "portfolioId": "1234567",
+                        "portfolioDescription": "MA (defensiv kurzfristig)",
+                        "suggestedRiskStrategy": "A",
+                        "selectedRiskStrategy": "B",
+                        "investmentDuration": "SHORT_TERM",
                         "investmentAmount": 50000
                     }
                 }
@@ -580,8 +401,8 @@ public class RiskStrategyUpdateUtils {
         return """
                 {
                     "transactionPayload": {
-                        "portfolioId": "P-111222",
-                        "portfolioDescription": "Growth Portfolio"
+                        "portfolioId": "1112222",
+                        "portfolioDescription": "MA (solide mittelfristig)"
                     }
                 }
                 """;
@@ -590,19 +411,14 @@ public class RiskStrategyUpdateUtils {
     public static String buildInitiateRequestAsJson() {
         return """
                 {
-                    "validateOnly": "false",
-                    "tan": "123456",
-                    "txId": "TX-abc123",
-                    "authorizationType": "TAN",
-                    "serviceOperationMode": "REAL",
-                    "tanAuthType": "SMS_TAN",
+                    "transactionIntentId": "4866044f-c630-4678-9a17-faf0example",
                     "transactionPayload": {
-                        "accountno": "1234567",
-                        "portfolioId": "P-987654",
-                        "portfolioDescription": "Conservative Portfolio",
-                        "suggestedRiskStrategy": "LOW",
-                        "selectedRiskStrategy": "MEDIUM",
-                        "investmentDuration": "5Y",
+                        "accountNumber": "1234567",
+                        "portfolioId": "1234567",
+                        "portfolioDescription": "MA (defensiv kurzfristig)",
+                        "suggestedRiskStrategy": "A",
+                        "selectedRiskStrategy": "B",
+                        "investmentDuration": "SHORT_TERM",
                         "investmentAmount": 50000
                     }
                 }
@@ -612,9 +428,10 @@ public class RiskStrategyUpdateUtils {
     public static String buildInitiateRequestRequiredOnlyAsJson() {
         return """
                 {
+                    "transactionIntentId": "4866044f-c630-4678-9a17-faf0example",
                     "transactionPayload": {
-                        "portfolioId": "P-111222",
-                        "portfolioDescription": "Growth Portfolio"
+                        "portfolioId": "1112222",
+                        "portfolioDescription": "MA (solide mittelfristig)"
                     }
                 }
                 """;
@@ -623,7 +440,60 @@ public class RiskStrategyUpdateUtils {
 
 ```
 
+
 ```
+package de.consorsbank.banking.payments.rest.adapter.controller.riskstrategy;
+
+import de.consorsbank.banking.payments.rest.adapter.controller.riskstrategy.model.InitiateRiskStrategyUpdateRequest;
+import de.consorsbank.banking.payments.rest.adapter.controller.riskstrategy.model.RiskStrategyUpdateResponse;
+import de.consorsbank.banking.payments.rest.adapter.controller.riskstrategy.model.ValidateRiskStrategyUpdateRequest;
+import lombok.RequiredArgsConstructor;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.RestController;
+
+@RestController
+@RequiredArgsConstructor
+public class RiskStrategyUpdateController implements RiskStrategyUpdateApi {
+
+    private final RiskStrategyUpdateService riskStrategyUpdateService;
+
+    @Override
+    public ResponseEntity<Void> validateRiskStrategyUpdate(
+            String authorization,
+            String feId,
+            String language,
+            String traceId,
+            String userAgent,
+            String xSourceService,
+            String xRequestId,
+            ValidateRiskStrategyUpdateRequest validateRiskStrategyUpdateRequest) {
+
+        riskStrategyUpdateService.validateRiskStrategyUpdate(validateRiskStrategyUpdateRequest);
+        return ResponseEntity.noContent().build();
+    }
+
+    @Override
+    public ResponseEntity<RiskStrategyUpdateResponse> initiateRiskStrategyUpdate(
+            String authorization,
+            String feId,
+            String language,
+            String traceId,
+            String userAgent,
+            String xSourceService,
+            String xRequestId,
+            String idempotencyKey,
+            InitiateRiskStrategyUpdateRequest initiateRiskStrategyUpdateRequest) {
+
+        return ResponseEntity.ok()
+                .body(riskStrategyUpdateService.initiateRiskStrategyUpdate(initiateRiskStrategyUpdateRequest));
+    }
+}
+
+```
+
+
+```
+
 package de.consorsbank.banking.payments.rest.adapter.controller.riskstrategy;
 
 import static org.mockito.ArgumentMatchers.any;
@@ -714,7 +584,7 @@ class RiskStrategyUpdateControllerTest extends ControllerUnitTestConfig {
     void should_ReturnOk_When_InitiatingRiskStrategyUpdateTransactionWithAllParameters() throws Exception {
         // given
         when(riskStrategyUpdateApi.initiateRiskStrategyUpdate(
-                any(), any(), any(), any(), any(), any(), any(), any(InitiateRiskStrategyUpdateRequest.class)))
+                any(), any(), any(), any(), any(), any(), any(), any(), any(InitiateRiskStrategyUpdateRequest.class)))
                 .thenReturn(ResponseEntity.ok(RiskStrategyUpdateUtils.buildRiskStrategyUpdateResponse()));
 
         // when
@@ -732,7 +602,7 @@ class RiskStrategyUpdateControllerTest extends ControllerUnitTestConfig {
     void should_ReturnOk_When_InitiatingRiskStrategyUpdateTransactionWithRequiredParametersOnly() throws Exception {
         // given
         when(riskStrategyUpdateApi.initiateRiskStrategyUpdate(
-                any(), any(), any(), any(), any(), any(), any(), any(InitiateRiskStrategyUpdateRequest.class)))
+                any(), any(), any(), any(), any(), any(), any(), any(), any(InitiateRiskStrategyUpdateRequest.class)))
                 .thenReturn(ResponseEntity.ok(RiskStrategyUpdateUtils.buildRiskStrategyUpdateResponse()));
 
         // when
