@@ -1,48 +1,57 @@
 ```
-private void logDuration(MessageContext ctx) {
-    Long startTime = (Long) ctx.getProperty(REQUEST_START_TIME);
-    if (startTime != null) {
-        String action = ((SoapMessage) ctx.getRequest()).getSoapAction();
-        log.info("Response for SOAP {} duration(millis): {}",
-                action, System.currentTimeMillis() - startTime);
+import feign.Logger;
+import feign.Request;
+import feign.Response;
+import org.slf4j.LoggerFactory;
+import java.io.IOException;
+
+public class DurationFeignLogger extends Logger {
+
+    private static final org.slf4j.Logger log =
+            LoggerFactory.getLogger(DurationFeignLogger.class);
+
+    @Override
+    protected void logRequest(String configKey, Level logLevel, Request request) {
+        // nothing – we only want the duration line
+    }
+
+    @Override
+    protected Response logAndRebufferResponse(String configKey, Level logLevel,
+                                              Response response, long elapsedTime) {
+        Request request = response.request();
+        log.info("Response for REST call {} {}: running time (millis) = {}",
+                request.httpMethod(), request.url(), elapsedTime);
+        return response;   // body is not read, so no rebuffering needed
+    }
+
+    @Override
+    protected IOException logIOException(String configKey, Level logLevel,
+                                         IOException ioe, long elapsedTime) {
+        log.info("Response for REST call {} failed: running time (millis) = {}",
+                configKey, elapsedTime);
+        return ioe;
+    }
+
+    @Override
+    protected void log(String configKey, String format, Object... args) {
+        // not used
     }
 }
 ```
 
-```
-@Override
-protected void doFilterInternal(final HttpServletRequest request,
-                                final HttpServletResponse response,
-                                final FilterChain filterChain) throws ServletException, IOException {
-    final var requestWrapper = new CachingRequestWrapper(request, cacheWrapperProperties.contentCacheLimit());
-    final var responseWrapper = new ContentCachingResponseWrapper(response);
-    logRequest(requestWrapper);
-    long startTime = System.currentTimeMillis();
-    filterChain.doFilter(requestWrapper, responseWrapper);
-    long duration = System.currentTimeMillis() - startTime;
-    logResponse(requestWrapper, responseWrapper);          // ca înainte, fără durată
-    logDuration(requestWrapper, duration);                 // log nou, separat
-    responseWrapper.copyBodyToResponse();
-}
-
-// readus la forma originală
-private void logResponse(final CachingRequestWrapper requestWrapper,
-                         final ContentCachingResponseWrapper responseWrapper) {
-    final String responseBody = new String(responseWrapper.getContentAsByteArray(),
-            getResponseCharset(responseWrapper));
-    log.info(FUNC_AUDIT, "Response for {} {} Status: {} Body: {}",
-            requestWrapper.getMethod(), requestWrapper.getRequestURI(),
-            responseWrapper.getStatus(), responseBody);
-}
-
-private void logDuration(final CachingRequestWrapper requestWrapper, final long duration) {
-    log.info("Response for REST call {} {}: running time (millis) = {}",
-            requestWrapper.getMethod(), requestWrapper.getRequestURI(), duration);
-}
 
 ```
-```
-log.info("Response for SOAP call {}: running time (millis) = {}",
-        soapAction, System.currentTimeMillis() - startTime);
+@Configuration
+public class FeignLoggingConfig {
 
+    @Bean
+    public feign.Logger feignLogger() {
+        return new DurationFeignLogger();
+    }
+
+    @Bean
+    public feign.Logger.Level feignLoggerLevel() {
+        return feign.Logger.Level.BASIC;
+    }
+}
 ```
