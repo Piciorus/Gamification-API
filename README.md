@@ -1,8 +1,12 @@
+
 ```
+package com.consorsbank.common.logging.feign;
+
 import feign.Logger;
 import feign.Request;
 import feign.Response;
 import org.slf4j.LoggerFactory;
+
 import java.io.IOException;
 
 public class DurationFeignLogger extends Logger {
@@ -12,22 +16,22 @@ public class DurationFeignLogger extends Logger {
 
     @Override
     protected void logRequest(String configKey, Level logLevel, Request request) {
-        // nothing – we only want the duration line
+        // only the duration line is logged
     }
 
     @Override
     protected Response logAndRebufferResponse(String configKey, Level logLevel,
                                               Response response, long elapsedTime) {
         Request request = response.request();
-        log.info("Response for REST call {} {}: running time (millis) = {}",
-                request.httpMethod(), request.url(), elapsedTime);
-        return response;   // body is not read, so no rebuffering needed
+        log.info("Response for REST client '{} {}' call: running time (millis) = {}",
+                request.httpMethod(), withoutQuery(request.url()), elapsedTime);
+        return response;
     }
 
     @Override
     protected IOException logIOException(String configKey, Level logLevel,
                                          IOException ioe, long elapsedTime) {
-        log.info("Response for REST call {} failed: running time (millis) = {}",
+        log.info("Response for REST client '{}' call failed: running time (millis) = {}",
                 configKey, elapsedTime);
         return ioe;
     }
@@ -36,22 +40,43 @@ public class DurationFeignLogger extends Logger {
     protected void log(String configKey, String format, Object... args) {
         // not used
     }
+
+    private static String withoutQuery(String url) {
+        int i = url.indexOf('?');
+        return i < 0 ? url : url.substring(0, i);
+    }
 }
+
 ```
 
 
 ```
-@Configuration
-public class FeignLoggingConfig {
+
+package com.consorsbank.common.logging.feign;
+
+import feign.Logger;
+import org.springframework.boot.autoconfigure.AutoConfiguration;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnClass;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
+import org.springframework.context.annotation.Bean;
+
+@AutoConfiguration
+@ConditionalOnClass(Logger.class)
+@ConditionalOnProperty(name = "commons.logging.feign-duration.enabled",
+                       havingValue = "true", matchIfMissing = true)
+public class FeignDurationLoggingAutoConfiguration {
 
     @Bean
-    public feign.Logger feignLogger() {
+    @ConditionalOnMissingBean(Logger.class)
+    public Logger durationFeignLogger() {
         return new DurationFeignLogger();
     }
 
     @Bean
-    public feign.Logger.Level feignLoggerLevel() {
-        return feign.Logger.Level.BASIC;
+    @ConditionalOnMissingBean(Logger.Level.class)
+    public Logger.Level feignLoggerLevel() {
+        return Logger.Level.BASIC;
     }
 }
 ```
