@@ -1,4 +1,3 @@
-# BCKNDCORE-8754 — Return `exemptionOrderNo` from Kordoba (taxsrv-sc)
 
 ## Problem
 
