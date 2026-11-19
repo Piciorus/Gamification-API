@@ -101,6 +101,91 @@ class MapperUtilsTest {
         }
     }
 
+@Nested
+    class ToJson {
+
+        @Test
+        void givenNullMap_whenToJson_thenReturnsNull() {
+            var result = MapperUtils.toJson(null);
+
+            assertThat(result).isNull();
+        }
+
+        @Test
+        void givenEmptyMap_whenToJson_thenReturnsNull() {
+            var result = MapperUtils.toJson(Map.of());
+
+            assertThat(result).isNull();
+        }
+
+        @Test
+        void givenSingleEntry_whenToJson_thenReturnsJsonObject() {
+            var result = MapperUtils.toJson(Map.of("exemptionOrderNumber", "12421"));
+
+            assertThat(result).isEqualTo("{\"exemptionOrderNumber\":\"12421\"}");
+        }
+
+        @Test
+        void givenStringWithLeadingZeros_whenToJson_thenKeepsItAsString() {
+            var result = MapperUtils.toJson(Map.of("exemptionOrderNumber", "0090559903887138"));
+
+            assertThat(result).isEqualTo("{\"exemptionOrderNumber\":\"0090559903887138\"}");
+        }
+
+        @Test
+        void givenOrderedEntriesOfDifferentTypes_whenToJson_thenSerializesEachType() {
+            var data = new LinkedHashMap<String, Object>();
+            data.put("number", "12421");
+            data.put("amount", 980);
+            data.put("active", true);
+            data.put("tags", List.of("a", "b"));
+            data.put("order", Map.of("year", 2026));
+
+            var result = MapperUtils.toJson(data);
+
+            assertThat(result).isEqualTo(
+                    "{\"number\":\"12421\",\"amount\":980,\"active\":true,\"tags\":[\"a\",\"b\"],\"order\":{\"year\":2026}}");
+        }
+
+        @Test
+        void givenNullValue_whenToJson_thenWritesJsonNull() {
+            var data = new HashMap<String, Object>();
+            data.put("exemptionOrderNumber", null);
+
+            var result = MapperUtils.toJson(data);
+
+            assertThat(result).isEqualTo("{\"exemptionOrderNumber\":null}");
+        }
+
+        @Test
+        void givenUtf8Content_whenToJson_thenKeepsCharacters() {
+            var result = MapperUtils.toJson(Map.of("city", "München"));
+
+            assertThat(result).isEqualTo("{\"city\":\"München\"}");
+        }
+
+        @Test
+        void givenMap_whenToJsonThenToExecutionData_thenRoundTripReturnsEqualMap() {
+            Map<String, Object> original = Map.of(
+                    "exemptionOrderNumber", "12421",
+                    "amount", 980,
+                    "tags", List.of("a", "b"));
+
+            var json = MapperUtils.toJson(original);
+            var result = MapperUtils.toExecutionData(bytes(json));
+
+            assertThat(result).isEqualTo(original);
+        }
+
+        @Test
+        void givenNonSerializableValue_whenToJson_thenThrowsJacksonException() {
+            Map<String, Object> data = Map.of("value", new Object());
+
+            assertThatThrownBy(() -> MapperUtils.toJson(data))
+                    .isInstanceOf(JacksonException.class);
+        }
+    }
+
     private static byte[] bytes(String value) {
         return value.getBytes(StandardCharsets.UTF_8);
     }
